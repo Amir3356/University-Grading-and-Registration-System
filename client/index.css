@@ -1,0 +1,10 @@
+/* Entry stylesheet: plain CSS, no framework. Order matters (tokens → base → layout → components → pages). */
+@import './styles/tokens.css';
+@import './styles/base.css';
+@import './styles/layout.css';
+@import './styles/components.css';
+@import './styles/common.css';
+@import './styles/features/admin.css';
+@import './styles/features/admin-grading.css';
+@import './styles/features/teacher.css';
+@import './styles/features/student.css';

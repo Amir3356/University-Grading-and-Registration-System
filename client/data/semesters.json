@@ -1,0 +1,80 @@
+[
+ {
+  "id": "sem_2024_fall",
+  "academicYearId": "ay_2024",
+  "name": "Fall 2024/2025",
+  "term": "Fall",
+  "order": 1,
+  "startDate": "2024-09-02",
+  "endDate": "2025-01-17",
+  "gradeSubmissionDeadline": "2025-01-27",
+  "isCurrent": false,
+  "status": "closed",
+  "createdAt": "2024-07-04T00:00:00.000Z"
+ },
+ {
+  "id": "sem_2025_spring",
+  "academicYearId": "ay_2024",
+  "name": "Spring 2024/2025",
+  "term": "Spring",
+  "order": 2,
+  "startDate": "2025-02-03",
+  "endDate": "2025-06-20",
+  "gradeSubmissionDeadline": "2025-06-30",
+  "isCurrent": false,
+  "status": "closed",
+  "createdAt": "2024-12-05T00:00:00.000Z"
+ },
+ {
+  "id": "sem_2025_fall",
+  "academicYearId": "ay_2025",
+  "name": "Fall 2025/2026",
+  "term": "Fall",
+  "order": 3,
+  "startDate": "2025-09-01",
+  "endDate": "2026-01-16",
+  "gradeSubmissionDeadline": "2026-01-26",
+  "isCurrent": false,
+  "status": "closed",
+  "createdAt": "2025-07-03T00:00:00.000Z"
+ },
+ {
+  "id": "sem_2026_spring",
+  "academicYearId": "ay_2025",
+  "name": "Spring 2025/2026",
+  "term": "Spring",
+  "order": 4,
+  "startDate": "2026-02-02",
+  "endDate": "2026-06-19",
+  "gradeSubmissionDeadline": "2026-06-29",
+  "isCurrent": false,
+  "status": "closed",
+  "createdAt": "2025-12-04T00:00:00.000Z"
+ },
+ {
+  "id": "sem_2026_fall",
+  "academicYearId": "ay_2026",
+  "name": "Fall 2026/2027",
+  "term": "Fall",
+  "order": 5,
+  "startDate": "2026-09-01",
+  "endDate": "2027-01-15",
+  "gradeSubmissionDeadline": "2027-01-25",
+  "isCurrent": true,
+  "status": "active",
+  "createdAt": "2026-07-03T00:00:00.000Z"
+ },
+ {
+  "id": "sem_2027_spring",
+  "academicYearId": "ay_2026",
+  "name": "Spring 2026/2027",
+  "term": "Spring",
+  "order": 6,
+  "startDate": "2027-02-01",
+  "endDate": "2027-06-18",
+  "gradeSubmissionDeadline": "2027-06-28",
+  "isCurrent": false,
+  "status": "upcoming",
+  "createdAt": "2026-12-03T00:00:00.000Z"
+ }
+]

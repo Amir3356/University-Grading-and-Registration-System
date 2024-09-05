@@ -1,0 +1,6354 @@
+[
+ {
+  "id": "enr_0001",
+  "offeringId": "off_0001",
+  "studentId": "stu_0001",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0002",
+  "offeringId": "off_0002",
+  "studentId": "stu_0001",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0003",
+  "offeringId": "off_0003",
+  "studentId": "stu_0001",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0004",
+  "offeringId": "off_0004",
+  "studentId": "stu_0001",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0005",
+  "offeringId": "off_0002",
+  "studentId": "stu_0002",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0006",
+  "offeringId": "off_0001",
+  "studentId": "stu_0002",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0007",
+  "offeringId": "off_0004",
+  "studentId": "stu_0002",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0008",
+  "offeringId": "off_0003",
+  "studentId": "stu_0002",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0009",
+  "offeringId": "off_0004",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0010",
+  "offeringId": "off_0002",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0011",
+  "offeringId": "off_0001",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0012",
+  "offeringId": "off_0005",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0013",
+  "offeringId": "off_0003",
+  "studentId": "stu_0004",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0014",
+  "offeringId": "off_0002",
+  "studentId": "stu_0004",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0015",
+  "offeringId": "off_0001",
+  "studentId": "stu_0004",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0016",
+  "offeringId": "off_0005",
+  "studentId": "stu_0004",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0017",
+  "offeringId": "off_0005",
+  "studentId": "stu_0005",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0018",
+  "offeringId": "off_0002",
+  "studentId": "stu_0005",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0019",
+  "offeringId": "off_0004",
+  "studentId": "stu_0005",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0020",
+  "offeringId": "off_0003",
+  "studentId": "stu_0005",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0021",
+  "offeringId": "off_0001",
+  "studentId": "stu_0006",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0022",
+  "offeringId": "off_0002",
+  "studentId": "stu_0006",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0023",
+  "offeringId": "off_0003",
+  "studentId": "stu_0006",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0024",
+  "offeringId": "off_0004",
+  "studentId": "stu_0006",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0025",
+  "offeringId": "off_0002",
+  "studentId": "stu_0007",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0026",
+  "offeringId": "off_0001",
+  "studentId": "stu_0007",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0027",
+  "offeringId": "off_0004",
+  "studentId": "stu_0007",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0028",
+  "offeringId": "off_0003",
+  "studentId": "stu_0007",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0029",
+  "offeringId": "off_0004",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0030",
+  "offeringId": "off_0002",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0031",
+  "offeringId": "off_0001",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0032",
+  "offeringId": "off_0005",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0033",
+  "offeringId": "off_0003",
+  "studentId": "stu_0009",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0034",
+  "offeringId": "off_0002",
+  "studentId": "stu_0009",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0035",
+  "offeringId": "off_0001",
+  "studentId": "stu_0009",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0036",
+  "offeringId": "off_0005",
+  "studentId": "stu_0009",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0037",
+  "offeringId": "off_0005",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0038",
+  "offeringId": "off_0002",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0039",
+  "offeringId": "off_0004",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0040",
+  "offeringId": "off_0003",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0041",
+  "offeringId": "off_0001",
+  "studentId": "stu_0011",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0042",
+  "offeringId": "off_0002",
+  "studentId": "stu_0011",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0043",
+  "offeringId": "off_0003",
+  "studentId": "stu_0011",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0044",
+  "offeringId": "off_0004",
+  "studentId": "stu_0011",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0045",
+  "offeringId": "off_0002",
+  "studentId": "stu_0012",
+  "status": "withdrawn",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0046",
+  "offeringId": "off_0001",
+  "studentId": "stu_0012",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0047",
+  "offeringId": "off_0004",
+  "studentId": "stu_0012",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0048",
+  "offeringId": "off_0003",
+  "studentId": "stu_0012",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0049",
+  "offeringId": "off_0004",
+  "studentId": "stu_0013",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0050",
+  "offeringId": "off_0002",
+  "studentId": "stu_0013",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0051",
+  "offeringId": "off_0001",
+  "studentId": "stu_0013",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0052",
+  "offeringId": "off_0005",
+  "studentId": "stu_0013",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0053",
+  "offeringId": "off_0003",
+  "studentId": "stu_0014",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0054",
+  "offeringId": "off_0002",
+  "studentId": "stu_0014",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0055",
+  "offeringId": "off_0001",
+  "studentId": "stu_0014",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0056",
+  "offeringId": "off_0005",
+  "studentId": "stu_0014",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0057",
+  "offeringId": "off_0005",
+  "studentId": "stu_0015",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0058",
+  "offeringId": "off_0002",
+  "studentId": "stu_0015",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0059",
+  "offeringId": "off_0004",
+  "studentId": "stu_0015",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0060",
+  "offeringId": "off_0003",
+  "studentId": "stu_0015",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0061",
+  "offeringId": "off_0001",
+  "studentId": "stu_0016",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0062",
+  "offeringId": "off_0002",
+  "studentId": "stu_0016",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0063",
+  "offeringId": "off_0003",
+  "studentId": "stu_0016",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0064",
+  "offeringId": "off_0004",
+  "studentId": "stu_0016",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0065",
+  "offeringId": "off_0002",
+  "studentId": "stu_0017",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0066",
+  "offeringId": "off_0001",
+  "studentId": "stu_0017",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0067",
+  "offeringId": "off_0004",
+  "studentId": "stu_0017",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0068",
+  "offeringId": "off_0003",
+  "studentId": "stu_0017",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0069",
+  "offeringId": "off_0004",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0070",
+  "offeringId": "off_0002",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0071",
+  "offeringId": "off_0001",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0072",
+  "offeringId": "off_0005",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0073",
+  "offeringId": "off_0003",
+  "studentId": "stu_0019",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0074",
+  "offeringId": "off_0002",
+  "studentId": "stu_0019",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0075",
+  "offeringId": "off_0001",
+  "studentId": "stu_0019",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0076",
+  "offeringId": "off_0005",
+  "studentId": "stu_0019",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0077",
+  "offeringId": "off_0005",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0078",
+  "offeringId": "off_0002",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0079",
+  "offeringId": "off_0004",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0080",
+  "offeringId": "off_0003",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0081",
+  "offeringId": "off_0001",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0082",
+  "offeringId": "off_0002",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0083",
+  "offeringId": "off_0003",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0084",
+  "offeringId": "off_0004",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0085",
+  "offeringId": "off_0002",
+  "studentId": "stu_0022",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0086",
+  "offeringId": "off_0001",
+  "studentId": "stu_0022",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0087",
+  "offeringId": "off_0004",
+  "studentId": "stu_0022",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0088",
+  "offeringId": "off_0003",
+  "studentId": "stu_0022",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0089",
+  "offeringId": "off_0004",
+  "studentId": "stu_0023",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0090",
+  "offeringId": "off_0002",
+  "studentId": "stu_0023",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0091",
+  "offeringId": "off_0001",
+  "studentId": "stu_0023",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0092",
+  "offeringId": "off_0005",
+  "studentId": "stu_0023",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0093",
+  "offeringId": "off_0003",
+  "studentId": "stu_0024",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0094",
+  "offeringId": "off_0002",
+  "studentId": "stu_0024",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0095",
+  "offeringId": "off_0001",
+  "studentId": "stu_0024",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0096",
+  "offeringId": "off_0005",
+  "studentId": "stu_0024",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2024-08-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0097",
+  "offeringId": "off_0006",
+  "studentId": "stu_0001",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0098",
+  "offeringId": "off_0007",
+  "studentId": "stu_0001",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0099",
+  "offeringId": "off_0008",
+  "studentId": "stu_0001",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0100",
+  "offeringId": "off_0009",
+  "studentId": "stu_0001",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0101",
+  "offeringId": "off_0007",
+  "studentId": "stu_0002",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-31T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0102",
+  "offeringId": "off_0006",
+  "studentId": "stu_0002",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0103",
+  "offeringId": "off_0009",
+  "studentId": "stu_0002",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0104",
+  "offeringId": "off_0008",
+  "studentId": "stu_0002",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0105",
+  "offeringId": "off_0009",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0106",
+  "offeringId": "off_0007",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0107",
+  "offeringId": "off_0006",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0108",
+  "offeringId": "off_0010",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0109",
+  "offeringId": "off_0008",
+  "studentId": "stu_0004",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0110",
+  "offeringId": "off_0007",
+  "studentId": "stu_0004",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0111",
+  "offeringId": "off_0006",
+  "studentId": "stu_0004",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0112",
+  "offeringId": "off_0010",
+  "studentId": "stu_0004",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0113",
+  "offeringId": "off_0010",
+  "studentId": "stu_0005",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0114",
+  "offeringId": "off_0007",
+  "studentId": "stu_0005",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0115",
+  "offeringId": "off_0009",
+  "studentId": "stu_0005",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0116",
+  "offeringId": "off_0008",
+  "studentId": "stu_0005",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0117",
+  "offeringId": "off_0006",
+  "studentId": "stu_0006",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0118",
+  "offeringId": "off_0007",
+  "studentId": "stu_0006",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0119",
+  "offeringId": "off_0008",
+  "studentId": "stu_0006",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0120",
+  "offeringId": "off_0009",
+  "studentId": "stu_0006",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0121",
+  "offeringId": "off_0007",
+  "studentId": "stu_0007",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0122",
+  "offeringId": "off_0006",
+  "studentId": "stu_0007",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0123",
+  "offeringId": "off_0009",
+  "studentId": "stu_0007",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0124",
+  "offeringId": "off_0008",
+  "studentId": "stu_0007",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0125",
+  "offeringId": "off_0009",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0126",
+  "offeringId": "off_0007",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0127",
+  "offeringId": "off_0006",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0128",
+  "offeringId": "off_0010",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0129",
+  "offeringId": "off_0008",
+  "studentId": "stu_0009",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0130",
+  "offeringId": "off_0007",
+  "studentId": "stu_0009",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0131",
+  "offeringId": "off_0006",
+  "studentId": "stu_0009",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0132",
+  "offeringId": "off_0010",
+  "studentId": "stu_0009",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0133",
+  "offeringId": "off_0010",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0134",
+  "offeringId": "off_0007",
+  "studentId": "stu_0010",
+  "status": "withdrawn",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0135",
+  "offeringId": "off_0009",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0136",
+  "offeringId": "off_0008",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0137",
+  "offeringId": "off_0006",
+  "studentId": "stu_0011",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0138",
+  "offeringId": "off_0007",
+  "studentId": "stu_0011",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0139",
+  "offeringId": "off_0008",
+  "studentId": "stu_0011",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0140",
+  "offeringId": "off_0009",
+  "studentId": "stu_0011",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0141",
+  "offeringId": "off_0007",
+  "studentId": "stu_0012",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0142",
+  "offeringId": "off_0006",
+  "studentId": "stu_0012",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0143",
+  "offeringId": "off_0009",
+  "studentId": "stu_0012",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0144",
+  "offeringId": "off_0008",
+  "studentId": "stu_0012",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0145",
+  "offeringId": "off_0009",
+  "studentId": "stu_0013",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0146",
+  "offeringId": "off_0007",
+  "studentId": "stu_0013",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0147",
+  "offeringId": "off_0006",
+  "studentId": "stu_0013",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0148",
+  "offeringId": "off_0010",
+  "studentId": "stu_0013",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0149",
+  "offeringId": "off_0008",
+  "studentId": "stu_0014",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0150",
+  "offeringId": "off_0007",
+  "studentId": "stu_0014",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0151",
+  "offeringId": "off_0006",
+  "studentId": "stu_0014",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0152",
+  "offeringId": "off_0010",
+  "studentId": "stu_0014",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0153",
+  "offeringId": "off_0010",
+  "studentId": "stu_0015",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0154",
+  "offeringId": "off_0007",
+  "studentId": "stu_0015",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0155",
+  "offeringId": "off_0009",
+  "studentId": "stu_0015",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0156",
+  "offeringId": "off_0008",
+  "studentId": "stu_0015",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0157",
+  "offeringId": "off_0006",
+  "studentId": "stu_0016",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0158",
+  "offeringId": "off_0007",
+  "studentId": "stu_0016",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0159",
+  "offeringId": "off_0008",
+  "studentId": "stu_0016",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0160",
+  "offeringId": "off_0009",
+  "studentId": "stu_0016",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0161",
+  "offeringId": "off_0007",
+  "studentId": "stu_0017",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0162",
+  "offeringId": "off_0006",
+  "studentId": "stu_0017",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0163",
+  "offeringId": "off_0009",
+  "studentId": "stu_0017",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0164",
+  "offeringId": "off_0008",
+  "studentId": "stu_0017",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0165",
+  "offeringId": "off_0009",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0166",
+  "offeringId": "off_0007",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-31T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0167",
+  "offeringId": "off_0006",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0168",
+  "offeringId": "off_0010",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0169",
+  "offeringId": "off_0008",
+  "studentId": "stu_0019",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0170",
+  "offeringId": "off_0007",
+  "studentId": "stu_0019",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0171",
+  "offeringId": "off_0006",
+  "studentId": "stu_0019",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0172",
+  "offeringId": "off_0010",
+  "studentId": "stu_0019",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0173",
+  "offeringId": "off_0010",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0174",
+  "offeringId": "off_0007",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0175",
+  "offeringId": "off_0009",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0176",
+  "offeringId": "off_0008",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0177",
+  "offeringId": "off_0006",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0178",
+  "offeringId": "off_0007",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0179",
+  "offeringId": "off_0008",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0180",
+  "offeringId": "off_0009",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0181",
+  "offeringId": "off_0007",
+  "studentId": "stu_0022",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0182",
+  "offeringId": "off_0006",
+  "studentId": "stu_0022",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0183",
+  "offeringId": "off_0009",
+  "studentId": "stu_0022",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-31T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0184",
+  "offeringId": "off_0008",
+  "studentId": "stu_0022",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0185",
+  "offeringId": "off_0009",
+  "studentId": "stu_0023",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0186",
+  "offeringId": "off_0007",
+  "studentId": "stu_0023",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0187",
+  "offeringId": "off_0006",
+  "studentId": "stu_0023",
+  "status": "withdrawn",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0188",
+  "offeringId": "off_0010",
+  "studentId": "stu_0023",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-31T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0189",
+  "offeringId": "off_0008",
+  "studentId": "stu_0024",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0190",
+  "offeringId": "off_0007",
+  "studentId": "stu_0024",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0191",
+  "offeringId": "off_0006",
+  "studentId": "stu_0024",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0192",
+  "offeringId": "off_0010",
+  "studentId": "stu_0024",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-01-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0193",
+  "offeringId": "off_0011",
+  "studentId": "stu_0001",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0194",
+  "offeringId": "off_0012",
+  "studentId": "stu_0001",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0195",
+  "offeringId": "off_0013",
+  "studentId": "stu_0001",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0196",
+  "offeringId": "off_0014",
+  "studentId": "stu_0001",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0197",
+  "offeringId": "off_0012",
+  "studentId": "stu_0002",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0198",
+  "offeringId": "off_0011",
+  "studentId": "stu_0002",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0199",
+  "offeringId": "off_0014",
+  "studentId": "stu_0002",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0200",
+  "offeringId": "off_0013",
+  "studentId": "stu_0002",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0201",
+  "offeringId": "off_0014",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0202",
+  "offeringId": "off_0012",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0203",
+  "offeringId": "off_0011",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0204",
+  "offeringId": "off_0015",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0205",
+  "offeringId": "off_0013",
+  "studentId": "stu_0004",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0206",
+  "offeringId": "off_0012",
+  "studentId": "stu_0004",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0207",
+  "offeringId": "off_0011",
+  "studentId": "stu_0004",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0208",
+  "offeringId": "off_0015",
+  "studentId": "stu_0004",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0209",
+  "offeringId": "off_0015",
+  "studentId": "stu_0005",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0210",
+  "offeringId": "off_0012",
+  "studentId": "stu_0005",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0211",
+  "offeringId": "off_0014",
+  "studentId": "stu_0005",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0212",
+  "offeringId": "off_0013",
+  "studentId": "stu_0005",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0213",
+  "offeringId": "off_0011",
+  "studentId": "stu_0006",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0214",
+  "offeringId": "off_0012",
+  "studentId": "stu_0006",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0215",
+  "offeringId": "off_0013",
+  "studentId": "stu_0006",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0216",
+  "offeringId": "off_0014",
+  "studentId": "stu_0006",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0217",
+  "offeringId": "off_0012",
+  "studentId": "stu_0007",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0218",
+  "offeringId": "off_0011",
+  "studentId": "stu_0007",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0219",
+  "offeringId": "off_0014",
+  "studentId": "stu_0007",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0220",
+  "offeringId": "off_0013",
+  "studentId": "stu_0007",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0221",
+  "offeringId": "off_0014",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0222",
+  "offeringId": "off_0012",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0223",
+  "offeringId": "off_0011",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0224",
+  "offeringId": "off_0015",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0225",
+  "offeringId": "off_0013",
+  "studentId": "stu_0009",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0226",
+  "offeringId": "off_0012",
+  "studentId": "stu_0009",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0227",
+  "offeringId": "off_0011",
+  "studentId": "stu_0009",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0228",
+  "offeringId": "off_0015",
+  "studentId": "stu_0009",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0229",
+  "offeringId": "off_0015",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0230",
+  "offeringId": "off_0012",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0231",
+  "offeringId": "off_0014",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0232",
+  "offeringId": "off_0013",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0233",
+  "offeringId": "off_0011",
+  "studentId": "stu_0011",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0234",
+  "offeringId": "off_0012",
+  "studentId": "stu_0011",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0235",
+  "offeringId": "off_0013",
+  "studentId": "stu_0011",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0236",
+  "offeringId": "off_0014",
+  "studentId": "stu_0011",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0237",
+  "offeringId": "off_0012",
+  "studentId": "stu_0012",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0238",
+  "offeringId": "off_0011",
+  "studentId": "stu_0012",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0239",
+  "offeringId": "off_0014",
+  "studentId": "stu_0012",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0240",
+  "offeringId": "off_0013",
+  "studentId": "stu_0012",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0241",
+  "offeringId": "off_0014",
+  "studentId": "stu_0013",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0242",
+  "offeringId": "off_0012",
+  "studentId": "stu_0013",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0243",
+  "offeringId": "off_0011",
+  "studentId": "stu_0013",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0244",
+  "offeringId": "off_0015",
+  "studentId": "stu_0013",
+  "status": "withdrawn",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0245",
+  "offeringId": "off_0013",
+  "studentId": "stu_0014",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0246",
+  "offeringId": "off_0012",
+  "studentId": "stu_0014",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0247",
+  "offeringId": "off_0011",
+  "studentId": "stu_0014",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0248",
+  "offeringId": "off_0015",
+  "studentId": "stu_0014",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0249",
+  "offeringId": "off_0015",
+  "studentId": "stu_0015",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0250",
+  "offeringId": "off_0012",
+  "studentId": "stu_0015",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0251",
+  "offeringId": "off_0014",
+  "studentId": "stu_0015",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0252",
+  "offeringId": "off_0013",
+  "studentId": "stu_0015",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0253",
+  "offeringId": "off_0011",
+  "studentId": "stu_0016",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0254",
+  "offeringId": "off_0012",
+  "studentId": "stu_0016",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0255",
+  "offeringId": "off_0013",
+  "studentId": "stu_0016",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0256",
+  "offeringId": "off_0014",
+  "studentId": "stu_0016",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0257",
+  "offeringId": "off_0012",
+  "studentId": "stu_0017",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0258",
+  "offeringId": "off_0011",
+  "studentId": "stu_0017",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0259",
+  "offeringId": "off_0014",
+  "studentId": "stu_0017",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0260",
+  "offeringId": "off_0013",
+  "studentId": "stu_0017",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0261",
+  "offeringId": "off_0014",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0262",
+  "offeringId": "off_0012",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0263",
+  "offeringId": "off_0011",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0264",
+  "offeringId": "off_0015",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0265",
+  "offeringId": "off_0013",
+  "studentId": "stu_0019",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0266",
+  "offeringId": "off_0012",
+  "studentId": "stu_0019",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0267",
+  "offeringId": "off_0011",
+  "studentId": "stu_0019",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0268",
+  "offeringId": "off_0015",
+  "studentId": "stu_0019",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0269",
+  "offeringId": "off_0015",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0270",
+  "offeringId": "off_0012",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0271",
+  "offeringId": "off_0014",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0272",
+  "offeringId": "off_0013",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0273",
+  "offeringId": "off_0011",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0274",
+  "offeringId": "off_0012",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0275",
+  "offeringId": "off_0013",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0276",
+  "offeringId": "off_0014",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0277",
+  "offeringId": "off_0012",
+  "studentId": "stu_0022",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0278",
+  "offeringId": "off_0011",
+  "studentId": "stu_0022",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0279",
+  "offeringId": "off_0014",
+  "studentId": "stu_0022",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0280",
+  "offeringId": "off_0013",
+  "studentId": "stu_0022",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0281",
+  "offeringId": "off_0014",
+  "studentId": "stu_0023",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0282",
+  "offeringId": "off_0012",
+  "studentId": "stu_0023",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0283",
+  "offeringId": "off_0011",
+  "studentId": "stu_0023",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0284",
+  "offeringId": "off_0015",
+  "studentId": "stu_0023",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0285",
+  "offeringId": "off_0013",
+  "studentId": "stu_0024",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0286",
+  "offeringId": "off_0012",
+  "studentId": "stu_0024",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0287",
+  "offeringId": "off_0011",
+  "studentId": "stu_0024",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0288",
+  "offeringId": "off_0015",
+  "studentId": "stu_0024",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0289",
+  "offeringId": "off_0016",
+  "studentId": "stu_0025",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0290",
+  "offeringId": "off_0017",
+  "studentId": "stu_0025",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0291",
+  "offeringId": "off_0018",
+  "studentId": "stu_0025",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0292",
+  "offeringId": "off_0019",
+  "studentId": "stu_0025",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0293",
+  "offeringId": "off_0020",
+  "studentId": "stu_0026",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0294",
+  "offeringId": "off_0017",
+  "studentId": "stu_0026",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0295",
+  "offeringId": "off_0019",
+  "studentId": "stu_0026",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0296",
+  "offeringId": "off_0018",
+  "studentId": "stu_0026",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0297",
+  "offeringId": "off_0017",
+  "studentId": "stu_0027",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0298",
+  "offeringId": "off_0020",
+  "studentId": "stu_0027",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0299",
+  "offeringId": "off_0018",
+  "studentId": "stu_0027",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0300",
+  "offeringId": "off_0019",
+  "studentId": "stu_0027",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0301",
+  "offeringId": "off_0018",
+  "studentId": "stu_0028",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0302",
+  "offeringId": "off_0017",
+  "studentId": "stu_0028",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0303",
+  "offeringId": "off_0020",
+  "studentId": "stu_0028",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0304",
+  "offeringId": "off_0016",
+  "studentId": "stu_0028",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0305",
+  "offeringId": "off_0019",
+  "studentId": "stu_0029",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0306",
+  "offeringId": "off_0017",
+  "studentId": "stu_0029",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0307",
+  "offeringId": "off_0020",
+  "studentId": "stu_0029",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0308",
+  "offeringId": "off_0016",
+  "studentId": "stu_0029",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0309",
+  "offeringId": "off_0016",
+  "studentId": "stu_0030",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0310",
+  "offeringId": "off_0017",
+  "studentId": "stu_0030",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0311",
+  "offeringId": "off_0018",
+  "studentId": "stu_0030",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0312",
+  "offeringId": "off_0019",
+  "studentId": "stu_0030",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0313",
+  "offeringId": "off_0020",
+  "studentId": "stu_0031",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0314",
+  "offeringId": "off_0017",
+  "studentId": "stu_0031",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0315",
+  "offeringId": "off_0019",
+  "studentId": "stu_0031",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0316",
+  "offeringId": "off_0018",
+  "studentId": "stu_0031",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0317",
+  "offeringId": "off_0017",
+  "studentId": "stu_0032",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0318",
+  "offeringId": "off_0020",
+  "studentId": "stu_0032",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0319",
+  "offeringId": "off_0018",
+  "studentId": "stu_0032",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0320",
+  "offeringId": "off_0019",
+  "studentId": "stu_0032",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0321",
+  "offeringId": "off_0018",
+  "studentId": "stu_0033",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0322",
+  "offeringId": "off_0017",
+  "studentId": "stu_0033",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0323",
+  "offeringId": "off_0020",
+  "studentId": "stu_0033",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0324",
+  "offeringId": "off_0016",
+  "studentId": "stu_0033",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0325",
+  "offeringId": "off_0019",
+  "studentId": "stu_0034",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0326",
+  "offeringId": "off_0017",
+  "studentId": "stu_0034",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0327",
+  "offeringId": "off_0020",
+  "studentId": "stu_0034",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0328",
+  "offeringId": "off_0016",
+  "studentId": "stu_0034",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0329",
+  "offeringId": "off_0016",
+  "studentId": "stu_0035",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0330",
+  "offeringId": "off_0017",
+  "studentId": "stu_0035",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0331",
+  "offeringId": "off_0018",
+  "studentId": "stu_0035",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0332",
+  "offeringId": "off_0019",
+  "studentId": "stu_0035",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0333",
+  "offeringId": "off_0020",
+  "studentId": "stu_0036",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0334",
+  "offeringId": "off_0017",
+  "studentId": "stu_0036",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0335",
+  "offeringId": "off_0019",
+  "studentId": "stu_0036",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0336",
+  "offeringId": "off_0018",
+  "studentId": "stu_0036",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0337",
+  "offeringId": "off_0017",
+  "studentId": "stu_0037",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0338",
+  "offeringId": "off_0020",
+  "studentId": "stu_0037",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0339",
+  "offeringId": "off_0018",
+  "studentId": "stu_0037",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0340",
+  "offeringId": "off_0019",
+  "studentId": "stu_0037",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0341",
+  "offeringId": "off_0018",
+  "studentId": "stu_0038",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0342",
+  "offeringId": "off_0017",
+  "studentId": "stu_0038",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0343",
+  "offeringId": "off_0020",
+  "studentId": "stu_0038",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0344",
+  "offeringId": "off_0016",
+  "studentId": "stu_0038",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0345",
+  "offeringId": "off_0019",
+  "studentId": "stu_0039",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0346",
+  "offeringId": "off_0017",
+  "studentId": "stu_0039",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0347",
+  "offeringId": "off_0020",
+  "studentId": "stu_0039",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0348",
+  "offeringId": "off_0016",
+  "studentId": "stu_0039",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0349",
+  "offeringId": "off_0016",
+  "studentId": "stu_0040",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0350",
+  "offeringId": "off_0017",
+  "studentId": "stu_0040",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0351",
+  "offeringId": "off_0018",
+  "studentId": "stu_0040",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0352",
+  "offeringId": "off_0019",
+  "studentId": "stu_0040",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0353",
+  "offeringId": "off_0020",
+  "studentId": "stu_0041",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0354",
+  "offeringId": "off_0017",
+  "studentId": "stu_0041",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0355",
+  "offeringId": "off_0019",
+  "studentId": "stu_0041",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0356",
+  "offeringId": "off_0018",
+  "studentId": "stu_0041",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0357",
+  "offeringId": "off_0017",
+  "studentId": "stu_0042",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0358",
+  "offeringId": "off_0020",
+  "studentId": "stu_0042",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0359",
+  "offeringId": "off_0018",
+  "studentId": "stu_0042",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0360",
+  "offeringId": "off_0019",
+  "studentId": "stu_0042",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0361",
+  "offeringId": "off_0018",
+  "studentId": "stu_0043",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0362",
+  "offeringId": "off_0017",
+  "studentId": "stu_0043",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0363",
+  "offeringId": "off_0020",
+  "studentId": "stu_0043",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0364",
+  "offeringId": "off_0016",
+  "studentId": "stu_0043",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0365",
+  "offeringId": "off_0019",
+  "studentId": "stu_0044",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0366",
+  "offeringId": "off_0017",
+  "studentId": "stu_0044",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0367",
+  "offeringId": "off_0020",
+  "studentId": "stu_0044",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0368",
+  "offeringId": "off_0016",
+  "studentId": "stu_0044",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2025-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0369",
+  "offeringId": "off_0021",
+  "studentId": "stu_0001",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0370",
+  "offeringId": "off_0022",
+  "studentId": "stu_0001",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0371",
+  "offeringId": "off_0023",
+  "studentId": "stu_0001",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0372",
+  "offeringId": "off_0024",
+  "studentId": "stu_0001",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0373",
+  "offeringId": "off_0022",
+  "studentId": "stu_0002",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0374",
+  "offeringId": "off_0021",
+  "studentId": "stu_0002",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0375",
+  "offeringId": "off_0024",
+  "studentId": "stu_0002",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0376",
+  "offeringId": "off_0023",
+  "studentId": "stu_0002",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0377",
+  "offeringId": "off_0024",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0378",
+  "offeringId": "off_0022",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0379",
+  "offeringId": "off_0021",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0380",
+  "offeringId": "off_0025",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0381",
+  "offeringId": "off_0023",
+  "studentId": "stu_0004",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0382",
+  "offeringId": "off_0022",
+  "studentId": "stu_0004",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0383",
+  "offeringId": "off_0021",
+  "studentId": "stu_0004",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0384",
+  "offeringId": "off_0025",
+  "studentId": "stu_0004",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0385",
+  "offeringId": "off_0025",
+  "studentId": "stu_0005",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0386",
+  "offeringId": "off_0022",
+  "studentId": "stu_0005",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0387",
+  "offeringId": "off_0024",
+  "studentId": "stu_0005",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0388",
+  "offeringId": "off_0023",
+  "studentId": "stu_0005",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0389",
+  "offeringId": "off_0021",
+  "studentId": "stu_0006",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0390",
+  "offeringId": "off_0022",
+  "studentId": "stu_0006",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0391",
+  "offeringId": "off_0023",
+  "studentId": "stu_0006",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0392",
+  "offeringId": "off_0024",
+  "studentId": "stu_0006",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0393",
+  "offeringId": "off_0022",
+  "studentId": "stu_0007",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0394",
+  "offeringId": "off_0021",
+  "studentId": "stu_0007",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0395",
+  "offeringId": "off_0024",
+  "studentId": "stu_0007",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0396",
+  "offeringId": "off_0023",
+  "studentId": "stu_0007",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0397",
+  "offeringId": "off_0024",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0398",
+  "offeringId": "off_0022",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0399",
+  "offeringId": "off_0021",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0400",
+  "offeringId": "off_0025",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0401",
+  "offeringId": "off_0023",
+  "studentId": "stu_0009",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0402",
+  "offeringId": "off_0022",
+  "studentId": "stu_0009",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0403",
+  "offeringId": "off_0021",
+  "studentId": "stu_0009",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0404",
+  "offeringId": "off_0025",
+  "studentId": "stu_0009",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0405",
+  "offeringId": "off_0025",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0406",
+  "offeringId": "off_0022",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0407",
+  "offeringId": "off_0024",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0408",
+  "offeringId": "off_0023",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0409",
+  "offeringId": "off_0021",
+  "studentId": "stu_0011",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0410",
+  "offeringId": "off_0022",
+  "studentId": "stu_0011",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0411",
+  "offeringId": "off_0023",
+  "studentId": "stu_0011",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0412",
+  "offeringId": "off_0024",
+  "studentId": "stu_0011",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0413",
+  "offeringId": "off_0022",
+  "studentId": "stu_0012",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0414",
+  "offeringId": "off_0021",
+  "studentId": "stu_0012",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0415",
+  "offeringId": "off_0024",
+  "studentId": "stu_0012",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0416",
+  "offeringId": "off_0023",
+  "studentId": "stu_0012",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0417",
+  "offeringId": "off_0024",
+  "studentId": "stu_0013",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0418",
+  "offeringId": "off_0022",
+  "studentId": "stu_0013",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0419",
+  "offeringId": "off_0021",
+  "studentId": "stu_0013",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0420",
+  "offeringId": "off_0025",
+  "studentId": "stu_0013",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0421",
+  "offeringId": "off_0023",
+  "studentId": "stu_0014",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0422",
+  "offeringId": "off_0022",
+  "studentId": "stu_0014",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0423",
+  "offeringId": "off_0021",
+  "studentId": "stu_0014",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0424",
+  "offeringId": "off_0025",
+  "studentId": "stu_0014",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0425",
+  "offeringId": "off_0025",
+  "studentId": "stu_0015",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0426",
+  "offeringId": "off_0022",
+  "studentId": "stu_0015",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0427",
+  "offeringId": "off_0024",
+  "studentId": "stu_0015",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0428",
+  "offeringId": "off_0023",
+  "studentId": "stu_0015",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0429",
+  "offeringId": "off_0021",
+  "studentId": "stu_0016",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0430",
+  "offeringId": "off_0022",
+  "studentId": "stu_0016",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0431",
+  "offeringId": "off_0023",
+  "studentId": "stu_0016",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0432",
+  "offeringId": "off_0024",
+  "studentId": "stu_0016",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0433",
+  "offeringId": "off_0022",
+  "studentId": "stu_0017",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0434",
+  "offeringId": "off_0021",
+  "studentId": "stu_0017",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0435",
+  "offeringId": "off_0024",
+  "studentId": "stu_0017",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0436",
+  "offeringId": "off_0023",
+  "studentId": "stu_0017",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0437",
+  "offeringId": "off_0024",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0438",
+  "offeringId": "off_0022",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0439",
+  "offeringId": "off_0021",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0440",
+  "offeringId": "off_0025",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0441",
+  "offeringId": "off_0023",
+  "studentId": "stu_0019",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0442",
+  "offeringId": "off_0022",
+  "studentId": "stu_0019",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0443",
+  "offeringId": "off_0021",
+  "studentId": "stu_0019",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0444",
+  "offeringId": "off_0025",
+  "studentId": "stu_0019",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0445",
+  "offeringId": "off_0025",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0446",
+  "offeringId": "off_0022",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0447",
+  "offeringId": "off_0024",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0448",
+  "offeringId": "off_0023",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0449",
+  "offeringId": "off_0021",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0450",
+  "offeringId": "off_0022",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0451",
+  "offeringId": "off_0023",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0452",
+  "offeringId": "off_0024",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0453",
+  "offeringId": "off_0022",
+  "studentId": "stu_0022",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0454",
+  "offeringId": "off_0021",
+  "studentId": "stu_0022",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0455",
+  "offeringId": "off_0024",
+  "studentId": "stu_0022",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0456",
+  "offeringId": "off_0023",
+  "studentId": "stu_0022",
+  "status": "withdrawn",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0457",
+  "offeringId": "off_0024",
+  "studentId": "stu_0023",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0458",
+  "offeringId": "off_0022",
+  "studentId": "stu_0023",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0459",
+  "offeringId": "off_0021",
+  "studentId": "stu_0023",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0460",
+  "offeringId": "off_0025",
+  "studentId": "stu_0023",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0461",
+  "offeringId": "off_0023",
+  "studentId": "stu_0024",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0462",
+  "offeringId": "off_0022",
+  "studentId": "stu_0024",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0463",
+  "offeringId": "off_0021",
+  "studentId": "stu_0024",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0464",
+  "offeringId": "off_0025",
+  "studentId": "stu_0024",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0465",
+  "offeringId": "off_0026",
+  "studentId": "stu_0025",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0466",
+  "offeringId": "off_0027",
+  "studentId": "stu_0025",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0467",
+  "offeringId": "off_0028",
+  "studentId": "stu_0025",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0468",
+  "offeringId": "off_0029",
+  "studentId": "stu_0025",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0469",
+  "offeringId": "off_0030",
+  "studentId": "stu_0026",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0470",
+  "offeringId": "off_0027",
+  "studentId": "stu_0026",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0471",
+  "offeringId": "off_0029",
+  "studentId": "stu_0026",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0472",
+  "offeringId": "off_0028",
+  "studentId": "stu_0026",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0473",
+  "offeringId": "off_0027",
+  "studentId": "stu_0027",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0474",
+  "offeringId": "off_0030",
+  "studentId": "stu_0027",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0475",
+  "offeringId": "off_0028",
+  "studentId": "stu_0027",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0476",
+  "offeringId": "off_0029",
+  "studentId": "stu_0027",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0477",
+  "offeringId": "off_0028",
+  "studentId": "stu_0028",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0478",
+  "offeringId": "off_0027",
+  "studentId": "stu_0028",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0479",
+  "offeringId": "off_0030",
+  "studentId": "stu_0028",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0480",
+  "offeringId": "off_0026",
+  "studentId": "stu_0028",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0481",
+  "offeringId": "off_0029",
+  "studentId": "stu_0029",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0482",
+  "offeringId": "off_0027",
+  "studentId": "stu_0029",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0483",
+  "offeringId": "off_0030",
+  "studentId": "stu_0029",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0484",
+  "offeringId": "off_0026",
+  "studentId": "stu_0029",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0485",
+  "offeringId": "off_0026",
+  "studentId": "stu_0030",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0486",
+  "offeringId": "off_0027",
+  "studentId": "stu_0030",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0487",
+  "offeringId": "off_0028",
+  "studentId": "stu_0030",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0488",
+  "offeringId": "off_0029",
+  "studentId": "stu_0030",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0489",
+  "offeringId": "off_0030",
+  "studentId": "stu_0031",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0490",
+  "offeringId": "off_0027",
+  "studentId": "stu_0031",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0491",
+  "offeringId": "off_0029",
+  "studentId": "stu_0031",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0492",
+  "offeringId": "off_0028",
+  "studentId": "stu_0031",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0493",
+  "offeringId": "off_0027",
+  "studentId": "stu_0032",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0494",
+  "offeringId": "off_0030",
+  "studentId": "stu_0032",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0495",
+  "offeringId": "off_0028",
+  "studentId": "stu_0032",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0496",
+  "offeringId": "off_0029",
+  "studentId": "stu_0032",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0497",
+  "offeringId": "off_0028",
+  "studentId": "stu_0033",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0498",
+  "offeringId": "off_0027",
+  "studentId": "stu_0033",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0499",
+  "offeringId": "off_0030",
+  "studentId": "stu_0033",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0500",
+  "offeringId": "off_0026",
+  "studentId": "stu_0033",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0501",
+  "offeringId": "off_0029",
+  "studentId": "stu_0034",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0502",
+  "offeringId": "off_0027",
+  "studentId": "stu_0034",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0503",
+  "offeringId": "off_0030",
+  "studentId": "stu_0034",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0504",
+  "offeringId": "off_0026",
+  "studentId": "stu_0034",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0505",
+  "offeringId": "off_0026",
+  "studentId": "stu_0035",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0506",
+  "offeringId": "off_0027",
+  "studentId": "stu_0035",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0507",
+  "offeringId": "off_0028",
+  "studentId": "stu_0035",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0508",
+  "offeringId": "off_0029",
+  "studentId": "stu_0035",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0509",
+  "offeringId": "off_0030",
+  "studentId": "stu_0036",
+  "status": "withdrawn",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0510",
+  "offeringId": "off_0027",
+  "studentId": "stu_0036",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0511",
+  "offeringId": "off_0029",
+  "studentId": "stu_0036",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0512",
+  "offeringId": "off_0028",
+  "studentId": "stu_0036",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0513",
+  "offeringId": "off_0027",
+  "studentId": "stu_0037",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0514",
+  "offeringId": "off_0030",
+  "studentId": "stu_0037",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0515",
+  "offeringId": "off_0028",
+  "studentId": "stu_0037",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0516",
+  "offeringId": "off_0029",
+  "studentId": "stu_0037",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0517",
+  "offeringId": "off_0028",
+  "studentId": "stu_0038",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0518",
+  "offeringId": "off_0027",
+  "studentId": "stu_0038",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0519",
+  "offeringId": "off_0030",
+  "studentId": "stu_0038",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0520",
+  "offeringId": "off_0026",
+  "studentId": "stu_0038",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0521",
+  "offeringId": "off_0029",
+  "studentId": "stu_0039",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0522",
+  "offeringId": "off_0027",
+  "studentId": "stu_0039",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0523",
+  "offeringId": "off_0030",
+  "studentId": "stu_0039",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0524",
+  "offeringId": "off_0026",
+  "studentId": "stu_0039",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0525",
+  "offeringId": "off_0026",
+  "studentId": "stu_0040",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0526",
+  "offeringId": "off_0027",
+  "studentId": "stu_0040",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0527",
+  "offeringId": "off_0028",
+  "studentId": "stu_0040",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0528",
+  "offeringId": "off_0029",
+  "studentId": "stu_0040",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0529",
+  "offeringId": "off_0030",
+  "studentId": "stu_0041",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0530",
+  "offeringId": "off_0027",
+  "studentId": "stu_0041",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0531",
+  "offeringId": "off_0029",
+  "studentId": "stu_0041",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0532",
+  "offeringId": "off_0028",
+  "studentId": "stu_0041",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0533",
+  "offeringId": "off_0027",
+  "studentId": "stu_0042",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0534",
+  "offeringId": "off_0030",
+  "studentId": "stu_0042",
+  "status": "withdrawn",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0535",
+  "offeringId": "off_0028",
+  "studentId": "stu_0042",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0536",
+  "offeringId": "off_0029",
+  "studentId": "stu_0042",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0537",
+  "offeringId": "off_0028",
+  "studentId": "stu_0043",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0538",
+  "offeringId": "off_0027",
+  "studentId": "stu_0043",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0539",
+  "offeringId": "off_0030",
+  "studentId": "stu_0043",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0540",
+  "offeringId": "off_0026",
+  "studentId": "stu_0043",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0541",
+  "offeringId": "off_0029",
+  "studentId": "stu_0044",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0542",
+  "offeringId": "off_0027",
+  "studentId": "stu_0044",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0543",
+  "offeringId": "off_0030",
+  "studentId": "stu_0044",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0544",
+  "offeringId": "off_0026",
+  "studentId": "stu_0044",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0545",
+  "offeringId": "off_0031",
+  "studentId": "stu_0001",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0546",
+  "offeringId": "off_0032",
+  "studentId": "stu_0001",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0547",
+  "offeringId": "off_0033",
+  "studentId": "stu_0001",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0548",
+  "offeringId": "off_0034",
+  "studentId": "stu_0001",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0549",
+  "offeringId": "off_0032",
+  "studentId": "stu_0002",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0550",
+  "offeringId": "off_0031",
+  "studentId": "stu_0002",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0551",
+  "offeringId": "off_0034",
+  "studentId": "stu_0002",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0552",
+  "offeringId": "off_0033",
+  "studentId": "stu_0002",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0553",
+  "offeringId": "off_0034",
+  "studentId": "stu_0003",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0554",
+  "offeringId": "off_0032",
+  "studentId": "stu_0003",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0555",
+  "offeringId": "off_0031",
+  "studentId": "stu_0003",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0556",
+  "offeringId": "off_0035",
+  "studentId": "stu_0003",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0557",
+  "offeringId": "off_0033",
+  "studentId": "stu_0004",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0558",
+  "offeringId": "off_0032",
+  "studentId": "stu_0004",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0559",
+  "offeringId": "off_0031",
+  "studentId": "stu_0004",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0560",
+  "offeringId": "off_0035",
+  "studentId": "stu_0004",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0561",
+  "offeringId": "off_0035",
+  "studentId": "stu_0005",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0562",
+  "offeringId": "off_0032",
+  "studentId": "stu_0005",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0563",
+  "offeringId": "off_0034",
+  "studentId": "stu_0005",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0564",
+  "offeringId": "off_0033",
+  "studentId": "stu_0005",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0565",
+  "offeringId": "off_0031",
+  "studentId": "stu_0006",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0566",
+  "offeringId": "off_0032",
+  "studentId": "stu_0006",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0567",
+  "offeringId": "off_0033",
+  "studentId": "stu_0006",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0568",
+  "offeringId": "off_0034",
+  "studentId": "stu_0006",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0569",
+  "offeringId": "off_0032",
+  "studentId": "stu_0007",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0570",
+  "offeringId": "off_0031",
+  "studentId": "stu_0007",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0571",
+  "offeringId": "off_0034",
+  "studentId": "stu_0007",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0572",
+  "offeringId": "off_0033",
+  "studentId": "stu_0007",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0573",
+  "offeringId": "off_0034",
+  "studentId": "stu_0008",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0574",
+  "offeringId": "off_0032",
+  "studentId": "stu_0008",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0575",
+  "offeringId": "off_0031",
+  "studentId": "stu_0008",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0576",
+  "offeringId": "off_0035",
+  "studentId": "stu_0008",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0577",
+  "offeringId": "off_0033",
+  "studentId": "stu_0009",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0578",
+  "offeringId": "off_0032",
+  "studentId": "stu_0009",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0579",
+  "offeringId": "off_0031",
+  "studentId": "stu_0009",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0580",
+  "offeringId": "off_0035",
+  "studentId": "stu_0009",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0581",
+  "offeringId": "off_0035",
+  "studentId": "stu_0010",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0582",
+  "offeringId": "off_0032",
+  "studentId": "stu_0010",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0583",
+  "offeringId": "off_0034",
+  "studentId": "stu_0010",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0584",
+  "offeringId": "off_0033",
+  "studentId": "stu_0010",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0585",
+  "offeringId": "off_0031",
+  "studentId": "stu_0011",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0586",
+  "offeringId": "off_0032",
+  "studentId": "stu_0011",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0587",
+  "offeringId": "off_0033",
+  "studentId": "stu_0011",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0588",
+  "offeringId": "off_0034",
+  "studentId": "stu_0011",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0589",
+  "offeringId": "off_0032",
+  "studentId": "stu_0012",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0590",
+  "offeringId": "off_0031",
+  "studentId": "stu_0012",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0591",
+  "offeringId": "off_0034",
+  "studentId": "stu_0012",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0592",
+  "offeringId": "off_0033",
+  "studentId": "stu_0012",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0593",
+  "offeringId": "off_0034",
+  "studentId": "stu_0013",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0594",
+  "offeringId": "off_0032",
+  "studentId": "stu_0013",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0595",
+  "offeringId": "off_0031",
+  "studentId": "stu_0013",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0596",
+  "offeringId": "off_0035",
+  "studentId": "stu_0013",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0597",
+  "offeringId": "off_0033",
+  "studentId": "stu_0014",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0598",
+  "offeringId": "off_0032",
+  "studentId": "stu_0014",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0599",
+  "offeringId": "off_0031",
+  "studentId": "stu_0014",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0600",
+  "offeringId": "off_0035",
+  "studentId": "stu_0014",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0601",
+  "offeringId": "off_0035",
+  "studentId": "stu_0015",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0602",
+  "offeringId": "off_0032",
+  "studentId": "stu_0015",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0603",
+  "offeringId": "off_0034",
+  "studentId": "stu_0015",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0604",
+  "offeringId": "off_0033",
+  "studentId": "stu_0015",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0605",
+  "offeringId": "off_0031",
+  "studentId": "stu_0016",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0606",
+  "offeringId": "off_0032",
+  "studentId": "stu_0016",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0607",
+  "offeringId": "off_0033",
+  "studentId": "stu_0016",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0608",
+  "offeringId": "off_0034",
+  "studentId": "stu_0016",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0609",
+  "offeringId": "off_0032",
+  "studentId": "stu_0017",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0610",
+  "offeringId": "off_0031",
+  "studentId": "stu_0017",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0611",
+  "offeringId": "off_0034",
+  "studentId": "stu_0017",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0612",
+  "offeringId": "off_0033",
+  "studentId": "stu_0017",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0613",
+  "offeringId": "off_0034",
+  "studentId": "stu_0018",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0614",
+  "offeringId": "off_0032",
+  "studentId": "stu_0018",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0615",
+  "offeringId": "off_0031",
+  "studentId": "stu_0018",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0616",
+  "offeringId": "off_0035",
+  "studentId": "stu_0018",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0617",
+  "offeringId": "off_0033",
+  "studentId": "stu_0019",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0618",
+  "offeringId": "off_0032",
+  "studentId": "stu_0019",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0619",
+  "offeringId": "off_0031",
+  "studentId": "stu_0019",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0620",
+  "offeringId": "off_0035",
+  "studentId": "stu_0019",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0621",
+  "offeringId": "off_0035",
+  "studentId": "stu_0020",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0622",
+  "offeringId": "off_0032",
+  "studentId": "stu_0020",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0623",
+  "offeringId": "off_0034",
+  "studentId": "stu_0020",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0624",
+  "offeringId": "off_0033",
+  "studentId": "stu_0020",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0625",
+  "offeringId": "off_0031",
+  "studentId": "stu_0021",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0626",
+  "offeringId": "off_0032",
+  "studentId": "stu_0021",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0627",
+  "offeringId": "off_0033",
+  "studentId": "stu_0021",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0628",
+  "offeringId": "off_0034",
+  "studentId": "stu_0021",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0629",
+  "offeringId": "off_0032",
+  "studentId": "stu_0022",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0630",
+  "offeringId": "off_0031",
+  "studentId": "stu_0022",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0631",
+  "offeringId": "off_0034",
+  "studentId": "stu_0022",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0632",
+  "offeringId": "off_0033",
+  "studentId": "stu_0022",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0633",
+  "offeringId": "off_0034",
+  "studentId": "stu_0023",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0634",
+  "offeringId": "off_0032",
+  "studentId": "stu_0023",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0635",
+  "offeringId": "off_0031",
+  "studentId": "stu_0023",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0636",
+  "offeringId": "off_0035",
+  "studentId": "stu_0023",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0637",
+  "offeringId": "off_0033",
+  "studentId": "stu_0024",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0638",
+  "offeringId": "off_0032",
+  "studentId": "stu_0024",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0639",
+  "offeringId": "off_0031",
+  "studentId": "stu_0024",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0640",
+  "offeringId": "off_0035",
+  "studentId": "stu_0024",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0641",
+  "offeringId": "off_0036",
+  "studentId": "stu_0025",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0642",
+  "offeringId": "off_0037",
+  "studentId": "stu_0025",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0643",
+  "offeringId": "off_0038",
+  "studentId": "stu_0025",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0644",
+  "offeringId": "off_0039",
+  "studentId": "stu_0025",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0645",
+  "offeringId": "off_0040",
+  "studentId": "stu_0026",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0646",
+  "offeringId": "off_0037",
+  "studentId": "stu_0026",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0647",
+  "offeringId": "off_0039",
+  "studentId": "stu_0026",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0648",
+  "offeringId": "off_0038",
+  "studentId": "stu_0026",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0649",
+  "offeringId": "off_0037",
+  "studentId": "stu_0027",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0650",
+  "offeringId": "off_0040",
+  "studentId": "stu_0027",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0651",
+  "offeringId": "off_0038",
+  "studentId": "stu_0027",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0652",
+  "offeringId": "off_0039",
+  "studentId": "stu_0027",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0653",
+  "offeringId": "off_0038",
+  "studentId": "stu_0028",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0654",
+  "offeringId": "off_0037",
+  "studentId": "stu_0028",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0655",
+  "offeringId": "off_0040",
+  "studentId": "stu_0028",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0656",
+  "offeringId": "off_0036",
+  "studentId": "stu_0028",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0657",
+  "offeringId": "off_0039",
+  "studentId": "stu_0029",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0658",
+  "offeringId": "off_0037",
+  "studentId": "stu_0029",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0659",
+  "offeringId": "off_0040",
+  "studentId": "stu_0029",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0660",
+  "offeringId": "off_0036",
+  "studentId": "stu_0029",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0661",
+  "offeringId": "off_0036",
+  "studentId": "stu_0030",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0662",
+  "offeringId": "off_0037",
+  "studentId": "stu_0030",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0663",
+  "offeringId": "off_0038",
+  "studentId": "stu_0030",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0664",
+  "offeringId": "off_0039",
+  "studentId": "stu_0030",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0665",
+  "offeringId": "off_0040",
+  "studentId": "stu_0031",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0666",
+  "offeringId": "off_0037",
+  "studentId": "stu_0031",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0667",
+  "offeringId": "off_0039",
+  "studentId": "stu_0031",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0668",
+  "offeringId": "off_0038",
+  "studentId": "stu_0031",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0669",
+  "offeringId": "off_0037",
+  "studentId": "stu_0032",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0670",
+  "offeringId": "off_0040",
+  "studentId": "stu_0032",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0671",
+  "offeringId": "off_0038",
+  "studentId": "stu_0032",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0672",
+  "offeringId": "off_0039",
+  "studentId": "stu_0032",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0673",
+  "offeringId": "off_0038",
+  "studentId": "stu_0033",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0674",
+  "offeringId": "off_0037",
+  "studentId": "stu_0033",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0675",
+  "offeringId": "off_0040",
+  "studentId": "stu_0033",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0676",
+  "offeringId": "off_0036",
+  "studentId": "stu_0033",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0677",
+  "offeringId": "off_0039",
+  "studentId": "stu_0034",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0678",
+  "offeringId": "off_0037",
+  "studentId": "stu_0034",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0679",
+  "offeringId": "off_0040",
+  "studentId": "stu_0034",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0680",
+  "offeringId": "off_0036",
+  "studentId": "stu_0034",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0681",
+  "offeringId": "off_0036",
+  "studentId": "stu_0035",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0682",
+  "offeringId": "off_0037",
+  "studentId": "stu_0035",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0683",
+  "offeringId": "off_0038",
+  "studentId": "stu_0035",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0684",
+  "offeringId": "off_0039",
+  "studentId": "stu_0035",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0685",
+  "offeringId": "off_0040",
+  "studentId": "stu_0036",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0686",
+  "offeringId": "off_0037",
+  "studentId": "stu_0036",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0687",
+  "offeringId": "off_0039",
+  "studentId": "stu_0036",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0688",
+  "offeringId": "off_0038",
+  "studentId": "stu_0036",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0689",
+  "offeringId": "off_0037",
+  "studentId": "stu_0037",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0690",
+  "offeringId": "off_0040",
+  "studentId": "stu_0037",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0691",
+  "offeringId": "off_0038",
+  "studentId": "stu_0037",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0692",
+  "offeringId": "off_0039",
+  "studentId": "stu_0037",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0693",
+  "offeringId": "off_0038",
+  "studentId": "stu_0038",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0694",
+  "offeringId": "off_0037",
+  "studentId": "stu_0038",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0695",
+  "offeringId": "off_0040",
+  "studentId": "stu_0038",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0696",
+  "offeringId": "off_0036",
+  "studentId": "stu_0038",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0697",
+  "offeringId": "off_0039",
+  "studentId": "stu_0039",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0698",
+  "offeringId": "off_0037",
+  "studentId": "stu_0039",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0699",
+  "offeringId": "off_0040",
+  "studentId": "stu_0039",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0700",
+  "offeringId": "off_0036",
+  "studentId": "stu_0039",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0701",
+  "offeringId": "off_0036",
+  "studentId": "stu_0040",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0702",
+  "offeringId": "off_0037",
+  "studentId": "stu_0040",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0703",
+  "offeringId": "off_0038",
+  "studentId": "stu_0040",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0704",
+  "offeringId": "off_0039",
+  "studentId": "stu_0040",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0705",
+  "offeringId": "off_0040",
+  "studentId": "stu_0041",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0706",
+  "offeringId": "off_0037",
+  "studentId": "stu_0041",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0707",
+  "offeringId": "off_0039",
+  "studentId": "stu_0041",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0708",
+  "offeringId": "off_0038",
+  "studentId": "stu_0041",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-12T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0709",
+  "offeringId": "off_0037",
+  "studentId": "stu_0042",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0710",
+  "offeringId": "off_0040",
+  "studentId": "stu_0042",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0711",
+  "offeringId": "off_0038",
+  "studentId": "stu_0042",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0712",
+  "offeringId": "off_0039",
+  "studentId": "stu_0042",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0713",
+  "offeringId": "off_0038",
+  "studentId": "stu_0043",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0714",
+  "offeringId": "off_0037",
+  "studentId": "stu_0043",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0715",
+  "offeringId": "off_0040",
+  "studentId": "stu_0043",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0716",
+  "offeringId": "off_0036",
+  "studentId": "stu_0043",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0717",
+  "offeringId": "off_0039",
+  "studentId": "stu_0044",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0718",
+  "offeringId": "off_0037",
+  "studentId": "stu_0044",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0719",
+  "offeringId": "off_0040",
+  "studentId": "stu_0044",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0720",
+  "offeringId": "off_0036",
+  "studentId": "stu_0044",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0721",
+  "offeringId": "off_0041",
+  "studentId": "stu_0045",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0722",
+  "offeringId": "off_0042",
+  "studentId": "stu_0045",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0723",
+  "offeringId": "off_0043",
+  "studentId": "stu_0045",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0724",
+  "offeringId": "off_0044",
+  "studentId": "stu_0045",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0725",
+  "offeringId": "off_0045",
+  "studentId": "stu_0046",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0726",
+  "offeringId": "off_0042",
+  "studentId": "stu_0046",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0727",
+  "offeringId": "off_0044",
+  "studentId": "stu_0046",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0728",
+  "offeringId": "off_0043",
+  "studentId": "stu_0046",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0729",
+  "offeringId": "off_0042",
+  "studentId": "stu_0047",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0730",
+  "offeringId": "off_0045",
+  "studentId": "stu_0047",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0731",
+  "offeringId": "off_0043",
+  "studentId": "stu_0047",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0732",
+  "offeringId": "off_0044",
+  "studentId": "stu_0047",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0733",
+  "offeringId": "off_0043",
+  "studentId": "stu_0048",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0734",
+  "offeringId": "off_0042",
+  "studentId": "stu_0048",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0735",
+  "offeringId": "off_0045",
+  "studentId": "stu_0048",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0736",
+  "offeringId": "off_0041",
+  "studentId": "stu_0048",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0737",
+  "offeringId": "off_0044",
+  "studentId": "stu_0049",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0738",
+  "offeringId": "off_0042",
+  "studentId": "stu_0049",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0739",
+  "offeringId": "off_0045",
+  "studentId": "stu_0049",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-15T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0740",
+  "offeringId": "off_0041",
+  "studentId": "stu_0049",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0741",
+  "offeringId": "off_0041",
+  "studentId": "stu_0050",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0742",
+  "offeringId": "off_0042",
+  "studentId": "stu_0050",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0743",
+  "offeringId": "off_0043",
+  "studentId": "stu_0050",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0744",
+  "offeringId": "off_0044",
+  "studentId": "stu_0050",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0745",
+  "offeringId": "off_0045",
+  "studentId": "stu_0051",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0746",
+  "offeringId": "off_0042",
+  "studentId": "stu_0051",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0747",
+  "offeringId": "off_0044",
+  "studentId": "stu_0051",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0748",
+  "offeringId": "off_0043",
+  "studentId": "stu_0051",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0749",
+  "offeringId": "off_0042",
+  "studentId": "stu_0052",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0750",
+  "offeringId": "off_0045",
+  "studentId": "stu_0052",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0751",
+  "offeringId": "off_0043",
+  "studentId": "stu_0052",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0752",
+  "offeringId": "off_0044",
+  "studentId": "stu_0052",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0753",
+  "offeringId": "off_0043",
+  "studentId": "stu_0053",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0754",
+  "offeringId": "off_0042",
+  "studentId": "stu_0053",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0755",
+  "offeringId": "off_0045",
+  "studentId": "stu_0053",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-24T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0756",
+  "offeringId": "off_0041",
+  "studentId": "stu_0053",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0757",
+  "offeringId": "off_0044",
+  "studentId": "stu_0054",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0758",
+  "offeringId": "off_0042",
+  "studentId": "stu_0054",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0759",
+  "offeringId": "off_0045",
+  "studentId": "stu_0054",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0760",
+  "offeringId": "off_0041",
+  "studentId": "stu_0054",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0761",
+  "offeringId": "off_0041",
+  "studentId": "stu_0055",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-27T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0762",
+  "offeringId": "off_0042",
+  "studentId": "stu_0055",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0763",
+  "offeringId": "off_0043",
+  "studentId": "stu_0055",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0764",
+  "offeringId": "off_0044",
+  "studentId": "stu_0055",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0765",
+  "offeringId": "off_0045",
+  "studentId": "stu_0056",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0766",
+  "offeringId": "off_0042",
+  "studentId": "stu_0056",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0767",
+  "offeringId": "off_0044",
+  "studentId": "stu_0056",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0768",
+  "offeringId": "off_0043",
+  "studentId": "stu_0056",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0769",
+  "offeringId": "off_0042",
+  "studentId": "stu_0057",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0770",
+  "offeringId": "off_0045",
+  "studentId": "stu_0057",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-17T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0771",
+  "offeringId": "off_0043",
+  "studentId": "stu_0057",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0772",
+  "offeringId": "off_0044",
+  "studentId": "stu_0057",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0773",
+  "offeringId": "off_0043",
+  "studentId": "stu_0058",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-13T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0774",
+  "offeringId": "off_0042",
+  "studentId": "stu_0058",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0775",
+  "offeringId": "off_0045",
+  "studentId": "stu_0058",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0776",
+  "offeringId": "off_0041",
+  "studentId": "stu_0058",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-21T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0777",
+  "offeringId": "off_0044",
+  "studentId": "stu_0059",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0778",
+  "offeringId": "off_0042",
+  "studentId": "stu_0059",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0779",
+  "offeringId": "off_0045",
+  "studentId": "stu_0059",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0780",
+  "offeringId": "off_0041",
+  "studentId": "stu_0059",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-22T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0781",
+  "offeringId": "off_0041",
+  "studentId": "stu_0060",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0782",
+  "offeringId": "off_0042",
+  "studentId": "stu_0060",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-16T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0783",
+  "offeringId": "off_0043",
+  "studentId": "stu_0060",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-29T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0784",
+  "offeringId": "off_0044",
+  "studentId": "stu_0060",
+  "status": "enrolled",
+  "isRepeat": false,
+  "enrolledAt": "2026-08-18T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0785",
+  "offeringId": "off_0046",
+  "studentId": "stu_0003",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-25T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0786",
+  "offeringId": "off_0046",
+  "studentId": "stu_0008",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-28T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0787",
+  "offeringId": "off_0046",
+  "studentId": "stu_0013",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0788",
+  "offeringId": "off_0046",
+  "studentId": "stu_0018",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-30T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0789",
+  "offeringId": "off_0046",
+  "studentId": "stu_0023",
+  "status": "completed",
+  "isRepeat": false,
+  "enrolledAt": "2026-01-23T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0790",
+  "offeringId": "off_0017",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": true,
+  "enrolledAt": "2025-08-26T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0791",
+  "offeringId": "off_0019",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": true,
+  "enrolledAt": "2025-08-19T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0792",
+  "offeringId": "off_0016",
+  "studentId": "stu_0010",
+  "status": "completed",
+  "isRepeat": true,
+  "enrolledAt": "2025-08-14T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0793",
+  "offeringId": "off_0029",
+  "studentId": "stu_0020",
+  "status": "completed",
+  "isRepeat": true,
+  "enrolledAt": "2026-01-20T00:00:00.000Z"
+ },
+ {
+  "id": "enr_0794",
+  "offeringId": "off_0029",
+  "studentId": "stu_0021",
+  "status": "completed",
+  "isRepeat": true,
+  "enrolledAt": "2026-01-25T00:00:00.000Z"
+ }
+]

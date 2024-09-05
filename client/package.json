@@ -1,5 +1,5 @@
 {
-  "name": "client",
+  "name": "university-grading-system-client",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,8 +10,19 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
+    "lucide-react": "^1.57.0",
+    "papaparse": "^5.7.0",
+    "radix-ui": "^1.8.1",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.4",
+    "recharts": "^3.10.1",
+    "sonner": "^2.0.8",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
