@@ -10,7 +10,7 @@ import { useQuery } from '@/hooks/useStore'
 import { store } from '@/store'
 import { GlobalSearch } from './GlobalSearch'
 import { NotificationsMenu } from './NotificationsMenu'
-import { Brand, Sidebar, SidebarNav } from './Sidebar'
+import { Brand, Sidebar, SidebarFooter, SidebarNav } from './Sidebar'
 import { UserMenu } from './UserMenu'
 
 const COLLAPSE_KEY = 'ugs-sidebar-collapsed'
@@ -61,6 +61,7 @@ export function AppLayout() {
           <SheetDescription className="sr-only">Main navigation menu</SheetDescription>
           <Brand />
           <SidebarNav badges={badges} onNavigate={() => setMobileOpen(false)} />
+          <SidebarFooter onNavigate={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Copy, KeyRound } from 'lucide-react'
+import { Check, Copy, IdCard, KeyRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -8,16 +8,19 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { useMutation } from '@/hooks/useStore'
 import { store } from '@/store'
 
-/** Shows a one-time temporary password with a copy button. result: { name, username, password } | null */
+/** Shows the created account's sign-in credential once. result: { name, username, password, identifier, roleId } | null */
 export function TempPasswordDialog({ result, onClose }) {
   const [copied, setCopied] = useState(false)
+  const usesId = result?.roleId === 'student' || result?.roleId === 'teacher'
+  const idLabel = result?.roleId === 'student' ? 'Student ID' : 'Teacher ID'
+  const credential = usesId ? result?.identifier : result?.password
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(result.password)
+      await navigator.clipboard.writeText(credential)
       setCopied(true)
-      toast.success('Password copied to clipboard.')
+      toast.success(`${usesId ? idLabel : 'Password'} copied to clipboard.`)
     } catch {
-      toast.error('Could not copy. Select the password and copy it manually.')
+      toast.error('Could not copy. Select it and copy manually.')
     }
   }
   return (
@@ -32,8 +35,11 @@ export function TempPasswordDialog({ result, onClose }) {
     >
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Temporary password</DialogTitle>
-          <DialogDescription>Share these sign-in details securely with {result?.name}. They will be asked to change the password at their next sign-in.</DialogDescription>
+          <DialogTitle>{usesId ? idLabel : 'Temporary password'}</DialogTitle>
+          <DialogDescription>
+            Share these sign-in details securely with {result?.name}.{' '}
+            {usesId ? `They sign in with their ${idLabel}.` : 'They will be asked to change the password at their next sign-in.'}
+          </DialogDescription>
         </DialogHeader>
         {result?.username && (
           <p className="text-sm">
@@ -41,16 +47,16 @@ export function TempPasswordDialog({ result, onClose }) {
           </p>
         )}
         <div className="flex items-center gap-2 rounded-md border bg-muted/50 p-3">
-          <KeyRound className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <code className="min-w-0 flex-1 font-mono text-base break-all select-all" aria-label="Temporary password">
-            {result?.password}
+          {usesId ? <IdCard className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" /> : <KeyRound className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+          <code className="min-w-0 flex-1 font-mono text-base break-all select-all" aria-label={usesId ? idLabel : 'Temporary password'}>
+            {credential}
           </code>
           <Button variant="outline" size="sm" onClick={copy}>
             {copied ? <Check /> : <Copy />} {copied ? 'Copied' : 'Copy'}
           </Button>
         </div>
         <Alert variant="warning">
-          <AlertDescription>This password will not be shown again.</AlertDescription>
+          <AlertDescription>{usesId ? `This ${idLabel} is the credential used to sign in.` : 'This password will not be shown again.'}</AlertDescription>
         </Alert>
         <DialogFooter>
           <Button
@@ -68,8 +74,8 @@ export function TempPasswordDialog({ result, onClose }) {
 }
 
 /**
- * Confirm dialogs for reset password / activate / deactivate.
- * action: { type: 'reset' | 'activate' | 'deactivate', user: { id, name } } | null
+ * Confirm dialogs for reset password / activate / deactivate / delete.
+ * action: { type: 'reset' | 'activate' | 'deactivate' | 'delete', user: { id, name } } | null
  */
 export function UserActionDialogs({ action, onClose }) {
   const [temp, setTemp] = useState(null)
@@ -77,6 +83,7 @@ export function UserActionDialogs({ action, onClose }) {
   const [setStatus] = useMutation((id, status, reason) => store.users.setUserStatus(id, { status, reason }), {
     success: (_r, _id, status) => (status === 'active' ? 'Account activated.' : 'Account deactivated.'),
   })
+  const [remove] = useMutation((id) => store.users.deleteUser(id), { success: 'Account deleted.' })
   const user = action?.user
   const name = user?.name ?? ''
   const onOpenChange = (v) => !v && onClose()
@@ -117,6 +124,18 @@ export function UserActionDialogs({ action, onClose }) {
         confirmLabel="Activate"
         onConfirm={async () => {
           const res = await setStatus(user.id, 'active')
+          return res.ok ? undefined : false
+        }}
+      />
+      <ConfirmDialog
+        open={action?.type === 'delete'}
+        onOpenChange={onOpenChange}
+        title="Delete account?"
+        description={`${name} will be permanently removed. Accounts with academic records cannot be deleted — deactivate them instead.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={async () => {
+          const res = await remove(user.id)
           return res.ok ? undefined : false
         }}
       />

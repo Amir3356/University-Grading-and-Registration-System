@@ -93,6 +93,60 @@ function uniqueUsername(email) {
   return name
 }
 
+/** Validates an explicitly chosen username (blank = generate one from the email). */
+function validateUsername(data, ignoreUserId) {
+  const value = String(data.username ?? '').trim()
+  if (!value) {
+    if (ignoreUserId) return null
+    return 'Enter a username.'
+  }
+  if (!/^[a-z0-9._-]{3,32}$/i.test(value)) return 'Use 3–32 letters, numbers, dots, dashes or underscores.'
+  if (read().users.some((u) => u.username.toLowerCase() === value.toLowerCase() && u.id !== ignoreUserId)) return 'This username is already taken.'
+  return null
+}
+
+const EMAIL_DOMAIN = 'university.edu'
+
+/** Suggested unique email derived from a full name, e.g. jane.doe@university.edu. */
+export function suggestEmail(name) {
+  requireRole('admin')
+  const base =
+    String(name ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\s.-]/g, '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .join('.') || 'user'
+  const taken = new Set(read().users.map((u) => u.email.toLowerCase()))
+  let email = `${base}@${EMAIL_DOMAIN}`
+  for (let i = 2; taken.has(email); i++) email = `${base}${i}@${EMAIL_DOMAIN}`
+  return email
+}
+
+/** Suggested unique ID for a new student or teacher account ('' for admins). */
+export function suggestIdentifier(roleId, departmentId) {
+  requireRole('admin')
+  const db = read()
+  const year = now().slice(2, 4)
+  if (roleId === 'student') {
+    const taken = new Set(db.students.map((s) => s.studentNumber))
+    let n = db.students.length + 1
+    let id = `UGR/${year}/${String(n).padStart(4, '0')}`
+    while (taken.has(id)) id = `UGR/${year}/${String(++n).padStart(4, '0')}`
+    return id
+  }
+  if (roleId === 'teacher') {
+    const code = db.departments.find((d) => d.id === departmentId)?.code ?? 'GEN'
+    const taken = new Set(db.teachers.map((t) => t.employeeNumber))
+    let n = db.teachers.filter((t) => t.employeeNumber.startsWith(`EMP-${code}-`)).length + 1
+    let id = `EMP-${code}-${String(n).padStart(2, '0')}`
+    while (taken.has(id)) id = `EMP-${code}-${String(++n).padStart(2, '0')}`
+    return id
+  }
+  return ''
+}
+
 function assertUnique(data, ignoreUserId) {
   const db = read()
   const email = data.email.trim().toLowerCase()
@@ -109,7 +163,7 @@ function assertUnique(data, ignoreUserId) {
 
 export async function createUser(data) {
   const actor = requireRole('admin')
-  validate(validateProfile(data, data.roleId))
+  validate({ ...validateProfile(data, data.roleId), username: () => validateUsername(data) })
   if (data.password) validate({ password: () => validatePasswordStrength(data.password) })
   assertUnique(data)
   const temporaryPassword = data.password || generateTempPassword()
@@ -119,7 +173,7 @@ export async function createUser(data) {
     const user = tx.insert('users', {
       id: newId('usr'),
       roleId: data.roleId,
-      username: uniqueUsername(data.email),
+      username: String(data.username ?? '').trim() || uniqueUsername(data.email),
       firstName: data.firstName.trim(),
       lastName: data.lastName.trim(),
       email: data.email.trim().toLowerCase(),
@@ -163,15 +217,23 @@ export async function createUser(data) {
   return { user: userRow(created), username: created.username, temporaryPassword }
 }
 
-export function updateUser(id, data) {
+export async function updateUser(id, data) {
   const actor = requireRole('admin')
   const db = read()
   const u = db.users.find((x) => x.id === id)
   if (!u) throw notFound('User')
   const roleId = data.roleId ?? u.roleId
-  validate(validateProfile(data, roleId))
+  const password = String(data.password ?? '')
+  validate({ ...validateProfile(data, roleId), username: () => validateUsername(data, id) })
+  if (password) validate({ password: () => validatePasswordStrength(password) })
   assertUnique(data, id)
   if (id === actor.id && roleId !== 'admin') throw forbidden('You cannot remove your own administrator role.')
+
+  let credentials = null
+  if (password) {
+    const salt = makeSalt()
+    credentials = { passwordSalt: salt, passwordHash: await hashPassword(salt, password), mustChangePassword: true }
+  }
 
   // Role changes must not orphan academic records.
   if (roleId !== u.roleId) {
@@ -183,7 +245,7 @@ export function updateUser(id, data) {
 
   transaction((tx) => {
     const before = { firstName: u.firstName, lastName: u.lastName, email: u.email, roleId: u.roleId }
-    tx.update('users', id, { firstName: data.firstName.trim(), lastName: data.lastName.trim(), email: data.email.trim().toLowerCase(), phone: data.phone?.trim() ?? '', roleId })
+    tx.update('users', id, { firstName: data.firstName.trim(), lastName: data.lastName.trim(), username: String(data.username ?? '').trim() || u.username, email: data.email.trim().toLowerCase(), phone: data.phone?.trim() ?? '', roleId, ...(credentials ?? {}) })
     if (roleId !== u.roleId) {
       tx.remove('students', (s) => s.userId === id)
       tx.remove('teachers', (t) => t.userId === id)
@@ -208,6 +270,9 @@ export function updateUser(id, data) {
       before,
       after: { firstName: data.firstName, lastName: data.lastName, email: data.email, roleId },
     })
+    if (credentials) {
+      audit(tx, actor, { action: 'user.password_changed', entityType: 'user', entityId: id, details: `Changed password for ${data.firstName} ${data.lastName}` })
+    }
   })
   return userRow(read().users.find((x) => x.id === id))
 }
@@ -234,6 +299,31 @@ export function setUserStatus(id, { status, reason }) {
     })
   })
   return userRow(read().users.find((x) => x.id === id))
+}
+
+/** Permanently removes an account. Blocked when linked academic records exist. */
+export function deleteUser(id) {
+  const actor = requireRole('admin')
+  const db = read()
+  const u = db.users.find((x) => x.id === id)
+  if (!u) throw notFound('User')
+  if (id === actor.id) throw forbidden('You cannot delete your own account.')
+  const s = db.students.find((x) => x.userId === id)
+  const t = db.teachers.find((x) => x.userId === id)
+  if (s && db.courseEnrollments.some((e) => e.studentId === s.id)) {
+    throw conflict('This student has enrollment records and cannot be deleted. Deactivate the account instead.')
+  }
+  if (t && db.courseOfferings.some((o) => o.teacherId === t.id)) {
+    throw conflict('This teacher has course assignments and cannot be deleted. Deactivate the account instead.')
+  }
+  transaction((tx) => {
+    tx.remove('users', (x) => x.id === id)
+    tx.remove('students', (x) => x.userId === id)
+    tx.remove('teachers', (x) => x.userId === id)
+    tx.remove('notifications', (n) => n.userId === id)
+    audit(tx, actor, { action: 'user.deleted', entityType: 'user', entityId: id, details: `Deleted account for ${u.firstName} ${u.lastName}`, before: { email: u.email, roleId: u.roleId } })
+  })
+  return { ok: true }
 }
 
 export async function resetUserPassword(id) {

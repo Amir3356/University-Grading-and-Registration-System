@@ -21,7 +21,7 @@ export function LoginPage() {
   const { user, loading, login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const [form, setForm] = useState({ username: '', password: '', role: '' })
+  const [form, setForm] = useState({ username: '', password: '', identifier: '', role: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
@@ -62,26 +62,6 @@ export function LoginPage() {
             <FormField label="Username" error={fieldErrors.username} required>
               <Input autoComplete="username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} autoFocus />
             </FormField>
-            <FormField label="Password" error={fieldErrors.password} required>
-              <div className="password-field">
-                <Input
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  aria-label="Password"
-                  aria-invalid={fieldErrors.password ? true : undefined}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((s) => !s)}
-                  className="password-field__toggle"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff className="icon" /> : <Eye className="icon" />}
-                </button>
-              </div>
-            </FormField>
             <FormField label="Role" error={fieldErrors.role} required>
               <Select value={form.role} onValueChange={(role) => setForm({ ...form, role })}>
                 <SelectTrigger>
@@ -96,6 +76,37 @@ export function LoginPage() {
                 </SelectContent>
               </Select>
             </FormField>
+            {form.role === 'student' || form.role === 'teacher' ? (
+              <FormField label={form.role === 'student' ? 'Student ID' : 'Teacher ID'} error={fieldErrors.identifier} required>
+                <Input
+                  autoComplete="off"
+                  value={form.identifier}
+                  onChange={(e) => setForm({ ...form, identifier: e.target.value })}
+                  placeholder={form.role === 'student' ? 'e.g. UGR/26/0001' : 'e.g. EMP-CS-01'}
+                />
+              </FormField>
+            ) : (
+              <FormField label="Password" error={fieldErrors.password} required>
+                <div className="password-field">
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    aria-label="Password"
+                    aria-invalid={fieldErrors.password ? true : undefined}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((s) => !s)}
+                    className="password-field__toggle"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="icon" /> : <Eye className="icon" />}
+                  </button>
+                </div>
+              </FormField>
+            )}
             <Button type="submit" className="btn--block" loading={submitting}>
               Sign in
             </Button>

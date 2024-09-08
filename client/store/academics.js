@@ -95,6 +95,29 @@ export function listCourses({ search, departmentId, status, page, pageSize, sort
   return paginate(items, { page, pageSize })
 }
 
+function resolveDepartmentId(tx, depVal) {
+  const val = String(depVal ?? '').trim()
+  if (!val) return null
+  const db = read()
+  const found = db.departments.find(
+    (d) =>
+      d.id.toLowerCase() === val.toLowerCase() ||
+      d.name.toLowerCase() === val.toLowerCase() ||
+      d.code.toLowerCase() === val.toLowerCase(),
+  )
+  if (found) return found.id
+  const newDep = tx.insert('departments', {
+    id: newId('dep'),
+    code: val.replace(/[^a-zA-Z]/g, '').slice(0, 6).toUpperCase() || 'DEP',
+    name: val,
+    description: '',
+    headTeacherId: null,
+    createdAt: now(),
+    updatedAt: now(),
+  })
+  return newDep.id
+}
+
 function validateCourse(data, ignoreId) {
   validate({
     code: () =>
@@ -102,9 +125,13 @@ function validateCourse(data, ignoreId) {
       (!/^[A-Z]{2,6}\d{3}[A-Z]?$/.test(String(data.code).trim().toUpperCase()) ? 'Use a format like CS101.' : null) ||
       (read().courses.some((c) => c.code === data.code.trim().toUpperCase() && c.id !== ignoreId) ? 'Course code already exists.' : null),
     title: () => required(data.title, 'Title'),
-    departmentId: () => (read().departments.some((d) => d.id === data.departmentId) ? null : 'Choose a department.'),
+    departmentId: () => {
+      const depVal = String(data.departmentId || data.department || '').trim()
+      if (!depVal) return 'Department is required.'
+      return null
+    },
     creditHours: () => numberIn(data.creditHours, 1, 6, 'Credit hours'),
-    level: () => numberIn(data.level, 100, 900, 'Level'),
+    level: () => (data.level ? numberIn(data.level, 100, 900, 'Level') : null),
   })
 }
 
@@ -112,13 +139,14 @@ export function createCourse(data) {
   const actor = requireRole('admin')
   validateCourse(data)
   return transaction((tx) => {
+    const depId = resolveDepartmentId(tx, data.departmentId || data.department)
     const c = tx.insert('courses', {
       id: newId('crs'),
       code: data.code.trim().toUpperCase(),
       title: data.title.trim(),
-      departmentId: data.departmentId,
+      departmentId: depId,
       creditHours: Number(data.creditHours),
-      level: Number(data.level),
+      level: Number(data.level) || 100,
       description: data.description?.trim() ?? '',
       status: 'active',
       createdAt: now(),
@@ -139,13 +167,14 @@ export function updateCourse(id, data) {
     throw conflict('Credit hours cannot change after grades have been published for this course; create a new course version instead.')
   }
   return transaction((tx) => {
+    const depId = resolveDepartmentId(tx, data.departmentId || data.department) || course.departmentId
     const c = tx.update('courses', id, {
       code: data.code.trim().toUpperCase(),
       title: data.title.trim(),
-      departmentId: data.departmentId,
+      departmentId: depId,
       creditHours: Number(data.creditHours),
-      level: Number(data.level),
-      description: data.description?.trim() ?? '',
+      level: Number(data.level) || course.level || 100,
+      description: data.description?.trim() ?? course.description ?? '',
       status: data.status ?? course.status,
     })
     audit(tx, actor, { action: 'course.updated', entityType: 'course', entityId: id, details: `Updated course ${c.code}`, before: { title: course.title, creditHours: course.creditHours, status: course.status }, after: { title: c.title, creditHours: c.creditHours, status: c.status } })

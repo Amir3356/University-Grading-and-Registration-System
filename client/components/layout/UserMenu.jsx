@@ -1,16 +1,14 @@
-import { LogOut, Moon, Sun, UserCircle } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/context/auth-context'
-import { useTheme } from '@/context/theme-context'
 import { ROLE_LABELS } from '@/lib/format'
 import { fullName, initials } from '@/lib/utils'
 
 export function UserMenu() {
   const { user, logout } = useAuth()
-  const { theme, toggle } = useTheme()
   const navigate = useNavigate()
 
   const handleLogout = async () => {
@@ -37,13 +35,6 @@ export function UserMenu() {
           <span className="truncate block">{fullName(user)}</span>
           <span className="block truncate text-xs text-muted" style={{ fontWeight: 400 }}>{user?.email}</span>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => navigate('/profile')}>
-          <UserCircle /> Profile
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={toggle}>
-          {theme === 'dark' ? <Sun /> : <Moon />} {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
           <LogOut /> Sign out

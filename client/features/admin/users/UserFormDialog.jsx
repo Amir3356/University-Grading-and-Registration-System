@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
 import { ErrorState } from '@/components/common/ErrorState'
 import { FormField } from '@/components/common/FormField'
 import { Spinner } from '@/components/common/Loading'
@@ -12,15 +11,20 @@ import { ROLE_LABELS } from '@/lib/format'
 import { store } from '@/store'
 import { SelectField } from './SelectField'
 
-const TITLES = ['Dr.', 'Prof.', 'Mr.', 'Ms.']
 const ROLE_OPTIONS = ['student', 'teacher', 'admin'].map((r) => ({ value: r, label: ROLE_LABELS[r] }))
 
-function initialForm(user, defaultRole) {
+/** Resolve a typed department name or code to a department record. */
+function findDepartment(departments, value) {
+  const typed = String(value ?? '').trim().toLowerCase()
+  if (!typed) return null
+  return departments.find((d) => d.name.toLowerCase() === typed || d.code.toLowerCase() === typed) ?? null
+}
+
+function initialForm(user) {
   const p = user?.profile
   return {
-    roleId: user?.roleId ?? defaultRole ?? 'student',
-    firstName: user?.firstName ?? '',
-    lastName: user?.lastName ?? '',
+    roleId: user?.roleId ?? 'student',
+    username: user?.username ?? '',
     email: user?.email ?? '',
     phone: user?.phone ?? '',
     identifier: user && user.identifier !== '—' ? (user.identifier ?? '') : '',
@@ -34,110 +38,195 @@ function initialForm(user, defaultRole) {
   }
 }
 
-function UserForm({ user, defaultRole, onClose, onCreated }) {
+/** Create form: full name, username, role and role-specific credential (Student ID / Teacher ID / password). */
+function CreateUserForm({ defaultRole, onClose, onCreated }) {
   const lookups = useLookups()
-  const isEdit = Boolean(user)
-  const [form, setForm] = useState(() => initialForm(user, defaultRole))
+  const allDepartments = lookups?.departments ?? []
+  const [form, setForm] = useState({ fullName: '', username: '', roleId: defaultRole ?? 'student', password: '', identifier: '', department: '' })
+  const [nameError, setNameError] = useState(null)
+  const [usernameError, setUsernameError] = useState(null)
+  const [identifierError, setIdentifierError] = useState(null)
+  const [departmentError, setDepartmentError] = useState(null)
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e?.target ? e.target.value : e }))
 
-  const [save, { loading, fieldErrors }] = useMutation(
-    (data) => (isEdit ? store.users.updateUser(user.id, data) : store.users.createUser(data)),
-    {
-      success: isEdit ? 'User updated.' : 'User account created.',
-      onSuccess: (result) => {
-        onClose()
-        if (!isEdit) onCreated?.(result)
-      },
+  const [save, { loading, fieldErrors }] = useMutation((data) => store.users.createUser(data), {
+    success: 'User account created.',
+    onSuccess: (result) => {
+      onClose()
+      onCreated?.(result)
     },
-  )
+  })
 
   const submit = (e) => {
     e.preventDefault()
-    const data = { ...form }
-    if (isEdit || !data.password) delete data.password
-    save(data)
+    const parts = form.fullName.trim().split(/\s+/).filter(Boolean)
+    if (parts.length < 2) {
+      setNameError('Enter the first and last name.')
+      return
+    }
+    setNameError(null)
+    if (!form.username.trim()) {
+      setUsernameError('Enter a username.')
+      return
+    }
+    setUsernameError(null)
+    const isAdmin = form.roleId === 'admin'
+    if (!isAdmin && !form.identifier.trim()) {
+      setIdentifierError(form.roleId === 'student' ? 'Enter the Student ID.' : 'Enter the Teacher ID.')
+      return
+    }
+    setIdentifierError(null)
+    const needsDepartment = !isAdmin
+    const department = findDepartment(allDepartments, form.department)
+    if (needsDepartment && !department) {
+      setDepartmentError('Enter an existing department name.')
+      return
+    }
+    setDepartmentError(null)
+    const [firstName, ...rest] = parts
+    const departmentId = needsDepartment ? department.id : ''
+    save({
+      firstName,
+      lastName: rest.join(' '),
+      username: form.username.trim(),
+      roleId: form.roleId,
+      password: isAdmin ? form.password : '',
+      departmentId,
+      email: store.users.suggestEmail(form.username || form.fullName),
+      identifier: isAdmin ? '' : form.identifier.trim(),
+      admissionYear: String(new Date().getFullYear()),
+    })
   }
 
   const fe = fieldErrors ?? {}
-  const departments = (lookups?.departments ?? []).map((d) => ({ value: d.id, label: d.name }))
-  const isStudent = form.roleId === 'student'
-  const isTeacher = form.roleId === 'teacher'
+  const isAdmin = form.roleId === 'admin'
+  const needsDepartment = !isAdmin
 
   return (
     <form onSubmit={submit} className="grid gap-4" noValidate>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <SelectField
-          label="Role"
-          required
-          value={form.roleId}
-          onChange={set('roleId')}
-          options={ROLE_OPTIONS}
-          error={fe.roleId}
-          hint={isEdit ? 'Role changes are blocked if the user has academic records.' : undefined}
-          className="sm:col-span-2"
-        />
-        <FormField label="First name" required error={fe.firstName}>
-          <Input value={form.firstName} onChange={set('firstName')} autoComplete="off" />
+      <FormField label="Full name" required error={nameError ?? fe.firstName ?? fe.lastName}>
+        <Input value={form.fullName} onChange={set('fullName')} autoComplete="off" placeholder="e.g. Jane Doe" />
+      </FormField>
+      <FormField label="Username" required error={usernameError ?? fe.username}>
+        <Input value={form.username} onChange={set('username')} autoComplete="off" placeholder="e.g. jane.doe" />
+      </FormField>
+      <SelectField label="Role" required value={form.roleId} onChange={set('roleId')} options={ROLE_OPTIONS} error={fe.roleId} />
+      {isAdmin ? (
+        <FormField label="Password" error={fe.password} hint="Optional. Leave blank to generate a temporary password.">
+          <Input type="password" value={form.password} onChange={set('password')} autoComplete="new-password" />
         </FormField>
-        <FormField label="Last name" required error={fe.lastName}>
-          <Input value={form.lastName} onChange={set('lastName')} autoComplete="off" />
+      ) : (
+        <FormField label={form.roleId === 'student' ? 'Student ID' : 'Teacher ID'} required error={identifierError ?? fe.identifier}>
+          <Input
+            value={form.identifier}
+            onChange={set('identifier')}
+            autoComplete="off"
+            placeholder={form.roleId === 'student' ? 'e.g. UGR/26/0001' : 'e.g. EMP-CS-01'}
+          />
         </FormField>
-        <FormField label="Email" required error={fe.email}>
-          <Input type="email" value={form.email} onChange={set('email')} autoComplete="off" />
-        </FormField>
-        <FormField label="Phone" error={fe.phone}>
-          <Input type="tel" value={form.phone} onChange={set('phone')} autoComplete="off" />
-        </FormField>
-      </div>
-
-      {(isStudent || isTeacher) && (
-        <>
-          <Separator />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label={isStudent ? 'Student ID' : 'Employee ID'} required error={fe.identifier}>
-              <Input value={form.identifier} onChange={set('identifier')} placeholder={isStudent ? 'e.g. STU-2026-0101' : 'e.g. EMP-CS-12'} />
-            </FormField>
-            <SelectField label="Department" required value={form.departmentId} onChange={set('departmentId')} options={departments} error={fe.departmentId} placeholder="Choose a department" />
-            {isStudent && (
-              <>
-                <FormField label="Programme" error={fe.program} hint="Defaults to the department name.">
-                  <Input value={form.program} onChange={set('program')} />
-                </FormField>
-                <FormField label="Admission year" required error={fe.admissionYear}>
-                  <Input type="number" min={2000} max={2100} value={form.admissionYear} onChange={set('admissionYear')} />
-                </FormField>
-              </>
-            )}
-            {isTeacher && (
-              <>
-                <SelectField label="Title" value={form.title} onChange={set('title')} options={TITLES.map((t) => ({ value: t, label: t }))} error={fe.title} />
-                <FormField label="Specialization" error={fe.specialization}>
-                  <Input value={form.specialization} onChange={set('specialization')} />
-                </FormField>
-                <FormField label="Office room" error={fe.officeRoom}>
-                  <Input value={form.officeRoom} onChange={set('officeRoom')} />
-                </FormField>
-              </>
-            )}
-          </div>
-        </>
       )}
+      <FormField label="Department" required={needsDepartment} error={departmentError ?? (needsDepartment ? fe.departmentId : undefined)}>
+        <Input value={form.department} onChange={set('department')} autoComplete="off" placeholder="e.g. Computer Science" />
+      </FormField>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+          Cancel
+        </Button>
+        <Button type="submit" loading={loading}>
+          Create user
+        </Button>
+      </DialogFooter>
+    </form>
+  )
+}
 
-      {!isEdit && (
-        <>
-          <Separator />
-          <FormField label="Initial password" error={fe.password} hint="Optional. Leave blank to generate a temporary password. The user must change it at first sign-in.">
-            <Input type="password" value={form.password} onChange={set('password')} autoComplete="new-password" />
-          </FormField>
-        </>
-      )}
+/** Edit an existing account: only the fields shown as table columns (full name, username, role, department). */
+function UserForm({ user, onClose }) {
+  const lookups = useLookups()
+  const allDepartments = lookups?.departments ?? []
+  const [form, setForm] = useState(() => ({
+    ...initialForm(user),
+    fullName: `${user.firstName} ${user.lastName}`.trim(),
+    department: user.departmentName && user.departmentName !== '—' ? user.departmentName : '',
+  }))
+  const [nameError, setNameError] = useState(null)
+  const [usernameError, setUsernameError] = useState(null)
+  const [departmentError, setDepartmentError] = useState(null)
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e?.target ? e.target.value : e }))
+
+  const [save, { loading, fieldErrors }] = useMutation((data) => store.users.updateUser(user.id, data), {
+    success: 'User updated.',
+    onSuccess: onClose,
+  })
+
+  const submit = (e) => {
+    e.preventDefault()
+    const parts = form.fullName.trim().split(/\s+/).filter(Boolean)
+    if (parts.length < 2) {
+      setNameError('Enter the first and last name.')
+      return
+    }
+    setNameError(null)
+    if (!form.username.trim()) {
+      setUsernameError('Enter a username.')
+      return
+    }
+    setUsernameError(null)
+    const needsDepartment = form.roleId !== 'admin'
+    const department = findDepartment(allDepartments, form.department)
+    if (needsDepartment && !department) {
+      setDepartmentError('Enter an existing department name.')
+      return
+    }
+    setDepartmentError(null)
+    const departmentId = needsDepartment ? department.id : ''
+    const rest = { ...form }
+    delete rest.fullName
+    delete rest.department
+    rest.firstName = parts[0]
+    rest.lastName = parts.slice(1).join(' ')
+    rest.departmentId = departmentId
+    if (needsDepartment && !rest.identifier) rest.identifier = store.users.suggestIdentifier(form.roleId, departmentId)
+    save(rest)
+  }
+
+  const fe = fieldErrors ?? {}
+  const needsDepartment = form.roleId !== 'admin'
+
+  return (
+    <form onSubmit={submit} className="grid gap-4" noValidate>
+      <FormField label="Full name" required error={nameError ?? fe.firstName ?? fe.lastName}>
+        <Input value={form.fullName} onChange={set('fullName')} autoComplete="off" placeholder="e.g. Jane Doe" />
+      </FormField>
+      <FormField label="Username" required error={usernameError ?? fe.username}>
+        <Input value={form.username} onChange={set('username')} autoComplete="off" />
+      </FormField>
+      <SelectField
+        label="Role"
+        required
+        value={form.roleId}
+        onChange={set('roleId')}
+        options={ROLE_OPTIONS}
+        error={fe.roleId}
+        hint="Role changes are blocked if the user has academic records."
+      />
+      <FormField label="Department" required={needsDepartment} error={departmentError ?? (needsDepartment ? fe.departmentId : undefined)}>
+        {needsDepartment ? (
+          <Input value={form.department} onChange={set('department')} autoComplete="off" placeholder="e.g. Computer Science" />
+        ) : (
+          <Input value="—" disabled readOnly />
+        )}
+      </FormField>
+      <FormField label="Password" error={fe.password} hint="Leave blank to keep the current password.">
+        <Input type="password" value={form.password} onChange={set('password')} autoComplete="new-password" placeholder="New password" />
+      </FormField>
 
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
           Cancel
         </Button>
         <Button type="submit" loading={loading}>
-          {isEdit ? 'Save changes' : 'Create user'}
+          Save changes
         </Button>
       </DialogFooter>
     </form>
@@ -163,9 +252,9 @@ export function UserFormDialog({ open, onOpenChange, userId, defaultRole, onCrea
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{userId ? 'Edit user' : 'Create user'}</DialogTitle>
-          <DialogDescription>{userId ? 'Update account details and role-specific information.' : 'Create a student, teacher or administrator account.'}</DialogDescription>
+          <DialogDescription>{userId ? 'Update the name, username, role and department for this account.' : 'Create a student, teacher or administrator account.'}</DialogDescription>
         </DialogHeader>
-        {userId ? <EditUserForm userId={userId} onClose={close} /> : <UserForm defaultRole={defaultRole} onClose={close} onCreated={onCreated} />}
+        {userId ? <EditUserForm userId={userId} onClose={close} /> : <CreateUserForm defaultRole={defaultRole} onClose={close} onCreated={onCreated} />}
       </DialogContent>
     </Dialog>
   )

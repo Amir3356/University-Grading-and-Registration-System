@@ -29,7 +29,7 @@ export const NAVIGATION = {
     { section: 'Overview', items: [{ to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true }] },
     {
       section: 'People',
-      items: [{ to: '/admin/users', label: 'Users', icon: Users }],
+      items: [{ to: '/admin/users', label: 'Account Provision', icon: Users }],
     },
     {
       section: 'Academics',

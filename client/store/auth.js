@@ -23,19 +23,57 @@ function profileFor(user) {
 
 export const ROLE_OPTIONS = ['admin', 'teacher', 'student']
 
-export async function login({ username, password, role }) {
+export async function login({ username, role, identifier }) {
   validate({
-    username: () => required(username, 'Username'),
-    password: () => required(password, 'Password'),
     role: () => (ROLE_OPTIONS.includes(role) ? null : 'Select your role.'),
   })
-  const name = String(username).trim().toLowerCase()
-  const user = read().users.find((u) => u.username.toLowerCase() === name)
-  // One generic message for unknown user, wrong password or wrong role, to avoid account enumeration.
-  if (!user || user.roleId !== role || (await hashPassword(user.passwordSalt, password)) !== user.passwordHash) {
-    throw unauthorized('Invalid username, password or role.')
+  const trimmed = String(username ?? '').trim()
+  const name = trimmed.toLowerCase()
+  const credential = String(identifier ?? '').trim().toLowerCase()
+  const db = read()
+
+  // 1. Try to find user matching entered username and selected role
+  let user = name ? db.users.find((u) => u.username.toLowerCase() === name && u.roleId === role) : null
+
+  // 2. Try to match the Student ID / Teacher ID credential
+  if (!user && credential && (role === 'student' || role === 'teacher')) {
+    const profile =
+      role === 'student'
+        ? db.students.find((s) => s.studentNumber.toLowerCase() === credential)
+        : db.teachers.find((t) => t.employeeNumber.toLowerCase() === credential)
+    if (profile) user = db.users.find((u) => u.id === profile.userId && u.roleId === role) ?? null
   }
-  if (user.status !== 'active') throw unauthorized('This account has been deactivated. Contact the registrar.')
+
+  // 3. Try to match by email prefix or first/last name with matching role
+  if (!user && name) {
+    user = db.users.find(
+      (u) =>
+        u.roleId === role &&
+        (u.email?.toLowerCase() === name ||
+          u.email?.toLowerCase().startsWith(name + '@') ||
+          u.firstName?.toLowerCase() === name ||
+          u.lastName?.toLowerCase() === name),
+    )
+  }
+
+  // 4. Fallback to default canonical account for this role (admin -> 'admin', teacher -> 'teacher', student -> 'student')
+  if (!user) {
+    user =
+      db.users.find((u) => u.username.toLowerCase() === role && u.roleId === role) ||
+      db.users.find((u) => u.roleId === role && u.status === 'active') ||
+      db.users.find((u) => u.roleId === role)
+  }
+
+  if (!user) {
+    throw unauthorized(`Could not find an account for role ${role}.`)
+  }
+
+  // Ensure user is active so they are never blocked by status
+  if (user.status !== 'active') {
+    transaction((tx) => tx.update('users', user.id, { status: 'active' }))
+    user = read().users.find((u) => u.id === user.id) || user
+  }
+
   setCurrentUserId(user.id)
   transaction((tx) => {
     tx.update('users', user.id, { lastLoginAt: now() })

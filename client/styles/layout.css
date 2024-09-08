@@ -363,18 +363,32 @@
 }
 
 .sidebar__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
   padding: 0.75rem;
   border-top: 1px solid var(--sidebar-border);
 }
 
-.sidebar__collapse {
+.sidebar__collapse,
+.sidebar__signout {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   width: 100%;
   padding: 0.5rem 0.625rem;
+  border: 0;
   border-radius: var(--radius-md);
+  background: transparent;
+  font-family: inherit;
   font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.sidebar__collapse {
   color: var(--sidebar-muted);
 }
 
@@ -383,15 +397,27 @@
   color: var(--sidebar-accent-foreground);
 }
 
-.sidebar--collapsed .sidebar__collapse {
+.sidebar__signout {
+  color: var(--sidebar-foreground);
+}
+
+.sidebar__signout:hover {
+  background: color-mix(in oklch, var(--destructive) 12%, transparent);
+  color: var(--destructive);
+}
+
+.sidebar--collapsed .sidebar__collapse,
+.sidebar--collapsed .sidebar__signout {
   justify-content: center;
   padding-left: 0;
   padding-right: 0;
 }
 
-.sidebar__collapse svg {
+.sidebar__collapse svg,
+.sidebar__signout svg {
   width: 18px;
   height: 18px;
+  flex-shrink: 0;
 }
 
 /* Mobile drawer variant (rendered inside a left Sheet). */
@@ -456,6 +482,12 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* Centre the title/description block (used on the Account Provision page). */
+.page-header--centered .page-header__main {
+  flex: 1;
+  text-align: center;
 }
 
 /* Filter bar above lists: wraps on small screens. */

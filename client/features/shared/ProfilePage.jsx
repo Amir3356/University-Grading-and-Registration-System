@@ -46,7 +46,7 @@ export function ProfilePage() {
           <AlertDescription>You're using a temporary password. Please choose a new password below.</AlertDescription>
         </Alert>
       )}
-      <div className="grid grid--lg-gap grid--side-main">
+      <div className="stack stack--lg">
         <Card>
           <CardContent className="stack stack--lg">
             <div className="cluster cluster--lg cluster--nowrap">
@@ -82,79 +82,77 @@ export function ProfilePage() {
           </CardContent>
         </Card>
 
-        <div className="stack stack--lg">
-          <Card>
-            <CardHeader>
-              <div>
-                <CardTitle>Personal information</CardTitle>
-                <CardDescription>Your username, email and university ID can only be changed by the registrar.</CardDescription>
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Personal information</CardTitle>
+              <CardDescription>Your username, email and university ID can only be changed by the registrar.</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form
+              className="form-grid"
+              onSubmit={(e) => {
+                e.preventDefault()
+                save(form)
+              }}
+            >
+              <FormField label="First name" required error={saveState.fieldErrors?.firstName}>
+                <Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} autoComplete="given-name" />
+              </FormField>
+              <FormField label="Last name" required error={saveState.fieldErrors?.lastName}>
+                <Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} autoComplete="family-name" />
+              </FormField>
+              <FormField label="Username">
+                <Input value={user.username} disabled />
+              </FormField>
+              <FormField label="Email">
+                <Input value={user.email} disabled />
+              </FormField>
+              <FormField label="Phone">
+                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} autoComplete="tel" />
+              </FormField>
+              <div className="span-all">
+                <Button type="submit" loading={saveState.loading}>
+                  Save changes
+                </Button>
               </div>
-            </CardHeader>
-            <CardContent>
-              <form
-                className="form-grid"
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  save(form)
-                }}
-              >
-                <FormField label="First name" required error={saveState.fieldErrors?.firstName}>
-                  <Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} autoComplete="given-name" />
-                </FormField>
-                <FormField label="Last name" required error={saveState.fieldErrors?.lastName}>
-                  <Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} autoComplete="family-name" />
-                </FormField>
-                <FormField label="Username">
-                  <Input value={user.username} disabled />
-                </FormField>
-                <FormField label="Email">
-                  <Input value={user.email} disabled />
-                </FormField>
-                <FormField label="Phone">
-                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} autoComplete="tel" />
-                </FormField>
-                <div className="span-all">
-                  <Button type="submit" loading={saveState.loading}>
-                    Save changes
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+            </form>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader>
-              <div>
-                <CardTitle>Change password</CardTitle>
-                <CardDescription>At least 8 characters with upper- and lower-case letters and a number.</CardDescription>
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Change password</CardTitle>
+              <CardDescription>At least 8 characters with upper- and lower-case letters and a number.</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form
+              className="form-grid"
+              onSubmit={(e) => {
+                e.preventDefault()
+                changePw(pw).then((r) => r.ok && setUser({ ...user, mustChangePassword: false }))
+              }}
+            >
+              <FormField label="Current password" required error={pwState.fieldErrors?.currentPassword} className="span-all">
+                <Input type="password" autoComplete="current-password" value={pw.currentPassword} onChange={(e) => setPw({ ...pw, currentPassword: e.target.value })} />
+              </FormField>
+              <FormField label="New password" required error={pwState.fieldErrors?.newPassword}>
+                <Input type="password" autoComplete="new-password" value={pw.newPassword} onChange={(e) => setPw({ ...pw, newPassword: e.target.value })} />
+              </FormField>
+              <FormField label="Confirm new password" required error={pwState.fieldErrors?.confirmPassword}>
+                <Input type="password" autoComplete="new-password" value={pw.confirmPassword} onChange={(e) => setPw({ ...pw, confirmPassword: e.target.value })} />
+              </FormField>
+              <div className="span-all">
+                <Button type="submit" variant="outline" loading={pwState.loading}>
+                  <KeyRound /> Update password
+                </Button>
               </div>
-            </CardHeader>
-            <CardContent>
-              <form
-                className="form-grid"
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  changePw(pw).then((r) => r.ok && setUser({ ...user, mustChangePassword: false }))
-                }}
-              >
-                <FormField label="Current password" required error={pwState.fieldErrors?.currentPassword} className="span-all">
-                  <Input type="password" autoComplete="current-password" value={pw.currentPassword} onChange={(e) => setPw({ ...pw, currentPassword: e.target.value })} />
-                </FormField>
-                <FormField label="New password" required error={pwState.fieldErrors?.newPassword}>
-                  <Input type="password" autoComplete="new-password" value={pw.newPassword} onChange={(e) => setPw({ ...pw, newPassword: e.target.value })} />
-                </FormField>
-                <FormField label="Confirm new password" required error={pwState.fieldErrors?.confirmPassword}>
-                  <Input type="password" autoComplete="new-password" value={pw.confirmPassword} onChange={(e) => setPw({ ...pw, confirmPassword: e.target.value })} />
-                </FormField>
-                <div className="span-all">
-                  <Button type="submit" variant="outline" loading={pwState.loading}>
-                    <KeyRound /> Update password
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </>
   )

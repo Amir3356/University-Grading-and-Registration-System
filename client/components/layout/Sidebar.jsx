@@ -1,5 +1,6 @@
-import { GraduationCap, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { GraduationCap, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
@@ -62,17 +63,71 @@ export function Brand({ collapsed }) {
   )
 }
 
+export function SidebarFooter({ collapsed = false, onToggle, onNavigate }) {
+  const { logout } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    onNavigate?.()
+    await logout()
+    toast.success('You have been signed out.')
+    navigate('/login', { replace: true })
+  }
+
+  const collapseBtn = onToggle ? (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="sidebar__collapse"
+      aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+    >
+      {collapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
+      {!collapsed && <span>Collapse</span>}
+    </button>
+  ) : null
+
+  const signoutBtn = (
+    <button
+      type="button"
+      onClick={handleLogout}
+      className="sidebar__signout"
+      aria-label="Sign out"
+    >
+      <LogOut aria-hidden="true" />
+      {!collapsed && <span>Sign out</span>}
+    </button>
+  )
+
+  return (
+    <div className="sidebar__footer">
+      {collapseBtn && (
+        collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>{collapseBtn}</TooltipTrigger>
+            <TooltipContent side="right">Expand sidebar</TooltipContent>
+          </Tooltip>
+        ) : (
+          collapseBtn
+        )
+      )}
+      {collapsed ? (
+        <Tooltip>
+          <TooltipTrigger asChild>{signoutBtn}</TooltipTrigger>
+          <TooltipContent side="right">Sign out</TooltipContent>
+        </Tooltip>
+      ) : (
+        signoutBtn
+      )}
+    </div>
+  )
+}
+
 export function Sidebar({ collapsed, onToggle, badges }) {
   return (
     <aside className={cn('sidebar no-print', collapsed && 'sidebar--collapsed')} aria-label="Sidebar">
       <Brand collapsed={collapsed} />
       <SidebarNav collapsed={collapsed} badges={badges} />
-      <div className="sidebar__footer">
-        <button type="button" onClick={onToggle} className="sidebar__collapse" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-          {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
-          {!collapsed && 'Collapse'}
-        </button>
-      </div>
+      <SidebarFooter collapsed={collapsed} onToggle={onToggle} />
     </aside>
   )
 }

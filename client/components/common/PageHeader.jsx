@@ -1,9 +1,10 @@
 import { ChevronLeft } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { cn } from '@/lib/utils'
 
-export function PageHeader({ title, description, actions, backTo, backLabel = 'Back', children }) {
+export function PageHeader({ title, description, actions, backTo, backLabel = 'Back', centered = false, children }) {
   return (
-    <div className="page-header">
+    <div className={cn('page-header', centered && 'page-header--centered')}>
       <div className="page-header__main">
         {backTo && (
           <Link to={backTo} className="page-header__back">

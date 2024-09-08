@@ -114,6 +114,9 @@ export const numberIn = (v, min, max, label = 'Value') => {
 // ---------------- Pagination / search ----------------
 export function paginate(items, { page = 1, pageSize = 10 } = {}) {
   const total = items.length
+  if (pageSize === null || pageSize === false || pageSize === 0) {
+    return { items, total, page: 1, pageSize: total, pageCount: 1 }
+  }
   const size = Math.max(1, Math.min(100, Number(pageSize) || 10))
   const pageCount = Math.max(1, Math.ceil(total / size))
   const p = Math.min(Math.max(1, Number(page) || 1), pageCount)
