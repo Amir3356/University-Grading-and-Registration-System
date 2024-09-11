@@ -60,11 +60,19 @@ export function studentProfile(user) {
   return s
 }
 
-/** Teachers may only touch offerings assigned to them; admins may touch any. */
+/** Teachers may only touch offerings assigned to them; admins may touch any; dept heads may access offerings in their department. */
 export function assertOfferingAccess(user, offeringId) {
   const offering = read().courseOfferings.find((o) => o.id === offeringId)
   if (!offering) throw notFound('Course offering')
   if (user.roleId === 'admin') return offering
+  if (user.roleId === 'dept_head') {
+    const db = read()
+    const deptHeadTeacher = db.teachers.find((t) => t.userId === user.id)
+    const course = db.courses.find((c) => c.id === offering.courseId)
+    if (!deptHeadTeacher || !course || course.departmentId === deptHeadTeacher.departmentId || offering.teacherId === deptHeadTeacher.id) {
+      return offering
+    }
+  }
   if (user.roleId === 'teacher' && offering.teacherId === teacherProfile(user).id) return offering
   throw forbidden('This course offering is not assigned to you.')
 }

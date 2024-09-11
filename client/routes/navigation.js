@@ -2,24 +2,19 @@ import {
   Bell,
   BookOpen,
   BookOpenCheck,
-  Building2,
-  CalendarRange,
   ClipboardCheck,
   ClipboardList,
   FileBarChart,
-  FileCheck2,
   FileText,
   GraduationCap,
   LayoutDashboard,
   ListChecks,
   NotebookPen,
   ScrollText,
-  Settings,
   SlidersHorizontal,
   TrendingUp,
   UserCheck,
   UserCircle,
-  UserPlus,
   Users,
 } from 'lucide-react'
 
@@ -34,10 +29,7 @@ export const NAVIGATION = {
     {
       section: 'Academics',
       items: [
-        { to: '/admin/departments', label: 'Departments', icon: Building2 },
         { to: '/admin/courses', label: 'Courses', icon: BookOpen },
-        { to: '/admin/academic-calendar', label: 'Academic Years & Semesters', icon: CalendarRange },
-        { to: '/admin/enrollment', label: 'Student Enrollment', icon: UserPlus },
         { to: '/admin/assignments', label: 'Teacher Assignments', icon: UserCheck },
       ],
     },
@@ -45,15 +37,39 @@ export const NAVIGATION = {
       section: 'Grading',
       items: [
         { to: '/admin/grading-policies', label: 'Grading Policies', icon: SlidersHorizontal },
-        { to: '/admin/grade-approvals', label: 'Grade Approvals', icon: FileCheck2, badgeKey: 'pendingApprovals' },
-        { to: '/admin/reports', label: 'Reports & Transcripts', icon: FileBarChart },
+        { to: '/admin/reports', label: 'Reports', icon: FileBarChart },
       ],
     },
     {
       section: 'System',
       items: [
         { to: '/admin/audit-logs', label: 'Audit Logs', icon: ScrollText },
-        { to: '/admin/settings', label: 'Settings', icon: Settings },
+      ],
+    },
+  ],
+  dept_head: [
+    { section: 'Overview', items: [{ to: '/dept-head', label: 'Dashboard', icon: LayoutDashboard, end: true }] },
+    {
+      section: 'Department',
+      items: [
+        { to: '/dept-head/courses', label: 'Department Courses', icon: BookOpen },
+        { to: '/dept-head/teachers', label: 'Department Teachers', icon: Users },
+        { to: '/dept-head/students', label: 'Department Students', icon: GraduationCap },
+        { to: '/dept-head/assignments', label: 'Teacher Assignments', icon: UserCheck },
+      ],
+    },
+    {
+      section: 'Grading',
+      items: [
+        { to: '/dept-head/approvals', label: 'Grade Approvals', icon: ClipboardCheck },
+        { to: '/dept-head/reports', label: 'Department Reports', icon: FileBarChart },
+      ],
+    },
+    {
+      section: 'Account',
+      items: [
+        { to: '/notifications', label: 'Notifications', icon: Bell, badgeKey: 'unread' },
+        { to: '/profile', label: 'Profile', icon: UserCircle },
       ],
     },
   ],
@@ -105,4 +121,9 @@ export const NAVIGATION = {
   ],
 }
 
-export const HOME_BY_ROLE = { admin: '/admin', teacher: '/teacher', student: '/student' }
+export const HOME_BY_ROLE = {
+  admin: '/admin',
+  dept_head: '/dept-head',
+  teacher: '/teacher',
+  student: '/student',
+}

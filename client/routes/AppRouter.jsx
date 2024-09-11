@@ -34,6 +34,14 @@ const GradeSheetPage = page(() => import('@/features/admin/reports/GradeSheetPag
 const AuditLogsPage = page(() => import('@/features/admin/audit/AuditLogsPage'), 'AuditLogsPage')
 const SettingsPage = page(() => import('@/features/admin/settings/SettingsPage'), 'SettingsPage')
 
+// Department Head
+const DeptHeadDashboardPage = page(() => import('@/features/dept-head/DeptHeadDashboardPage'), 'DeptHeadDashboardPage')
+const DeptCoursesPage = page(() => import('@/features/dept-head/DeptCoursesPage'), 'DeptCoursesPage')
+const DeptTeachersPage = page(() => import('@/features/dept-head/DeptTeachersPage'), 'DeptTeachersPage')
+const DeptStudentsPage = page(() => import('@/features/dept-head/DeptStudentsPage'), 'DeptStudentsPage')
+const DeptApprovalsPage = page(() => import('@/features/dept-head/DeptApprovalsPage'), 'DeptApprovalsPage')
+const DeptReportsPage = page(() => import('@/features/dept-head/DeptReportsPage'), 'DeptReportsPage')
+
 // Teacher
 const TeacherDashboardPage = page(() => import('@/features/teacher/dashboard/TeacherDashboardPage'), 'TeacherDashboardPage')
 const TeacherCoursesPage = page(() => import('@/features/teacher/courses/MyCoursesPage'), 'MyCoursesPage')
@@ -100,6 +108,18 @@ export function AppRouter() {
                 <Route path="/admin/reports/grade-sheet/:offeringId" element={<GradeSheetPage />} />
                 <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
                 <Route path="/admin/settings" element={<SettingsPage />} />
+              </Route>
+
+              <Route element={<ProtectedRoute roles={['dept_head']} />}>
+                <Route path="/dept-head" element={<DeptHeadDashboardPage />} />
+                <Route path="/dept-head/courses" element={<DeptCoursesPage />} />
+                <Route path="/dept-head/teachers" element={<DeptTeachersPage />} />
+                <Route path="/dept-head/students" element={<DeptStudentsPage />} />
+                <Route path="/dept-head/assignments" element={<AssignmentsPage />} />
+                <Route path="/dept-head/approvals" element={<DeptApprovalsPage />} />
+                <Route path="/dept-head/approvals/:requestId" element={<ApprovalDetailPage />} />
+                <Route path="/dept-head/reports" element={<DeptReportsPage />} />
+                <Route path="/dept-head/reports/grade-sheet/:offeringId" element={<GradeSheetPage />} />
               </Route>
 
               <Route element={<ProtectedRoute roles={['teacher']} />}>

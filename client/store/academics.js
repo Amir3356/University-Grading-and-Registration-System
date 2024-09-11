@@ -21,36 +21,99 @@ export function listDepartments({ search } = {}) {
   requireRole('admin')
   const db = read()
   return db.departments
-    .filter((d) => matches(search, d.name, d.code))
-    .map((d) => ({
-      ...d,
-      head: teacherView(db.teachers.find((t) => t.id === d.headTeacherId)),
-      courseCount: db.courses.filter((c) => c.departmentId === d.id).length,
-      teacherCount: db.teachers.filter((t) => t.departmentId === d.id).length,
-      studentCount: db.students.filter((s) => s.departmentId === d.id).length,
-    }))
+    .filter((d) => matches(search, d.name, d.code, d.headName))
+    .map((d) => {
+      const headTeacher = db.teachers.find((t) => t.id === d.headTeacherId)
+      const head = headTeacher ? teacherView(headTeacher) : (d.headName ? { name: d.headName } : null)
+      return {
+        ...d,
+        head,
+        courseCount: db.courses.filter((c) => c.departmentId === d.id).length,
+        teacherCount: db.teachers.filter((t) => t.departmentId === d.id).length,
+        studentCount: db.students.filter((s) => s.departmentId === d.id).length,
+      }
+    })
     .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+function generateDepartmentCode(name) {
+  const clean = String(name ?? '').trim()
+  if (!clean) return 'DEPT'
+  const words = clean.split(/\s+/).filter(Boolean)
+  let baseCode =
+    words.length > 1
+      ? words.map((w) => w[0]).join('').toUpperCase()
+      : clean.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase()
+  if (baseCode.length < 2) baseCode = (baseCode + 'XX').slice(0, 2)
+  if (baseCode.length > 6) baseCode = baseCode.slice(0, 6)
+
+  const existing = new Set(read().departments.map((d) => d.code))
+  if (!existing.has(baseCode)) return baseCode
+  for (let i = 1; i <= 99; i++) {
+    const candidate = `${baseCode.slice(0, 4)}${i}`
+    if (!existing.has(candidate)) return candidate
+  }
+  return baseCode
 }
 
 function validateDepartment(data, ignoreId) {
   validate({
     code: () =>
       required(data.code, 'Code') ||
-      (!/^[A-Z]{2,6}$/.test(String(data.code).trim().toUpperCase()) ? 'Use 2–6 letters.' : null) ||
+      (!/^[A-Z0-9]{2,6}$/.test(String(data.code).trim().toUpperCase()) ? 'Use 2–6 alphanumeric characters.' : null) ||
       (read().departments.some((d) => d.code === data.code.trim().toUpperCase() && d.id !== ignoreId) ? 'Code already exists.' : null),
-    name: () => required(data.name, 'Name'),
+    name: () => required(data.name || data.departmentName, 'Department Name'),
     headTeacherId: () =>
-      data.headTeacherId && !read().teachers.some((t) => t.id === data.headTeacherId && (!ignoreId || t.departmentId === ignoreId))
-        ? 'Head must be a teacher in this department.'
+      data.headTeacherId && !read().teachers.some((t) => t.id === data.headTeacherId)
+        ? 'Head must be a valid teacher.'
         : null,
   })
 }
 
 export function createDepartment(data) {
   const actor = requireRole('admin')
-  validateDepartment({ ...data, headTeacherId: null })
+  const name = String(data.name || data.departmentName || '').trim()
+  const code = String(data.code?.trim() || generateDepartmentCode(name)).toUpperCase()
+  const headName = String(data.headOfDepartment || data.headName || '').trim()
+  let headTeacherId = data.headTeacherId || null
+
+  if (headName && !headTeacherId) {
+    const match = read().teachers.find((t) => {
+      const view = teacherView(t)
+      return (
+        view?.name?.toLowerCase() === headName.toLowerCase() ||
+        `${view?.user?.firstName} ${view?.user?.lastName}`.toLowerCase() === headName.toLowerCase()
+      )
+    })
+    if (match) headTeacherId = match.id
+  }
+
+  validateDepartment({ ...data, name, code, headTeacherId })
   return transaction((tx) => {
-    const d = tx.insert('departments', { id: newId('dep'), code: data.code.trim().toUpperCase(), name: data.name.trim(), description: data.description?.trim() ?? '', headTeacherId: null, createdAt: now(), updatedAt: now() })
+    const d = tx.insert('departments', {
+      id: newId('dep'),
+      code,
+      name,
+      description: data.description?.trim() ?? '',
+      headTeacherId,
+      headName: headName || null,
+      createdAt: now(),
+      updatedAt: now(),
+    })
+
+    if (headTeacherId) {
+      tx.update('teachers', headTeacherId, { departmentId: d.id })
+    }
+    if (data.teacherId && data.teacherId !== headTeacherId) {
+      tx.update('teachers', data.teacherId, { departmentId: d.id })
+    }
+    if (data.courseId) {
+      tx.update('courses', data.courseId, { departmentId: d.id })
+    }
+    if (data.studentId) {
+      tx.update('students', data.studentId, { departmentId: d.id })
+    }
+
     audit(tx, actor, { action: 'department.created', entityType: 'department', entityId: d.id, details: `Created department ${d.name}` })
     return d
   })
@@ -60,9 +123,49 @@ export function updateDepartment(id, data) {
   const actor = requireRole('admin')
   const dep = read().departments.find((d) => d.id === id)
   if (!dep) throw notFound('Department')
-  validateDepartment(data, id)
+
+  const name = String(data.name || data.departmentName || dep.name).trim()
+  const code = String(data.code?.trim() || dep.code).toUpperCase()
+  const headName =
+    data.headOfDepartment !== undefined || data.headName !== undefined
+      ? String(data.headOfDepartment ?? data.headName ?? '').trim()
+      : (dep.headName ?? '')
+  let headTeacherId = data.headTeacherId !== undefined ? (data.headTeacherId || null) : dep.headTeacherId
+
+  if (headName && !headTeacherId) {
+    const match = read().teachers.find((t) => {
+      const view = teacherView(t)
+      return (
+        view?.name?.toLowerCase() === headName.toLowerCase() ||
+        `${view?.user?.firstName} ${view?.user?.lastName}`.toLowerCase() === headName.toLowerCase()
+      )
+    })
+    if (match) headTeacherId = match.id
+  }
+
+  validateDepartment({ ...data, name, code, headTeacherId }, id)
   return transaction((tx) => {
-    const d = tx.update('departments', id, { code: data.code.trim().toUpperCase(), name: data.name.trim(), description: data.description?.trim() ?? '', headTeacherId: data.headTeacherId || null })
+    const d = tx.update('departments', id, {
+      code,
+      name,
+      description: data.description?.trim() ?? dep.description ?? '',
+      headTeacherId,
+      headName: headName || null,
+    })
+
+    if (headTeacherId) {
+      tx.update('teachers', headTeacherId, { departmentId: id })
+    }
+    if (data.teacherId && data.teacherId !== headTeacherId) {
+      tx.update('teachers', data.teacherId, { departmentId: id })
+    }
+    if (data.courseId) {
+      tx.update('courses', data.courseId, { departmentId: id })
+    }
+    if (data.studentId) {
+      tx.update('students', data.studentId, { departmentId: id })
+    }
+
     audit(tx, actor, { action: 'department.updated', entityType: 'department', entityId: id, details: `Updated department ${d.name}`, before: { name: dep.name, code: dep.code }, after: { name: d.name, code: d.code } })
     return d
   })
@@ -85,7 +188,7 @@ export function deleteDepartment(id) {
 
 // ---------------- Courses ----------------
 export function listCourses({ search, departmentId, status, page, pageSize, sort } = {}) {
-  requireRole('admin')
+  requireRole('admin', 'dept_head')
   const db = read()
   let items = db.courses
     .filter((c) => (!departmentId || c.departmentId === departmentId) && (!status || c.status === status))
@@ -124,7 +227,7 @@ function validateCourse(data, ignoreId) {
       required(data.code, 'Course code') ||
       (!/^[A-Z]{2,6}\d{3}[A-Z]?$/.test(String(data.code).trim().toUpperCase()) ? 'Use a format like CS101.' : null) ||
       (read().courses.some((c) => c.code === data.code.trim().toUpperCase() && c.id !== ignoreId) ? 'Course code already exists.' : null),
-    title: () => required(data.title, 'Title'),
+    title: () => required(data.title || data.courseName, 'Course Name'),
     departmentId: () => {
       const depVal = String(data.departmentId || data.department || '').trim()
       if (!depVal) return 'Department is required.'
@@ -326,7 +429,7 @@ export function deleteSemester(id) {
 
 // ---------------- Course offerings / teacher assignments ----------------
 export function listOfferings({ semesterId, departmentId, teacherId, gradeStatus, search, page, pageSize, sort } = {}) {
-  requireRole('admin')
+  requireRole('admin', 'dept_head')
   let items = read()
     .courseOfferings.map(offeringView)
     .filter(
@@ -343,7 +446,7 @@ export function listOfferings({ semesterId, departmentId, teacherId, gradeStatus
 }
 
 export function getOfferingAdmin(id) {
-  requireRole('admin')
+  requireRole('admin', 'dept_head')
   const o = read().courseOfferings.find((x) => x.id === id)
   if (!o) throw notFound('Course offering')
   return offeringView(o)
@@ -370,7 +473,7 @@ function validateOffering(data, ignoreId) {
 }
 
 export function createOffering(data) {
-  const actor = requireRole('admin')
+  const actor = requireRole('admin', 'dept_head')
   validateOffering(data)
   const sem = read().semesters.find((s) => s.id === data.semesterId)
   if (sem.status === 'closed') throw conflict('Offerings cannot be added to a closed semester.')
@@ -397,7 +500,7 @@ export function createOffering(data) {
 }
 
 export function updateOffering(id, data) {
-  const actor = requireRole('admin')
+  const actor = requireRole('admin', 'dept_head')
   const existing = read().courseOfferings.find((o) => o.id === id)
   if (!existing) throw notFound('Course offering')
   validateOffering({ ...data, courseId: existing.courseId, semesterId: existing.semesterId }, id)
@@ -423,7 +526,7 @@ export function updateOffering(id, data) {
 }
 
 export function deleteOffering(id) {
-  const actor = requireRole('admin')
+  const actor = requireRole('admin', 'dept_head')
   const o = read().courseOfferings.find((x) => x.id === id)
   if (!o) throw notFound('Course offering')
   if (read().courseEnrollments.some((e) => e.offeringId === id)) throw conflict('Remove all enrolled students before deleting this offering.')
@@ -523,7 +626,7 @@ export function removeEnrollment(enrollmentId) {
 }
 
 export function listTeachers({ departmentId } = {}) {
-  requireRole('admin')
+  requireRole('admin', 'dept_head')
   const db = read()
   return db.teachers
     .filter((t) => !departmentId || t.departmentId === departmentId)

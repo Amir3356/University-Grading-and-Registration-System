@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, ArchiveRestore, BookOpen, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
+import { BookOpen, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -8,10 +8,10 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { DataTable } from '@/components/common/DataTable'
 import { FormField } from '@/components/common/FormField'
 import { PageHeader } from '@/components/common/PageHeader'
-import { StatusBadge } from '@/components/common/StatusBadge'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery, useMutation } from '@/hooks/useStore'
 import { store } from '@/store'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SelectField } from '../users/SelectField'
 
 const STATUS_OPTIONS = [
@@ -31,7 +31,7 @@ function CourseForm({ course, onClose }) {
   const [form, setForm] = useState({
     code: course?.code ?? '',
     title: course?.title ?? '',
-    department: initialDept,
+    departmentId: course?.departmentId || lookups?.departments?.find((d) => d.name === initialDept)?.id || '',
     creditHours: String(course?.creditHours ?? 3),
     status: course?.status ?? 'active',
   })
@@ -56,7 +56,8 @@ function CourseForm({ course, onClose }) {
         const data = {
           code: form.code,
           title: form.title,
-          department: form.department,
+          department: form.departmentId || form.department,
+          departmentId: form.departmentId,
           creditHours: form.creditHours,
           level: autoLevel,
           description: course?.description ?? '',
@@ -69,23 +70,26 @@ function CourseForm({ course, onClose }) {
         <FormField label="Code" required error={fe.code} hint="e.g. CS101">
           <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} maxLength={10} />
         </FormField>
-        <FormField label="Title" required error={fe.title}>
-          <Input value={form.title} onChange={set('title')} />
+        <FormField label="Course Name" required error={fe.title || fe.courseName}>
+          <Input value={form.title} onChange={set('title')} placeholder="e.g. Introduction to Programming" />
         </FormField>
       </div>
 
       <FormField label="Department" required error={fe.departmentId || fe.department}>
-        <Input
-          value={form.department}
-          onChange={set('department')}
-          placeholder="e.g. Computer Science"
-          list="course-department-list"
-        />
-        <datalist id="course-department-list">
-          {(lookups?.departments ?? []).map((d) => (
-            <option key={d.id} value={d.name} />
-          ))}
-        </datalist>
+        <Select value={form.departmentId} onValueChange={(v) => setForm((f) => ({ ...f, departmentId: v }))}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select a department" />
+          </SelectTrigger>
+          <SelectContent>
+            {(lookups?.departments ?? [])
+              .filter((d) => d.status === 'active')
+              .map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.name}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
       </FormField>
 
       <div className={isEdit ? 'grid gap-4 sm:grid-cols-2' : undefined}>
@@ -124,18 +128,12 @@ export function CoursesPage() {
   const [dialog, setDialog] = useState({ open: false, course: null })
   const [deleting, setDeleting] = useState(null)
   const [remove] = useMutation((id) => store.academics.deleteCourse(id), { success: 'Course deleted.' })
-  const [setCourseStatus] = useMutation((c, next) => store.academics.updateCourse(c.id, { ...c, status: next }), {
-    success: (_r, c, next) => (next === 'archived' ? `${c.code} archived.` : `${c.code} restored.`),
-  })
 
   const columns = [
     { key: 'code', header: 'Code', cell: (c) => <span className="font-medium">{c.code}</span> },
-    { key: 'title', header: 'Title', cell: (c) => <span className="block max-w-xs truncate whitespace-normal">{c.title}</span> },
+    { key: 'title', header: 'Course Name', cell: (c) => <span className="block max-w-xs truncate whitespace-normal">{c.title}</span> },
     { key: 'departmentName', header: 'Department' },
     { key: 'creditHours', header: 'Credits', align: 'right' },
-    { key: 'level', header: 'Level', align: 'right' },
-    { key: 'offeringCount', header: 'Offerings', align: 'right' },
-    { key: 'status', header: 'Status', cell: (c) => <StatusBadge status={c.status} label={c.status === 'archived' ? 'Archived' : undefined} /> },
     {
       key: 'actions',
       header: '',
@@ -154,15 +152,6 @@ export function CoursesPage() {
             <DropdownMenuItem onSelect={() => setDialog({ open: true, course: c })}>
               <Pencil /> Edit
             </DropdownMenuItem>
-            {c.status === 'active' ? (
-              <DropdownMenuItem onSelect={() => setCourseStatus(c, 'archived')}>
-                <Archive /> Archive
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem onSelect={() => setCourseStatus(c, 'active')}>
-                <ArchiveRestore /> Restore
-              </DropdownMenuItem>
-            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(c)}>
               <Trash2 /> Delete
@@ -178,6 +167,7 @@ export function CoursesPage() {
       <PageHeader
         title="Courses"
         description="The course catalogue. Courses are offered each semester through teacher assignments."
+        centered
         actions={
           <Button onClick={() => setDialog({ open: true, course: null })}>
             <Plus /> Add course

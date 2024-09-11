@@ -49,8 +49,8 @@
  },
  {
   "id": "usr_0004",
-  "roleId": "teacher",
-  "username": "tewodros.assefa",
+  "roleId": "dept_head",
+  "username": "dept_head",
   "firstName": "Tewodros",
   "lastName": "Assefa",
   "email": "tewodros.assefa@university.edu",

@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { DataTable } from '@/components/common/DataTable'
 import { FormField } from '@/components/common/FormField'
@@ -19,21 +18,46 @@ const NONE = '__none__'
 function DepartmentForm({ department, onClose }) {
   const lookups = useLookups()
   const isEdit = Boolean(department)
+
+  const currentCourse = isEdit ? (lookups?.courses ?? []).find((c) => c.departmentId === department.id) : null
+  const currentTeacher = isEdit ? (lookups?.teachers ?? []).find((t) => t.departmentId === department.id && t.id !== department.headTeacherId) : null
+  const currentStudent = isEdit ? (lookups?.students ?? []).find((s) => s.departmentId === department.id) : null
+
   const [form, setForm] = useState({
-    code: department?.code ?? '',
     name: department?.name ?? '',
-    description: department?.description ?? '',
-    headTeacherId: department?.headTeacherId ?? NONE,
+    headOfDepartment: department?.head?.name || department?.headName || '',
+    courseId: currentCourse?.id ?? NONE,
+    teacherId: currentTeacher?.id ?? NONE,
+    studentId: currentStudent?.id ?? NONE,
   })
+
   const [save, { loading, fieldErrors }] = useMutation(
     (data) => (isEdit ? store.academics.updateDepartment(department.id, data) : store.academics.createDepartment(data)),
     { success: isEdit ? 'Department updated.' : 'Department created.', onSuccess: onClose },
   )
   const fe = fieldErrors ?? {}
-  const teachers = (lookups?.teachers ?? []).filter((t) => t.departmentId === department?.id)
-  const headOptions = [{ value: NONE, label: 'No head assigned' }, ...teachers.map((t) => ({ value: t.id, label: t.name }))]
-  // Keep the current head selectable even if their account is no longer active.
-  if (department?.head && !teachers.some((t) => t.id === department.headTeacherId)) headOptions.push({ value: department.headTeacherId, label: department.head.name })
+
+  const allTeachers = lookups?.teachers ?? []
+  const allCourses = lookups?.courses ?? []
+  const allStudents = lookups?.students ?? []
+
+  const courseOptions = [
+    { value: NONE, label: 'No course assigned' },
+    ...allCourses.map((c) => ({ value: c.id, label: `${c.code} — ${c.title}` })),
+  ]
+
+  const teacherOptions = [
+    { value: NONE, label: 'No teacher assigned' },
+    ...allTeachers.map((t) => ({ value: t.id, label: t.name })),
+  ]
+
+  const studentOptions = [
+    { value: NONE, label: 'No student assigned' },
+    ...allStudents.map((s) => ({
+      value: s.id,
+      label: s.name ? `${s.name}${s.studentNumber ? ` (${s.studentNumber})` : ''}` : (s.studentNumber || s.id),
+    })),
+  ]
 
   return (
     <form
@@ -41,30 +65,60 @@ function DepartmentForm({ department, onClose }) {
       noValidate
       onSubmit={(e) => {
         e.preventDefault()
-        save({ ...form, headTeacherId: form.headTeacherId === NONE ? null : form.headTeacherId })
+        save({
+          name: form.name,
+          headOfDepartment: form.headOfDepartment,
+          headName: form.headOfDepartment,
+          courseId: form.courseId === NONE ? null : form.courseId,
+          teacherId: form.teacherId === NONE ? null : form.teacherId,
+          studentId: form.studentId === NONE ? null : form.studentId,
+        })
       }}
     >
-      <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
-        <FormField label="Code" required error={fe.code} hint="2–6 letters">
-          <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} maxLength={6} />
-        </FormField>
-        <FormField label="Name" required error={fe.name}>
-          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        </FormField>
-      </div>
-      <FormField label="Description" error={fe.description}>
-        <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
-      </FormField>
-      {isEdit && (
-        <SelectField
-          label="Head of department"
-          value={form.headTeacherId}
-          onChange={(v) => setForm({ ...form, headTeacherId: v })}
-          options={headOptions}
-          error={fe.headTeacherId}
-          hint={teachers.length ? 'Only active teachers in this department can be selected.' : 'This department has no active teachers yet.'}
+      <FormField label="Department Name" required error={fe.name}>
+        <Input
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          placeholder="e.g. Computer Science"
+          autoFocus
         />
-      )}
+      </FormField>
+
+      <FormField label="Head of Department" error={fe.headOfDepartment || fe.headTeacherId}>
+        <Input
+          value={form.headOfDepartment}
+          onChange={(e) => setForm({ ...form, headOfDepartment: e.target.value })}
+          placeholder="e.g. Dr. Jane Smith"
+        />
+      </FormField>
+
+      <SelectField
+        label="Course"
+        value={form.courseId}
+        onChange={(v) => setForm({ ...form, courseId: v })}
+        options={courseOptions}
+        error={fe.courseId}
+        placeholder="Choose a course"
+      />
+
+      <SelectField
+        label="Teacher"
+        value={form.teacherId}
+        onChange={(v) => setForm({ ...form, teacherId: v })}
+        options={teacherOptions}
+        error={fe.teacherId}
+        placeholder="Choose a teacher"
+      />
+
+      <SelectField
+        label="Student"
+        value={form.studentId}
+        onChange={(v) => setForm({ ...form, studentId: v })}
+        options={studentOptions}
+        error={fe.studentId}
+        placeholder="Choose a student"
+      />
+
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
           Cancel
@@ -78,7 +132,6 @@ function DepartmentForm({ department, onClose }) {
 }
 
 export function DepartmentsPage() {
-  const lookups = useLookups()
   const { data, loading, error, refetch } = useQuery(() => store.academics.listDepartments(), [])
   const [dialog, setDialog] = useState({ open: false, department: null })
   const [deleting, setDeleting] = useState(null)
@@ -131,11 +184,11 @@ export function DepartmentsPage() {
   return (
     <>
       <PageHeader
-        title="Departments"
-        description="Academic departments, their heads and size."
+        title="Department Management"
+        description="Academic departments, their heads, courses, teachers, and students."
         actions={
           <Button onClick={() => setDialog({ open: true, department: null })}>
-            <Plus /> Add department
+            <Plus /> Add Department
           </Button>
         }
       />
@@ -145,10 +198,7 @@ export function DepartmentsPage() {
         loading={loading}
         error={error}
         onRetry={refetch}
-        searchPlaceholder="Search departments…"
-        exportName="departments"
-        exportTitle="Departments"
-        university={lookups?.university}
+        searchable={false}
         initialSort={{ key: 'name', dir: 'asc' }}
         emptyIcon={Building2}
         emptyTitle="No departments yet"
@@ -158,8 +208,12 @@ export function DepartmentsPage() {
       <Dialog open={dialog.open} onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{dialog.department ? 'Edit department' : 'Add department'}</DialogTitle>
-            <DialogDescription>{dialog.department ? 'Update details and assign a head of department.' : 'You can assign a head of department once teachers have joined it.'}</DialogDescription>
+            <DialogTitle>{dialog.department ? 'Edit Department' : 'Add Department'}</DialogTitle>
+            <DialogDescription>
+              {dialog.department
+                ? 'Update department details and assignments.'
+                : 'Enter department details and assign head of department, course, teacher, or student.'}
+            </DialogDescription>
           </DialogHeader>
           <DepartmentForm key={dialog.department?.id ?? 'new'} department={dialog.department} onClose={() => setDialog((d) => ({ ...d, open: false }))} />
         </DialogContent>

@@ -33,7 +33,6 @@ export function UserMenu() {
       <DropdownMenuContent align="end" className="menu--wide">
         <DropdownMenuLabel>
           <span className="truncate block">{fullName(user)}</span>
-          <span className="block truncate text-xs text-muted" style={{ fontWeight: 400 }}>{user?.email}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={handleLogout}>

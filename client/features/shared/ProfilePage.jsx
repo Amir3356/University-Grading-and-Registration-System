@@ -55,7 +55,6 @@ export function ProfilePage() {
               </Avatar>
               <div className="grow">
                 <p className="truncate text-lg font-semibold">{profile?.title ? `${profile.title} ` : ''}{fullName(user)}</p>
-                <p className="truncate text-sm text-muted">{user.email}</p>
                 <Badge variant="info" className="mt-xs">{ROLE_LABELS[user.roleId]}</Badge>
               </div>
             </div>
@@ -86,7 +85,7 @@ export function ProfilePage() {
           <CardHeader>
             <div>
               <CardTitle>Personal information</CardTitle>
-              <CardDescription>Your username, email and university ID can only be changed by the registrar.</CardDescription>
+              <CardDescription>Your username and university ID can only be changed by the registrar.</CardDescription>
             </div>
           </CardHeader>
           <CardContent>
@@ -105,9 +104,6 @@ export function ProfilePage() {
               </FormField>
               <FormField label="Username">
                 <Input value={user.username} disabled />
-              </FormField>
-              <FormField label="Email">
-                <Input value={user.email} disabled />
               </FormField>
               <FormField label="Phone">
                 <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} autoComplete="tel" />

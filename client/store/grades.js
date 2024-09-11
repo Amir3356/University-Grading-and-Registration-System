@@ -396,10 +396,13 @@ function publishStudents(tx, offeringId, course) {
   }
 }
 
-// ---------------- Approvals (admin) ----------------
+// ---------------- Approvals (admin / dept_head) ----------------
 export function listApprovalRequests({ status, semesterId, search, page, pageSize } = {}) {
-  requireRole('admin')
+  const actor = requireRole('admin', 'dept_head')
   const db = read()
+  const deptTeacher = actor.roleId === 'dept_head' ? db.teachers.find((t) => t.userId === actor.id) : null
+  const deptId = deptTeacher?.departmentId
+
   const items = db.gradeApprovalRequests
     .map((r) => {
       const o = offeringView(db.courseOfferings.find((x) => x.id === r.offeringId))
@@ -413,6 +416,7 @@ export function listApprovalRequests({ status, semesterId, search, page, pageSiz
         offeringStatus: o.gradeStatus,
       }
     })
+    .filter((r) => (!deptId || r.offering.course.departmentId === deptId))
     .filter((r) => (!status || r.status === status) && (!semesterId || r.offering.semesterId === semesterId))
     .filter((r) => matches(search, r.offering.course.code, r.offering.course.title, r.submitterName))
     .sort((a, b) => (b.status === 'pending') - (a.status === 'pending') || b.submittedAt.localeCompare(a.submittedAt))
@@ -420,7 +424,7 @@ export function listApprovalRequests({ status, semesterId, search, page, pageSiz
 }
 
 export function getApprovalRequest(id) {
-  requireRole('admin')
+  requireRole('admin', 'dept_head')
   const db = read()
   const r = db.gradeApprovalRequests.find((x) => x.id === id)
   if (!r) throw notFound('Approval request')
@@ -441,7 +445,7 @@ export function getApprovalRequest(id) {
 }
 
 export function approveGrades(requestId, { comment, publish = false } = {}) {
-  const actor = requireRole('admin')
+  const actor = requireRole('admin', 'dept_head')
   const r = read().gradeApprovalRequests.find((x) => x.id === requestId)
   if (!r) throw notFound('Approval request')
   if (r.status !== 'pending') throw conflict('This request has already been reviewed.')
@@ -469,7 +473,7 @@ export function approveGrades(requestId, { comment, publish = false } = {}) {
 }
 
 export function rejectGrades(requestId, { comment }) {
-  const actor = requireRole('admin')
+  const actor = requireRole('admin', 'dept_head')
   validate({ comment: () => required(comment, 'A reason for rejection') })
   const r = read().gradeApprovalRequests.find((x) => x.id === requestId)
   if (!r) throw notFound('Approval request')

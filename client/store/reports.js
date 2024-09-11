@@ -361,9 +361,9 @@ export function getStudentPerformanceReport(studentId) {
   }
 }
 
-/** Course grade sheet (admin or the assigned teacher). */
+/** Course grade sheet (admin, dept head, or the assigned teacher). */
 export function getCourseGradeSheet(offeringId) {
-  const user = requireRole('admin', 'teacher')
+  const user = requireRole('admin', 'dept_head', 'teacher')
   assertOfferingAccess(user, offeringId)
   const gb = buildGradebook(offeringId)
   return { university: read().settings.university, ...gb, stats: gradebookStats(gb), generatedAt: now() }

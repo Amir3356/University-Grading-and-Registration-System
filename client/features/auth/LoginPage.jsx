@@ -13,6 +13,7 @@ import { HOME_BY_ROLE } from '@/routes/navigation'
 
 const ROLES = [
   { value: 'admin', label: 'Admin' },
+  { value: 'dept_head', label: 'Department Head' },
   { value: 'teacher', label: 'Teacher' },
   { value: 'student', label: 'Student' },
 ]
@@ -76,13 +77,13 @@ export function LoginPage() {
                 </SelectContent>
               </Select>
             </FormField>
-            {form.role === 'student' || form.role === 'teacher' ? (
-              <FormField label={form.role === 'student' ? 'Student ID' : 'Teacher ID'} error={fieldErrors.identifier} required>
+            {form.role === 'student' || form.role === 'teacher' || form.role === 'dept_head' ? (
+              <FormField label={form.role === 'student' ? 'Student ID' : form.role === 'dept_head' ? 'Department ID' : 'Teacher ID'} error={fieldErrors.identifier} required>
                 <Input
                   autoComplete="off"
                   value={form.identifier}
                   onChange={(e) => setForm({ ...form, identifier: e.target.value })}
-                  placeholder={form.role === 'student' ? 'e.g. UGR/26/0001' : 'e.g. EMP-CS-01'}
+                  placeholder={form.role === 'student' ? 'e.g. UGR/26/0001' : form.role === 'dept_head' ? 'e.g. CS or dep_cs' : 'e.g. EMP-CS-02'}
                 />
               </FormField>
             ) : (

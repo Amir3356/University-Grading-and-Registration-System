@@ -1,27 +1,17 @@
 import { useState } from 'react'
-import { FileSpreadsheet, MoreHorizontal, Pencil, Plus, Trash2, UserCheck, UserPlus } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Plus, UserCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { DataTable } from '@/components/common/DataTable'
-import { EmptyState } from '@/components/common/EmptyState'
-import { ErrorState } from '@/components/common/ErrorState'
-import { FilterSelect } from '@/components/common/FilterSelect'
 import { FormField } from '@/components/common/FormField'
-import { TableSkeleton } from '@/components/common/Loading'
 import { PageHeader } from '@/components/common/PageHeader'
-import { GradeStatusBadge } from '@/components/common/StatusBadge'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery, useMutation } from '@/hooks/useStore'
-import { GRADE_STATUS_LABELS } from '@/lib/format'
 import { store } from '@/store'
 import { SelectField } from '../users/SelectField'
 
-const GRADE_STATUS_OPTIONS = Object.entries(GRADE_STATUS_LABELS).map(([value, label]) => ({ value, label }))
 const LOCKED = ['submitted', 'approved', 'published']
 
 const teacherLabel = (t) => `${t.name} — ${t.department?.code ?? '—'}`
@@ -101,13 +91,10 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
         <FormField label="Section" required error={fe.section}>
           <Input value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value.toUpperCase() })} maxLength={4} />
         </FormField>
-        <FormField label="Capacity" required error={fe.capacity}>
-          <Input type="number" min={1} max={500} value={form.capacity} onChange={set('capacity')} />
-        </FormField>
         <FormField label="Room" error={fe.room}>
           <Input value={form.room} onChange={set('room')} placeholder="e.g. CS-144" />
         </FormField>
-        <FormField label="Schedule" error={fe.schedule}>
+        <FormField label="Schedule" error={fe.schedule} className="sm:col-span-2">
           <Input value={form.schedule} onChange={set('schedule')} placeholder="e.g. Tue/Thu 10:30–12:00" />
         </FormField>
       </div>
@@ -123,59 +110,12 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
   )
 }
 
-function TeacherWorkload() {
-  const { data, loading, error, refetch } = useQuery(() => store.academics.listTeachers(), [])
-  const rows = data ? [...data].sort((a, b) => b.offeringCount - a.offeringCount || a.name.localeCompare(b.name)) : []
-  const max = Math.max(1, ...rows.map((t) => t.offeringCount))
-  return (
-    <Card>
-      <CardHeader>
-        <div>
-          <CardTitle>Teacher workload</CardTitle>
-          <CardDescription className="mt-1">Offerings per teacher in the current semester.</CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {loading && !data ? (
-          <TableSkeleton rows={5} cols={1} />
-        ) : error ? (
-          <ErrorState error={error} onRetry={refetch} />
-        ) : !rows.length ? (
-          <EmptyState compact icon={UserCheck} title="No teachers yet" />
-        ) : (
-          <ul className="flex max-h-[32rem] flex-col gap-3 overflow-y-auto pr-1">
-            {rows.map((t) => (
-              <li key={t.id}>
-                <div className="flex items-baseline justify-between gap-2 text-sm">
-                  <span className="min-w-0 truncate">
-                    {t.name}
-                    <span className="ml-1 text-xs text-muted-foreground">{t.department?.code}</span>
-                  </span>
-                  <span className="tabular shrink-0 font-medium">{t.offeringCount}</span>
-                </div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-                  <div className="h-full rounded-full bg-chart-1" style={{ width: `${(t.offeringCount / max) * 100}%` }} />
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
 export function AssignmentsPage() {
-  const navigate = useNavigate()
   const lookups = useLookups()
-  const [semesterChoice, setSemesterChoice] = useState(null)
-  const [departmentId, setDepartmentId] = useState('')
-  const [teacherId, setTeacherId] = useState('')
-  const [gradeStatus, setGradeStatus] = useState('')
-  const semesterId = semesterChoice ?? lookups?.currentSemester?.id ?? ''
+  const semesterId = lookups?.currentSemester?.id ?? ''
   const { data, loading, error, refetch } = useQuery(
-    () => store.academics.listOfferings({ semesterId, departmentId, teacherId, gradeStatus, pageSize: 100 }),
-    [semesterId, departmentId, teacherId, gradeStatus],
+    () => store.academics.listOfferings({ semesterId, pageSize: 100 }),
+    [semesterId],
     { enabled: Boolean(semesterId) },
   )
   const [dialog, setDialog] = useState({ open: false, offering: null })
@@ -206,7 +146,6 @@ export function AssignmentsPage() {
         </div>
       ),
     },
-    { key: 'enrolledCount', header: 'Enrolled', align: 'right', value: (o) => o.enrolledCount, cell: (o) => `${o.enrolledCount}/${o.capacity}` },
     {
       key: 'room',
       header: 'Room / schedule',
@@ -218,42 +157,7 @@ export function AssignmentsPage() {
         </div>
       ),
     },
-    { key: 'gradeStatus', header: 'Grades', value: (o) => GRADE_STATUS_LABELS[o.gradeStatus], cell: (o) => <GradeStatusBadge status={o.gradeStatus} /> },
-    {
-      key: 'actions',
-      header: '',
-      sortable: false,
-      searchable: false,
-      export: false,
-      align: 'right',
-      cell: (o) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${o.course.code} ${o.section}`}>
-              <MoreHorizontal />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => setDialog({ open: true, offering: o })}>
-              <Pencil /> Edit / reassign teacher
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => navigate(`/admin/enrollment?offering=${o.id}`)}>
-              <UserPlus /> Manage enrollment
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => navigate(`/admin/reports/grade-sheet/${o.id}`)}>
-              <FileSpreadsheet /> Grade sheet
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(o)}>
-              <Trash2 /> Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
   ]
-
-  const filtered = departmentId || teacherId || gradeStatus
 
   return (
     <>
@@ -266,52 +170,18 @@ export function AssignmentsPage() {
           </Button>
         }
       />
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
-        <DataTable
-          columns={columns}
-          rows={semesterId ? data?.items : []}
-          loading={loading}
-          error={error}
-          onRetry={refetch}
-          searchPlaceholder="Search course or teacher…"
-          toolbar={
-            <>
-              <FilterSelect
-                value={semesterId}
-                onChange={(v) => setSemesterChoice(v)}
-                options={(lookups?.semesters ?? []).map((s) => ({ value: s.id, label: s.isCurrent ? `${s.name} (current)` : s.name }))}
-                includeAll={false}
-                placeholder="Semester"
-                label="Semester"
-                className="sm:w-52"
-              />
-              <FilterSelect
-                value={departmentId}
-                onChange={setDepartmentId}
-                options={(lookups?.departments ?? []).map((d) => ({ value: d.id, label: d.name }))}
-                allLabel="All departments"
-                label="Filter by department"
-              />
-              <FilterSelect
-                value={teacherId}
-                onChange={setTeacherId}
-                options={(lookups?.teachers ?? []).map((t) => ({ value: t.id, label: t.name })).sort((a, b) => a.label.localeCompare(b.label))}
-                allLabel="All teachers"
-                label="Filter by teacher"
-              />
-              <FilterSelect value={gradeStatus} onChange={setGradeStatus} options={GRADE_STATUS_OPTIONS} allLabel="All grade statuses" label="Filter by grade status" />
-            </>
-          }
-          exportName={`offerings_${semester?.name ?? ''}`}
-          exportTitle={`Course offerings — ${semester?.name ?? ''}`}
-          university={lookups?.university}
-          initialSort={{ key: 'courseCode', dir: 'asc' }}
-          emptyIcon={UserCheck}
-          emptyTitle={filtered ? 'No offerings match these filters' : 'No courses offered in this semester'}
-          emptyDescription={filtered ? 'Try clearing the filters.' : 'Create an offering to assign a teacher to a course.'}
-        />
-        <TeacherWorkload />
-      </div>
+      <DataTable
+        columns={columns}
+        rows={semesterId ? data?.items : []}
+        loading={loading}
+        error={error}
+        onRetry={refetch}
+        searchable={false}
+        sortable={false}
+        emptyIcon={UserCheck}
+        emptyTitle="No courses offered in this semester"
+        emptyDescription="Create an offering to assign a teacher to a course."
+      />
 
       <Dialog open={dialog.open} onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">

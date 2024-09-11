@@ -1,6 +1,6 @@
 import { read } from './db'
 import { currentUser } from './helpers'
-import { courseView, currentSemester, getActiveScale, getPolicy, semesterView, teacherView } from './selectors'
+import { courseView, currentSemester, getActiveScale, getPolicy, semesterView, studentView, teacherView } from './selectors'
 
 /** Reference data needed by forms and filters across the app. */
 export function getLookups() {
@@ -19,6 +19,7 @@ export function getLookups() {
   if (user.roleId === 'admin') {
     base.courses = db.courses.map(courseView)
     base.teachers = db.teachers.map(teacherView).filter((t) => t.user?.status === 'active')
+    base.students = db.students.map(studentView).filter((s) => s.user?.status === 'active')
   }
   return base
 }

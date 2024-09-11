@@ -32,6 +32,7 @@ export function DataTable({
   onRowClick,
   searchPlaceholder = 'Search…',
   searchable = true,
+  sortable = true,
   toolbar,
   exportName,
   exportTitle,
@@ -125,7 +126,7 @@ export function DataTable({
             <TableHeader>
               <TableRow>
                 {columns.map((c) => {
-                  const sortable = c.sortable !== false && c.header
+                  const isSortable = sortable !== false && c.sortable !== false && c.header
                   const active = sort?.key === c.key
                   return (
                     <TableHead
@@ -133,7 +134,7 @@ export function DataTable({
                       className={cn(c.align === 'right' && 'num', c.align === 'center' && 'center', c.headerClassName)}
                       aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
                     >
-                      {sortable ? (
+                      {isSortable ? (
                         <button
                           type="button"
                           onClick={() => toggleSort(c.key)}

@@ -1,0 +1,351 @@
+# Website Development Prompt: University Grading System
+
+## 1. Project Overview
+
+Build a modern, responsive, secure, and user-friendly **University Grading Management System** that allows universities to manage students, departments, courses, teachers, examinations, grades, and academic results from one centralized platform.
+
+The system must support four main actors: **System Administrator, Department Head, Teacher, and Student**. Each actor must have a dedicated dashboard, role-based permissions, and access only to the features authorized for their role.
+
+## 2. Technology Stack
+
+- **Frontend:** React.js with Vite
+- **Styling:** Tailwind CSS and shadcn/ui
+- **Routing:** React Router
+- **Charts:** Recharts
+- **Backend:** Node.js with Express.js
+- **Database:** PostgreSQL
+- **Authentication:** JWT-based authentication with secure password hashing
+- **API:** RESTful APIs
+- **Validation:** Zod or an equivalent validation library
+
+Use a clean feature-based folder structure. Separate the frontend client and backend server into `client/` and `server/` directories.
+
+## 3. Actors and Responsibilities
+
+### A. System Administrator
+
+The System Administrator manages the entire university grading platform.
+
+**Features:**
+- Dashboard displaying total students, teachers, departments, courses, and active semesters.
+- Create, update, view, and deactivate student and teacher accounts.
+- Create and manage academic departments.
+- Create and manage courses and course codes.
+- Assign Department Heads to departments.
+- Assign teachers to courses and academic semesters.
+- Register students and organize them by department, year, and semester.
+- Configure the academic grading scale, pass marks, GPA rules, and credit hours.
+- Manage academic years, semesters, and examination periods.
+- View university-wide academic performance reports.
+- Manage user roles, permissions, and account status.
+- View audit logs showing important actions performed by users.
+- Configure system settings and grading policies.
+
+### B. Department Head
+
+The Department Head supervises academic activities within their assigned department.
+
+**Features:**
+- Department dashboard displaying students, teachers, courses, and academic performance.
+- View students and teachers belonging to their department.
+- Manage department course offerings and teacher assignments, subject to university policy.
+- Review submitted grades from department teachers.
+- Approve grades or return them to teachers for correction with comments.
+- Monitor grade submission deadlines and missing grades.
+- View student GPA, pass rates, failure rates, and course performance.
+- Generate department-specific academic reports.
+- Identify students with poor academic performance.
+- View historical results by semester and academic year.
+- Monitor teacher grading progress.
+
+Department Heads must not access or modify data belonging to other departments unless explicitly authorized.
+
+### C. Teacher
+
+Teachers manage course assessments and student grades for their assigned courses.
+
+**Features:**
+- Teacher dashboard displaying assigned courses, student counts, and pending grade submissions.
+- View enrolled students for each assigned course.
+- View student information and course enrollment lists.
+- Create assessments such as assignments, quizzes, midterm examinations, practical examinations, and final examinations.
+- Configure assessment names, maximum marks, and weight percentages.
+- Enter, edit, and save student marks.
+- Automatically calculate total marks and final grades.
+- Automatically calculate letter grades based on the university grading scale.
+- Save grades as drafts before submission.
+- Submit completed grades to the Department Head for review.
+- View approval status and feedback on returned grades.
+- Correct returned grades and resubmit them.
+- View course-level performance statistics.
+- Export course grade sheets.
+- View previously approved grades for assigned courses.
+
+Teachers must only manage grades for courses assigned to them. Approved grades must not be directly editable without an authorized correction process.
+
+### D. Student
+
+Students use the platform to view their academic information and examination results.
+
+**Features:**
+- Student dashboard displaying GPA, CGPA, completed credits, and current semester.
+- View enrolled courses and assigned teachers.
+- View assessment marks and final course grades after publication.
+- View grades by semester and academic year.
+- View letter grades, grade points, credit hours, and course status.
+- View semester GPA and cumulative GPA (CGPA).
+- View academic transcripts.
+- Download or print available result sheets and transcripts.
+- View pass, fail, and incomplete course statuses.
+- Submit a grade review request when a published grade appears incorrect.
+- Track the status of submitted grade review requests.
+- View academic announcements and examination schedules.
+- Update permitted profile information and change passwords.
+
+Students must never be able to enter, edit, approve, or publish their own grades.
+
+## 4. Grading and GPA Calculation
+
+Implement a configurable grading engine controlled by the System Administrator.
+
+Example grading scale:
+
+| Total Marks | Letter Grade | Grade Point |
+|---|---|---:|
+| 90–100 | A+ | 4.0 |
+| 85–89 | A | 4.0 |
+| 80–84 | A- | 3.7 |
+| 75–79 | B+ | 3.3 |
+| 70–74 | B | 3.0 |
+| 65–69 | B- | 2.7 |
+| 60–64 | C+ | 2.3 |
+| 50–59 | C | 2.0 |
+| 45–49 | D | 1.0 |
+| 0–44 | F | 0.0 |
+
+Treat this as an example only. Administrators must be able to configure grading boundaries, grade points, and pass requirements according to university policy.
+
+Calculate total course marks using the configured assessment weights. Assessment weights for a course must total 100% before grades can be finalized.
+
+Calculate GPA using the credit-weighted formula:
+
+**GPA = Sum of (Course Grade Point × Course Credit Hours) ÷ Total Credit Hours**
+
+Calculate CGPA across the applicable completed courses according to university policy. Handle repeated courses, withdrawals, incomplete grades, and courses excluded from GPA calculations according to configurable academic rules.
+
+## 5. Grade Approval Workflow
+
+Implement the following grade lifecycle:
+
+1. Teacher creates assessments and enters marks.
+2. Teacher saves marks as a draft.
+3. Teacher submits the completed grade sheet.
+4. Department Head reviews the submitted grades.
+5. Department Head approves the grades or returns them with comments.
+6. Teacher corrects returned grades and resubmits them.
+7. Approved grades become eligible for publication.
+8. The System Administrator or authorized academic officer publishes the results.
+9. Students view the published results.
+10. Any post-publication correction follows an authorized, audited grade amendment process.
+
+Every transition must be recorded with the responsible user, timestamp, previous status, and new status.
+
+## 6. Main Pages and Navigation
+
+### Public Pages
+- Login
+- Forgot Password
+- Reset Password
+- Unauthorized Access
+- Page Not Found
+
+### System Administrator Pages
+- Dashboard
+- User Management
+- Student Management
+- Teacher Management
+- Department Management
+- Course Management
+- Academic Year and Semester Management
+- Course and Teacher Assignments
+- Student Enrollment
+- Grading Configuration
+- Results Publication
+- Grade Review Requests
+- University Reports
+- Audit Logs
+- System Settings
+
+### Department Head Pages
+- Dashboard
+- Department Students
+- Department Teachers
+- Department Courses
+- Grade Approvals
+- Pending Submissions
+- Grade Review Requests
+- Academic Performance
+- Department Reports
+
+### Teacher Pages
+- Dashboard
+- My Courses
+- Course Students
+- Assessment Management
+- Enter Marks
+- Grade Sheets
+- Submitted Grades
+- Returned Grades
+- Course Reports
+
+### Student Pages
+- Dashboard
+- My Courses
+- My Results
+- Semester Results
+- GPA and CGPA
+- Academic Transcript
+- Grade Review Requests
+- Announcements
+- My Profile
+
+## 7. Dashboard Design
+
+Create a professional dashboard for every actor.
+
+Use summary cards, interactive charts, tables, filters, and status indicators.
+
+**Administrator dashboard:**
+- Total students, teachers, departments, and courses.
+- Students by department.
+- Grade distribution across the university.
+- Semester enrollment statistics.
+- Recent system activities.
+
+**Department Head dashboard:**
+- Department enrollment.
+- Grade submission completion rate.
+- Pending grade approvals.
+- Pass and failure rates.
+- Average course performance.
+
+**Teacher dashboard:**
+- Assigned courses.
+- Total enrolled students.
+- Assessments awaiting grading.
+- Draft and submitted grade sheets.
+- Grade distribution by course.
+
+**Student dashboard:**
+- Current semester GPA.
+- Cumulative GPA.
+- Completed credit hours.
+- Recent published results.
+- Current course list and academic announcements.
+
+Use Recharts for bar charts, line charts, and pie charts where appropriate. Charts must use real database data rather than hardcoded statistics.
+
+## 8. UI/UX Requirements
+
+- Modern university management dashboard.
+- Professional academic design with a clean, consistent layout.
+- Responsive interface for desktops, tablets, and mobile phones.
+- Collapsible sidebar navigation.
+- Top navigation bar with notifications and user profile menu.
+- Clear typography, consistent spacing, and accessible color contrast.
+- Data tables with pagination, sorting, searching, and filtering.
+- Reusable forms with validation and helpful error messages.
+- Confirmation dialogs for sensitive actions.
+- Toast notifications for successful and failed operations.
+- Loading indicators, empty states, and error states.
+- Light and dark mode.
+- Accessible keyboard navigation and form labels.
+
+Use realistic academic sample data during development, clearly separated from production data.
+
+## 9. Database Design
+
+Create a normalized PostgreSQL database with appropriate primary keys, foreign keys, unique constraints, indexes, and timestamps.
+
+Include tables such as:
+
+- `users`
+- `roles`
+- `user_roles`
+- `departments`
+- `department_heads`
+- `students`
+- `teachers`
+- `academic_years`
+- `semesters`
+- `courses`
+- `course_assignments`
+- `course_enrollments`
+- `assessments`
+- `assessment_marks`
+- `grade_scales`
+- `final_grades`
+- `grade_approvals`
+- `grade_publications`
+- `grade_review_requests`
+- `transcripts`
+- `notifications`
+- `announcements`
+- `audit_logs`
+
+Define the relationships carefully. A course enrollment should connect a student to a course offering in a particular semester. Store assessment marks separately from calculated final grades, and maintain a reliable record of grade approvals and amendments.
+
+## 10. Security and Data Integrity
+
+- Enforce role-based access control on the backend, not only in the frontend.
+- Authenticate users securely and validate authorization on every protected endpoint.
+- Scope Department Head access to their assigned department.
+- Scope Teacher access to their assigned courses.
+- Scope Student access to their own records.
+- Hash passwords using Argon2id or bcrypt.
+- Validate and sanitize incoming data.
+- Use parameterized database queries.
+- Protect authentication flows against common web vulnerabilities.
+- Use database transactions for grade submission, approval, and publication operations.
+- Prevent duplicate submissions and conflicting grade updates.
+- Use appropriate database constraints and locking when concurrent updates are possible.
+- Maintain immutable audit records for sensitive grade changes.
+- Never trust GPA or grade values submitted by the frontend; calculate or validate them on the server.
+- Keep secrets and database credentials in environment variables.
+- Apply rate limiting to authentication endpoints.
+
+## 11. Reports and Exports
+
+Provide printable and downloadable reports, including:
+
+- Student semester result sheets.
+- Academic transcripts.
+- Course grade sheets.
+- Department performance reports.
+- Teacher course reports.
+- Pass and failure statistics.
+- GPA and CGPA summaries.
+- Missing grade submissions.
+- Grade approval history.
+
+Support CSV export and print-friendly layouts. Generate official transcript documents only when authorized and ensure that they reflect published, verified results.
+
+## 12. Development Requirements
+
+Build a fully functional application, not just a static UI prototype.
+
+- Implement frontend pages and backend REST APIs.
+- Connect forms and tables to PostgreSQL.
+- Implement authentication, authorization, and role-specific dashboards.
+- Add database migrations and realistic seed data.
+- Provide API validation and consistent error responses.
+- Add tests for grading calculations, GPA/CGPA calculations, permissions, grade approvals, and grade publication.
+- Include an `.env.example` file without real secrets.
+- Document installation, database setup, migrations, seed commands, and development startup commands in a README.
+- Ensure the application works locally and can be deployed securely.
+
+## Final Goal
+
+Deliver a polished, reliable University Grading Management System that simplifies academic administration, helps teachers manage student marks, enables Department Heads to review and approve grades, and allows students to access their published academic results securely.
+
+Prioritize correctness of grading calculations, secure role-based access, clear approval workflows, maintainable code, and a professional user experience.

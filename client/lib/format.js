@@ -50,6 +50,7 @@ export const GRADE_STATUS_LABELS = {
 
 export const ROLE_LABELS = {
   admin: 'Administrator',
+  dept_head: 'Department Head',
   teacher: 'Teacher',
   student: 'Student',
 }

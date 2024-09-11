@@ -30,7 +30,7 @@ function userRow(u) {
     const dep = db.departments.find((d) => d.id === s?.departmentId)
     return { ...base, name, profileId: s?.id, identifier: s?.studentNumber, departmentId: s?.departmentId, departmentName: dep?.name ?? '—', program: s?.program }
   }
-  if (u.roleId === 'teacher') {
+  if (u.roleId === 'teacher' || u.roleId === 'dept_head') {
     const t = db.teachers.find((x) => x.userId === u.id)
     const dep = db.departments.find((d) => d.id === t?.departmentId)
     return { ...base, name, profileId: t?.id, identifier: t?.employeeNumber, departmentId: t?.departmentId, departmentName: dep?.name ?? '—', title: t?.title }
@@ -39,7 +39,7 @@ function userRow(u) {
 }
 
 export function listUsers({ search, role, status, departmentId, page, pageSize, sort } = {}) {
-  requireRole('admin')
+  requireRole('admin', 'dept_head')
   let items = read()
     .users.map(userRow)
     .filter((u) => (!role || u.roleId === role) && (!status || u.status === status) && (!departmentId || u.departmentId === departmentId))

@@ -14,6 +14,7 @@ import { ExportMenu } from '@/components/common/ExportMenu'
 import { PageSkeleton, TableSkeleton } from '@/components/common/Loading'
 import { PageHeader } from '@/components/common/PageHeader'
 import { GradeStatusBadge, StatusBadge } from '@/components/common/StatusBadge'
+import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery, useMutation } from '@/hooks/useStore'
 import { formatDateTime } from '@/lib/format'
@@ -32,7 +33,10 @@ function Meta({ label, children }) {
 
 export function ApprovalDetailPage() {
   const { requestId } = useParams()
+  const { user } = useAuth()
   const lookups = useLookups()
+  const isDeptHead = user?.roleId === 'dept_head'
+  const backUrl = isDeptHead ? '/dept-head/approvals' : '/admin/grade-approvals'
   const { data, loading, error, refetch } = useQuery(() => store.grades.getApprovalRequest(requestId), [requestId])
   const [dialog, setDialog] = useState(null) // 'approve' | 'reject' | 'publish'
   const [publishNow, setPublishNow] = useState(false)
@@ -47,7 +51,7 @@ export function ApprovalDetailPage() {
   if (error)
     return (
       <>
-        <PageHeader title="Grade approval" backTo="/admin/grade-approvals" backLabel="Grade approvals" />
+        <PageHeader title="Grade approval" backTo={backUrl} backLabel="Grade approvals" />
         <ErrorState error={error} onRetry={refetch} />
       </>
     )
@@ -67,7 +71,7 @@ export function ApprovalDetailPage() {
       <PageHeader
         title={`${offering.course.code} · ${offering.course.title}`}
         description={`${offering.semester?.name ?? ''} · Section ${offering.section} · ${offering.course.creditHours} credit hours`}
-        backTo="/admin/grade-approvals"
+        backTo={backUrl}
         backLabel="Grade approvals"
         actions={
           <>
@@ -143,7 +147,7 @@ export function ApprovalDetailPage() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base font-semibold">Grade sheet</h2>
             <Button variant="ghost" size="sm" asChild>
-              <Link to={`/admin/reports/grade-sheet/${offering.id}`}>
+              <Link to={isDeptHead ? `/dept-head/reports/grade-sheet/${offering.id}` : `/admin/reports/grade-sheet/${offering.id}`}>
                 <FileText /> Printable grade sheet
               </Link>
             </Button>
@@ -152,7 +156,7 @@ export function ApprovalDetailPage() {
         </section>
 
         <div className="grid gap-6 xl:grid-cols-2">
-          <SubmissionHistory history={data.history} currentId={request.id} teachers={lookups?.teachers ?? []} />
+          <SubmissionHistory history={data.history} currentId={request.id} teachers={lookups?.teachers ?? []} isDeptHead={isDeptHead} />
           <GradeChangeHistory offeringId={offering.id} />
         </div>
       </div>
@@ -199,8 +203,9 @@ export function ApprovalDetailPage() {
   )
 }
 
-function SubmissionHistory({ history, currentId, teachers }) {
+function SubmissionHistory({ history, currentId, teachers, isDeptHead }) {
   const nameOf = (userId) => teachers.find((t) => t.userId === userId)?.name ?? 'Administrator'
+  const baseLink = isDeptHead ? '/dept-head/approvals' : '/admin/grade-approvals'
   return (
     <Card>
       <CardHeader>
@@ -224,7 +229,7 @@ function SubmissionHistory({ history, currentId, teachers }) {
                   {h.id === currentId ? (
                     <StatusBadge status={h.status} />
                   ) : (
-                    <Link to={`/admin/grade-approvals/${h.id}`} className="rounded focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+                    <Link to={`${baseLink}/${h.id}`} className="rounded focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
                       <StatusBadge status={h.status} />
                     </Link>
                   )}

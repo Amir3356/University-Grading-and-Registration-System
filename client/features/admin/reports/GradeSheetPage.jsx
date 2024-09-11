@@ -8,6 +8,7 @@ import { ErrorState } from '@/components/common/ErrorState'
 import { PageSkeleton } from '@/components/common/Loading'
 import { PageHeader } from '@/components/common/PageHeader'
 import { GradeStatusBadge } from '@/components/common/StatusBadge'
+import { useAuth } from '@/context/auth-context'
 import { useQuery } from '@/hooks/useStore'
 import { exportCsv, exportExcel } from '@/lib/export'
 import { formatDateTime } from '@/lib/format'
@@ -26,13 +27,16 @@ function Meta({ label, children }) {
 
 export function GradeSheetPage() {
   const { offeringId } = useParams()
+  const { user } = useAuth()
+  const isDeptHead = user?.roleId === 'dept_head'
+  const backTo = isDeptHead ? '/dept-head/reports' : '/admin/reports?tab=courses'
   const { data, loading, error, refetch } = useQuery(() => store.reports.getCourseGradeSheet(offeringId), [offeringId])
 
   if (loading && !data) return <PageSkeleton />
   if (error)
     return (
       <>
-        <PageHeader title="Course grade sheet" backTo="/admin/reports?tab=courses" backLabel="Reports" />
+        <PageHeader title="Course grade sheet" backTo={backTo} backLabel="Reports" />
         <ErrorState error={error} onRetry={refetch} />
       </>
     )
@@ -74,7 +78,7 @@ export function GradeSheetPage() {
       <PageHeader
         title={`${o.course.code} · ${o.course.title}`}
         description="Course grade sheet"
-        backTo="/admin/reports?tab=courses"
+        backTo={backTo}
         backLabel="Reports"
         actions={
           <DropdownMenu>

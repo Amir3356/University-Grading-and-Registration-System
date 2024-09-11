@@ -14,6 +14,19 @@
   ]
  },
  {
+  "id": "dept_head",
+  "name": "Department Head",
+  "description": "Supervises departmental academic activities, reviews and approves grades.",
+  "permissions": [
+   "department.view",
+   "courses.view_department",
+   "teachers.view_department",
+   "students.view_department",
+   "grades.approve_department",
+   "reports.department"
+  ]
+ },
+ {
   "id": "teacher",
   "name": "Teacher",
   "description": "Manages assessments and grades for assigned course offerings.",

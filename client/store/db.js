@@ -20,7 +20,7 @@ import students from '@/data/students.json'
 import teachers from '@/data/teachers.json'
 import users from '@/data/users.json'
 
-const STORAGE_KEY = 'ugs-db-v2'
+const STORAGE_KEY = 'ugs-db-v3'
 
 const SEED = {
   roles,
@@ -52,10 +52,31 @@ function seedState() {
 
 function load() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    let raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) {
+      raw = localStorage.getItem('ugs-db-v2')
+    }
     if (raw) {
       const parsed = JSON.parse(raw)
-      if (TABLES.every((t) => t in parsed)) return parsed
+      if (TABLES.every((t) => t in parsed)) {
+        // Ensure dept_head role exists
+        if (!parsed.roles.some((r) => r.id === 'dept_head')) {
+          const deptHeadRole = SEED.roles.find((r) => r.id === 'dept_head')
+          if (deptHeadRole) parsed.roles.push(deptHeadRole)
+        }
+        // Ensure at least one active user has roleId = 'dept_head'
+        const deptHeadUser = parsed.users.find(
+          (u) => u.id === 'usr_0004' || u.username === 'tewodros.assefa' || u.username === 'dept_head',
+        )
+        if (deptHeadUser) {
+          deptHeadUser.roleId = 'dept_head'
+          deptHeadUser.status = 'active'
+        } else {
+          const seedHead = SEED.users.find((u) => u.roleId === 'dept_head')
+          if (seedHead) parsed.users.push(seedHead)
+        }
+        return parsed
+      }
     }
   } catch {
     // Corrupt or unavailable storage — fall back to the seed.
