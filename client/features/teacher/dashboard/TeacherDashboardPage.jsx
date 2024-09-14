@@ -1,4 +1,4 @@
-import { BookOpen } from 'lucide-react'
+import { LayoutDashboard } from 'lucide-react'
 import { PageHeader } from '@/components/common/PageHeader'
 
 export function TeacherDashboardPage() {
@@ -8,7 +8,7 @@ export function TeacherDashboardPage() {
 
       <div className="coming-soon-card">
         <div className="coming-soon-card__icon-wrapper">
-          <BookOpen aria-hidden="true" />
+          <LayoutDashboard aria-hidden="true" />
         </div>
         <h2 className="coming-soon-card__title">Coming Soon</h2>
       </div>

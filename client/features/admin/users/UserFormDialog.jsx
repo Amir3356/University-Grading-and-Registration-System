@@ -11,7 +11,7 @@ import { ROLE_LABELS } from '@/lib/format'
 import { store } from '@/store'
 import { SelectField } from './SelectField'
 
-const ROLE_OPTIONS = ['student', 'teacher', 'admin'].map((r) => ({ value: r, label: ROLE_LABELS[r] }))
+const DEFAULT_ROLE_OPTIONS = [{ value: 'dept_head', label: 'Department Head' }]
 
 /** Resolve a typed department name or code to a department record. */
 function findDepartment(departments, value) {
@@ -23,7 +23,7 @@ function findDepartment(departments, value) {
 function initialForm(user) {
   const p = user?.profile
   return {
-    roleId: user?.roleId ?? 'student',
+    roleId: user?.roleId ?? 'dept_head',
     username: user?.username ?? '',
     email: user?.email ?? '',
     phone: user?.phone ?? '',
@@ -31,7 +31,7 @@ function initialForm(user) {
     departmentId: user?.departmentId ?? '',
     program: p?.program ?? user?.program ?? '',
     admissionYear: String(p?.admissionYear ?? new Date().getFullYear()),
-    title: p?.title ?? user?.title ?? 'Dr.',
+    title: p?.title ?? user?.title ?? 'Prof.',
     specialization: p?.specialization ?? '',
     officeRoom: p?.officeRoom ?? '',
     password: '',
@@ -39,10 +39,25 @@ function initialForm(user) {
 }
 
 /** Create form: full name, username, role and role-specific credential (Student ID / Teacher ID / password). */
-function CreateUserForm({ defaultRole, onClose, onCreated }) {
+function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRoleOptions, onClose, onCreated }) {
   const lookups = useLookups()
   const allDepartments = lookups?.departments ?? []
-  const [form, setForm] = useState({ fullName: '', username: '', roleId: defaultRole ?? 'student', password: '', identifier: '', department: '' })
+  const roleOptions =
+    customRoleOptions ??
+    (defaultRole === 'student'
+      ? [{ value: 'student', label: 'Student' }]
+      : defaultRole
+        ? [{ value: defaultRole, label: ROLE_LABELS[defaultRole] || defaultRole }]
+        : DEFAULT_ROLE_OPTIONS)
+  const initialRole = defaultRole ?? roleOptions[0]?.value ?? 'dept_head'
+  const [form, setForm] = useState({
+    fullName: '',
+    username: '',
+    roleId: initialRole,
+    password: '',
+    identifier: '',
+    department: defaultDepartment ?? '',
+  })
   const [nameError, setNameError] = useState(null)
   const [usernameError, setUsernameError] = useState(null)
   const [identifierError, setIdentifierError] = useState(null)
@@ -72,7 +87,7 @@ function CreateUserForm({ defaultRole, onClose, onCreated }) {
     setUsernameError(null)
     const isAdmin = form.roleId === 'admin'
     if (!isAdmin && !form.identifier.trim()) {
-      setIdentifierError(form.roleId === 'student' ? 'Enter the Student ID.' : 'Enter the Teacher ID.')
+      setIdentifierError(form.roleId === 'dept_head' ? 'Enter the Department Head ID.' : form.roleId === 'student' ? 'Enter the Student ID.' : 'Enter the Teacher ID.')
       return
     }
     setIdentifierError(null)
@@ -110,18 +125,18 @@ function CreateUserForm({ defaultRole, onClose, onCreated }) {
       <FormField label="Username" required error={usernameError ?? fe.username}>
         <Input value={form.username} onChange={set('username')} autoComplete="off" placeholder="e.g. jane.doe" />
       </FormField>
-      <SelectField label="Role" required value={form.roleId} onChange={set('roleId')} options={ROLE_OPTIONS} error={fe.roleId} />
+      <SelectField label="Role" required value={form.roleId} onChange={set('roleId')} options={roleOptions} error={fe.roleId} />
       {isAdmin ? (
         <FormField label="Password" error={fe.password} hint="Optional. Leave blank to generate a temporary password.">
           <Input type="password" value={form.password} onChange={set('password')} autoComplete="new-password" />
         </FormField>
       ) : (
-        <FormField label={form.roleId === 'student' ? 'Student ID' : 'Teacher ID'} required error={identifierError ?? fe.identifier}>
+        <FormField label={form.roleId === 'dept_head' ? 'Department Head ID' : form.roleId === 'student' ? 'Student ID' : 'Teacher ID'} required error={identifierError ?? fe.identifier}>
           <Input
             value={form.identifier}
             onChange={set('identifier')}
             autoComplete="off"
-            placeholder={form.roleId === 'student' ? 'e.g. UGR/26/0001' : 'e.g. EMP-CS-01'}
+            placeholder={form.roleId === 'dept_head' ? 'e.g. EMP-CS-02 or CS' : form.roleId === 'student' ? 'e.g. UGR/26/0001' : 'e.g. EMP-CS-01'}
           />
         </FormField>
       )}
@@ -141,9 +156,14 @@ function CreateUserForm({ defaultRole, onClose, onCreated }) {
 }
 
 /** Edit an existing account: only the fields shown as table columns (full name, username, role, department). */
-function UserForm({ user, onClose }) {
+function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
   const lookups = useLookups()
   const allDepartments = lookups?.departments ?? []
+  const roleOptions =
+    customRoleOptions ??
+    (user.roleId === 'student'
+      ? [{ value: 'student', label: 'Student' }]
+      : DEFAULT_ROLE_OPTIONS)
   const [form, setForm] = useState(() => ({
     ...initialForm(user),
     fullName: `${user.firstName} ${user.lastName}`.trim(),
@@ -206,7 +226,7 @@ function UserForm({ user, onClose }) {
         required
         value={form.roleId}
         onChange={set('roleId')}
-        options={ROLE_OPTIONS}
+        options={roleOptions}
         error={fe.roleId}
         hint="Role changes are blocked if the user has academic records."
       />
@@ -234,27 +254,44 @@ function UserForm({ user, onClose }) {
 }
 
 /** Loads the full user record (profile fields) before showing the edit form. */
-function EditUserForm({ userId, onClose }) {
+function EditUserForm({ userId, roleOptions, onClose }) {
   const { data, loading, error, refetch } = useQuery(() => store.users.getUser(userId), [userId], { live: false })
   if (loading && !data) return <Spinner label="Loading user…" />
   if (error) return <ErrorState error={error} onRetry={refetch} />
-  return <UserForm user={data} onClose={onClose} />
+  return <UserForm user={data} roleOptions={roleOptions} onClose={onClose} />
 }
 
 /**
  * Create / edit a user account.
  * userId: edit that user; omitted = create. onCreated({ user, temporaryPassword }) after create.
  */
-export function UserFormDialog({ open, onOpenChange, userId, defaultRole, onCreated }) {
+export function UserFormDialog({ open, onOpenChange, userId, defaultRole, defaultDepartment, roleOptions, onCreated }) {
   const close = () => onOpenChange(false)
+  const isStudentOnly = defaultRole === 'student' || roleOptions?.every((r) => r.value === 'student')
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{userId ? 'Edit user' : 'Create user'}</DialogTitle>
-          <DialogDescription>{userId ? 'Update the name, username, role and department for this account.' : 'Create a student, teacher or administrator account.'}</DialogDescription>
+          <DialogTitle>{userId ? (isStudentOnly ? 'Edit student user' : 'Edit user') : (isStudentOnly ? 'Create student user' : 'Create user')}</DialogTitle>
+          <DialogDescription>
+            {userId
+              ? 'Update the name, username, role and department for this account.'
+              : isStudentOnly
+                ? 'Create a student user account for your department.'
+                : 'Create a student, teacher or administrator account.'}
+          </DialogDescription>
         </DialogHeader>
-        {userId ? <EditUserForm userId={userId} onClose={close} /> : <CreateUserForm defaultRole={defaultRole} onClose={close} onCreated={onCreated} />}
+        {userId ? (
+          <EditUserForm userId={userId} roleOptions={roleOptions} onClose={close} />
+        ) : (
+          <CreateUserForm
+            defaultRole={defaultRole}
+            defaultDepartment={defaultDepartment}
+            roleOptions={roleOptions}
+            onClose={close}
+            onCreated={onCreated}
+          />
+        )}
       </DialogContent>
     </Dialog>
   )

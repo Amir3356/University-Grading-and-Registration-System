@@ -4,6 +4,7 @@ import {
   audit,
   badRequest,
   conflict,
+  forbidden,
   matches,
   notFound,
   notify,
@@ -239,10 +240,24 @@ function validateCourse(data, ignoreId) {
 }
 
 export function createCourse(data) {
-  const actor = requireRole('admin')
+  const actor = requireRole('admin', 'dept_head')
   validateCourse(data)
   return transaction((tx) => {
-    const depId = resolveDepartmentId(tx, data.departmentId || data.department)
+    let depId = resolveDepartmentId(tx, data.departmentId || data.department)
+
+    // For dept_head, force department to their own department
+    if (actor.roleId === 'dept_head') {
+      const db = read()
+      const deptHeadTeacher = db.teachers.find((t) => t.userId === actor.id)
+      if (deptHeadTeacher?.departmentId) {
+        depId = deptHeadTeacher.departmentId
+      } else {
+        // try to find department where they are head
+        const dept = db.departments.find((d) => d.headTeacherId === deptHeadTeacher?.id || d.headTeacherId === deptHeadTeacher)
+        if (dept) depId = dept.id
+      }
+    }
+
     const c = tx.insert('courses', {
       id: newId('crs'),
       code: data.code.trim().toUpperCase(),
@@ -261,7 +276,7 @@ export function createCourse(data) {
 }
 
 export function updateCourse(id, data) {
-  const actor = requireRole('admin')
+  const actor = requireRole('admin', 'dept_head')
   const course = read().courses.find((c) => c.id === id)
   if (!course) throw notFound('Course')
   validateCourse(data, id)
@@ -270,7 +285,15 @@ export function updateCourse(id, data) {
     throw conflict('Credit hours cannot change after grades have been published for this course; create a new course version instead.')
   }
   return transaction((tx) => {
-    const depId = resolveDepartmentId(tx, data.departmentId || data.department) || course.departmentId
+    let depId = resolveDepartmentId(tx, data.departmentId || data.department) || course.departmentId
+    if (actor.roleId === 'dept_head') {
+      const db = read()
+      const deptHeadTeacher = db.teachers.find((t) => t.userId === actor.id)
+      const dept = deptHeadTeacher?.departmentId
+        ? { id: deptHeadTeacher.departmentId }
+        : db.departments.find((d) => d.headTeacherId === deptHeadTeacher?.id)
+      if (dept) depId = dept.id
+    }
     const c = tx.update('courses', id, {
       code: data.code.trim().toUpperCase(),
       title: data.title.trim(),
@@ -286,9 +309,17 @@ export function updateCourse(id, data) {
 }
 
 export function deleteCourse(id) {
-  const actor = requireRole('admin')
+  const actor = requireRole('admin', 'dept_head')
   const course = read().courses.find((c) => c.id === id)
   if (!course) throw notFound('Course')
+  if (actor.roleId === 'dept_head') {
+    const db = read()
+    const deptHeadTeacher = db.teachers.find((t) => t.userId === actor.id)
+    const dept = deptHeadTeacher?.departmentId
+      ? { id: deptHeadTeacher.departmentId }
+      : db.departments.find((d) => d.headTeacherId === deptHeadTeacher?.id)
+    if (dept && course.departmentId !== dept.id) throw forbidden('You can only manage courses in your department.')
+  }
   if (read().courseOfferings.some((o) => o.courseId === id)) throw conflict('This course has been offered and cannot be deleted. Archive it instead.')
   transaction((tx) => {
     tx.remove('courses', (c) => c.id === id)

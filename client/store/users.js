@@ -49,7 +49,7 @@ export function listUsers({ search, role, status, departmentId, page, pageSize, 
 }
 
 export function getUser(id) {
-  requireRole('admin')
+  requireRole('admin', 'dept_head')
   const db = read()
   const u = db.users.find((x) => x.id === id)
   if (!u) throw notFound('User')
@@ -78,9 +78,9 @@ function validateProfile(data, roleId) {
     firstName: () => required(data.firstName, 'First name'),
     lastName: () => required(data.lastName, 'Last name'),
     email: () => required(data.email, 'Email') || isEmail(data.email),
-    roleId: () => (['admin', 'teacher', 'student'].includes(roleId) ? null : 'Choose a role.'),
+    roleId: () => (['admin', 'teacher', 'student', 'dept_head'].includes(roleId) ? null : 'Choose a role.'),
     departmentId: () => (roleId !== 'admin' && !read().departments.some((d) => d.id === data.departmentId) ? 'Choose a department.' : null),
-    identifier: () => (roleId !== 'admin' ? required(data.identifier, roleId === 'student' ? 'Student ID' : 'Employee ID') : null),
+    identifier: () => (roleId !== 'admin' ? required(data.identifier, roleId === 'student' ? 'Student ID' : roleId === 'dept_head' ? 'Department Head ID' : 'Employee ID') : null),
     admissionYear: () => (roleId === 'student' ? numberIn(data.admissionYear, 2000, 2100, 'Admission year') : null),
   }
 }
@@ -109,7 +109,7 @@ const EMAIL_DOMAIN = 'university.edu'
 
 /** Suggested unique email derived from a full name, e.g. jane.doe@university.edu. */
 export function suggestEmail(name) {
-  requireRole('admin')
+  requireRole('admin', 'dept_head')
   const base =
     String(name ?? '')
       .trim()
@@ -126,7 +126,7 @@ export function suggestEmail(name) {
 
 /** Suggested unique ID for a new student or teacher account ('' for admins). */
 export function suggestIdentifier(roleId, departmentId) {
-  requireRole('admin')
+  requireRole('admin', 'dept_head')
   const db = read()
   const year = now().slice(2, 4)
   if (roleId === 'student') {
@@ -162,7 +162,10 @@ function assertUnique(data, ignoreUserId) {
 }
 
 export async function createUser(data) {
-  const actor = requireRole('admin')
+  const actor = requireRole('admin', 'dept_head')
+  if (actor.roleId === 'dept_head' && data.roleId !== 'student') {
+    throw forbidden('Department heads can only create student accounts.')
+  }
   validate({ ...validateProfile(data, data.roleId), username: () => validateUsername(data) })
   if (data.password) validate({ password: () => validatePasswordStrength(data.password) })
   assertUnique(data)
@@ -198,17 +201,20 @@ export async function createUser(data) {
         status: 'active',
       })
     }
-    if (data.roleId === 'teacher') {
-      tx.insert('teachers', {
+    if (data.roleId === 'teacher' || data.roleId === 'dept_head') {
+      const tch = tx.insert('teachers', {
         id: newId('tch'),
         userId: user.id,
         employeeNumber: data.identifier.trim(),
         departmentId: data.departmentId,
-        title: data.title || 'Dr.',
+        title: data.title || (data.roleId === 'dept_head' ? 'Prof.' : 'Dr.'),
         specialization: data.specialization?.trim() ?? '',
         officeRoom: data.officeRoom?.trim() ?? '',
         hireDate: now().slice(0, 10),
       })
+      if (data.roleId === 'dept_head') {
+        tx.update('departments', data.departmentId, { headTeacherId: tch.id })
+      }
     }
     notify(tx, user.id, { title: 'Welcome', message: 'Your account has been created. Please change your temporary password.', type: 'system', link: '/profile' })
     audit(tx, actor, { action: 'user.created', entityType: 'user', entityId: user.id, details: `Created ${data.roleId} account for ${user.firstName} ${user.lastName}`, after: { email: user.email, roleId: user.roleId } })
@@ -218,10 +224,13 @@ export async function createUser(data) {
 }
 
 export async function updateUser(id, data) {
-  const actor = requireRole('admin')
+  const actor = requireRole('admin', 'dept_head')
   const db = read()
   const u = db.users.find((x) => x.id === id)
   if (!u) throw notFound('User')
+  if (actor.roleId === 'dept_head' && u.roleId !== 'student') {
+    throw forbidden('Department heads can only update student accounts.')
+  }
   const roleId = data.roleId ?? u.roleId
   const password = String(data.password ?? '')
   validate({ ...validateProfile(data, roleId), username: () => validateUsername(data, id) })
@@ -256,11 +265,15 @@ export async function updateUser(id, data) {
       if (s) Object.assign(s, patch)
       else tx.insert('students', { id: newId('stu'), userId: id, status: 'active', ...patch })
     }
-    if (roleId === 'teacher') {
+    if (roleId === 'teacher' || roleId === 'dept_head') {
       const t = tx.table('teachers').find((x) => x.userId === id)
-      const patch = { employeeNumber: data.identifier.trim(), departmentId: data.departmentId, title: data.title || 'Dr.', specialization: data.specialization?.trim() ?? '', officeRoom: data.officeRoom?.trim() ?? '' }
+      const patch = { employeeNumber: data.identifier.trim(), departmentId: data.departmentId, title: data.title || (roleId === 'dept_head' ? 'Prof.' : 'Dr.'), specialization: data.specialization?.trim() ?? '', officeRoom: data.officeRoom?.trim() ?? '' }
       if (t) Object.assign(t, patch)
       else tx.insert('teachers', { id: newId('tch'), userId: id, hireDate: now().slice(0, 10), ...patch })
+      if (roleId === 'dept_head') {
+        const headTch = t || tx.table('teachers').find((x) => x.userId === id)
+        if (headTch) tx.update('departments', data.departmentId, { headTeacherId: headTch.id })
+      }
     }
     audit(tx, actor, {
       action: roleId !== u.roleId ? 'user.role_changed' : 'user.updated',
@@ -278,7 +291,7 @@ export async function updateUser(id, data) {
 }
 
 export function setUserStatus(id, { status, reason }) {
-  const actor = requireRole('admin')
+  const actor = requireRole('admin', 'dept_head')
   if (!['active', 'inactive'].includes(status)) throw badRequest('Invalid status.')
   if (id === actor.id) throw forbidden('You cannot deactivate your own account.')
   const u = read().users.find((x) => x.id === id)
@@ -303,11 +316,14 @@ export function setUserStatus(id, { status, reason }) {
 
 /** Permanently removes an account. Blocked when linked academic records exist. */
 export function deleteUser(id) {
-  const actor = requireRole('admin')
+  const actor = requireRole('admin', 'dept_head')
   const db = read()
   const u = db.users.find((x) => x.id === id)
   if (!u) throw notFound('User')
   if (id === actor.id) throw forbidden('You cannot delete your own account.')
+  if (actor.roleId === 'dept_head' && u.roleId !== 'student') {
+    throw forbidden('Department heads can only delete student accounts.')
+  }
   const s = db.students.find((x) => x.userId === id)
   const t = db.teachers.find((x) => x.userId === id)
   if (s && db.courseEnrollments.some((e) => e.studentId === s.id)) {
@@ -327,7 +343,7 @@ export function deleteUser(id) {
 }
 
 export async function resetUserPassword(id) {
-  const actor = requireRole('admin')
+  const actor = requireRole('admin', 'dept_head')
   const u = read().users.find((x) => x.id === id)
   if (!u) throw notFound('User')
   const temporaryPassword = generateTempPassword()
@@ -343,7 +359,7 @@ export async function resetUserPassword(id) {
 
 /** Students search for pickers (enrollment, transcripts, reports). */
 export function searchStudents({ search, departmentId, status, page = 1, pageSize = 20 } = {}) {
-  requireRole('admin')
+  requireRole('admin', 'dept_head')
   const items = read()
     .students.map(studentView)
     .filter((s) => (!departmentId || s.departmentId === departmentId) && (!status || s.status === status))

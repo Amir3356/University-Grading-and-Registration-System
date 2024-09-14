@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardCheck, Globe, CheckCircle2 } from 'lucide-react'
+import { ClipboardCheck, Globe } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'

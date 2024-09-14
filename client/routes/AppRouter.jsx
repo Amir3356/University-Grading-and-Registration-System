@@ -36,6 +36,7 @@ const SettingsPage = page(() => import('@/features/admin/settings/SettingsPage')
 
 // Department Head
 const DeptHeadDashboardPage = page(() => import('@/features/dept-head/DeptHeadDashboardPage'), 'DeptHeadDashboardPage')
+const DeptAccountProvisionPage = page(() => import('@/features/dept-head/DeptAccountProvisionPage'), 'DeptAccountProvisionPage')
 const DeptCoursesPage = page(() => import('@/features/dept-head/DeptCoursesPage'), 'DeptCoursesPage')
 const DeptTeachersPage = page(() => import('@/features/dept-head/DeptTeachersPage'), 'DeptTeachersPage')
 const DeptStudentsPage = page(() => import('@/features/dept-head/DeptStudentsPage'), 'DeptStudentsPage')
@@ -112,6 +113,8 @@ export function AppRouter() {
 
               <Route element={<ProtectedRoute roles={['dept_head']} />}>
                 <Route path="/dept-head" element={<DeptHeadDashboardPage />} />
+                <Route path="/dept-head/account-provision" element={<DeptAccountProvisionPage />} />
+                <Route path="/dept-head/users" element={<DeptAccountProvisionPage />} />
                 <Route path="/dept-head/courses" element={<DeptCoursesPage />} />
                 <Route path="/dept-head/teachers" element={<DeptTeachersPage />} />
                 <Route path="/dept-head/students" element={<DeptStudentsPage />} />

@@ -1,5 +1,4 @@
 import {
-  Bell,
   BookOpen,
   BookOpenCheck,
   ClipboardCheck,
@@ -14,7 +13,6 @@ import {
   SlidersHorizontal,
   TrendingUp,
   UserCheck,
-  UserCircle,
   Users,
 } from 'lucide-react'
 
@@ -50,6 +48,10 @@ export const NAVIGATION = {
   dept_head: [
     { section: 'Overview', items: [{ to: '/dept-head', label: 'Dashboard', icon: LayoutDashboard, end: true }] },
     {
+      section: 'People',
+      items: [{ to: '/dept-head/account-provision', label: 'Account Provision', icon: Users }],
+    },
+    {
       section: 'Department',
       items: [
         { to: '/dept-head/courses', label: 'Department Courses', icon: BookOpen },
@@ -61,15 +63,7 @@ export const NAVIGATION = {
     {
       section: 'Grading',
       items: [
-        { to: '/dept-head/approvals', label: 'Grade Approvals', icon: ClipboardCheck },
-        { to: '/dept-head/reports', label: 'Department Reports', icon: FileBarChart },
-      ],
-    },
-    {
-      section: 'Account',
-      items: [
-        { to: '/notifications', label: 'Notifications', icon: Bell, badgeKey: 'unread' },
-        { to: '/profile', label: 'Profile', icon: UserCircle },
+        { to: '/dept-head/reports', label: 'Reports', icon: FileBarChart },
       ],
     },
   ],
@@ -88,14 +82,6 @@ export const NAVIGATION = {
       items: [
         { to: '/teacher/grade-entry', label: 'Grade Entry', icon: NotebookPen },
         { to: '/teacher/grade-submission', label: 'Grade Submission', icon: ClipboardCheck },
-        { to: '/teacher/reports', label: 'Performance Reports', icon: TrendingUp },
-      ],
-    },
-    {
-      section: 'Account',
-      items: [
-        { to: '/notifications', label: 'Notifications', icon: Bell, badgeKey: 'unread' },
-        { to: '/profile', label: 'Profile', icon: UserCircle },
       ],
     },
   ],
@@ -109,13 +95,6 @@ export const NAVIGATION = {
         { to: '/student/grades', label: 'My Grades', icon: BookOpenCheck },
         { to: '/student/progress', label: 'GPA & Academic Progress', icon: TrendingUp },
         { to: '/student/transcript', label: 'Transcript', icon: FileText },
-      ],
-    },
-    {
-      section: 'Account',
-      items: [
-        { to: '/notifications', label: 'Notifications', icon: Bell, badgeKey: 'unread' },
-        { to: '/profile', label: 'Profile', icon: UserCircle },
       ],
     },
   ],

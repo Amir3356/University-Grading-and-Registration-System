@@ -14,14 +14,13 @@ import { store } from '@/store'
 import { TempPasswordDialog, UserActionDialogs } from './UserActionDialogs'
 import { UserFormDialog } from './UserFormDialog'
 
-const ROLE_BADGE = { admin: 'default', teacher: 'info', student: 'secondary' }
+const ROLE_BADGE = { admin: 'default', dept_head: 'primary', teacher: 'info', student: 'secondary' }
 
 const COLUMNS = [
   { key: 'no', header: 'No' },
-  { key: 'name', header: 'Full name' },
-  { key: 'username', header: 'Username' },
+  { key: 'name', header: 'Fullanme' },
   { key: 'roleId', header: 'Role' },
-  { key: 'identifier', header: 'Student ID / Teacher ID' },
+  { key: 'identifier', header: 'Department head ID' },
   { key: 'departmentName', header: 'Department' },
 ]
 
@@ -83,7 +82,7 @@ export function UsersPage() {
       />
 
       {loading && !data ? (
-        <TableSkeleton cols={7} />
+        <TableSkeleton cols={6} />
       ) : error ? (
         <ErrorState error={error} onRetry={refetch} />
       ) : (
@@ -116,7 +115,6 @@ export function UsersPage() {
                     >
                       <TableCell className="tabular text-muted">{i + 1}</TableCell>
                       <TableCell className="font-medium">{u.name}</TableCell>
-                      <TableCell className="text-muted">{u.username}</TableCell>
                       <TableCell>
                         <Badge variant={ROLE_BADGE[u.roleId]}>{ROLE_LABELS[u.roleId]}</Badge>
                       </TableCell>
