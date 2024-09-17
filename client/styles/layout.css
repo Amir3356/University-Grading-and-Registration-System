@@ -420,11 +420,6 @@
   flex-shrink: 0;
 }
 
-/* Mobile drawer variant (rendered inside a left Sheet). */
-.sidebar--drawer {
-  display: flex;
-  border-right: 0;
-}
 
 /* ---------- Page header ---------- */
 .page-header {

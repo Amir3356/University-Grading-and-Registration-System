@@ -3,22 +3,19 @@ import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { TableSkeleton } from '@/components/common/Loading'
-import { Pagination } from '@/components/common/Pagination'
 import { SearchInput } from '@/components/common/SearchInput'
 import { cn } from '@/lib/utils'
 
 /**
  * Modern data table component powered by TanStack Table (@tanstack/react-table).
- * Supports client-side sorting, global searching/filtering, pagination, and custom rendering.
+ * Supports client-side sorting, global searching/filtering, and custom rendering.
  */
 export function TanStackTable({
   columns,
@@ -30,7 +27,6 @@ export function TanStackTable({
   searchable = true,
   toolbar,
   initialSort = [],
-  pageSize: initialPageSize = 10,
   emptyTitle = 'No records found',
   emptyDescription,
   emptyIcon,
@@ -39,10 +35,6 @@ export function TanStackTable({
 }) {
   const [globalFilter, setGlobalFilter] = useState('')
   const [sorting, setSorting] = useState(initialSort)
-  const [pagination, setPagination] = useState({
-    pageIndex: 0,
-    pageSize: initialPageSize,
-  })
 
   const data = useMemo(() => rawData ?? [], [rawData])
 
@@ -52,15 +44,12 @@ export function TanStackTable({
     state: {
       sorting,
       globalFilter,
-      pagination,
     },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
-    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
   })
 
   if (loading && !rawData) {
@@ -72,7 +61,6 @@ export function TanStackTable({
   }
 
   const rows = table.getRowModel().rows
-  const totalFiltered = table.getFilteredRowModel().rows.length
 
   return (
     <div className={cn('space-y-3', className)}>
@@ -102,7 +90,6 @@ export function TanStackTable({
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => {
                   const canSort = header.column.getCanSort()
-                  const isSorted = header.column.getIsSorted()
                   const meta = header.column.columnDef.meta ?? {}
 
                   return (
@@ -126,17 +113,6 @@ export function TanStackTable({
                         {header.isPlaceholder
                           ? null
                           : flexRender(header.column.columnDef.header, header.getContext())}
-                        {canSort && (
-                          <span className="text-muted-foreground">
-                            {isSorted === 'asc' ? (
-                              <ArrowUp className="size-3.5" />
-                            ) : isSorted === 'desc' ? (
-                              <ArrowDown className="size-3.5" />
-                            ) : (
-                              <ArrowUpDown className="size-3.5 opacity-50" />
-                            )}
-                          </span>
-                        )}
                       </div>
                     </TableHead>
                   )
@@ -185,17 +161,6 @@ export function TanStackTable({
           </TableBody>
         </Table>
       </div>
-
-      {/* Pagination Controls */}
-      {totalFiltered > 0 && (
-        <Pagination
-          page={table.getState().pagination.pageIndex + 1}
-          pageSize={table.getState().pagination.pageSize}
-          total={totalFiltered}
-          onPageChange={(p) => table.setPageIndex(p - 1)}
-          onPageSizeChange={(s) => table.setPageSize(s)}
-        />
-      )}
     </div>
   )
 }

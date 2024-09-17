@@ -9,7 +9,6 @@ import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { TableSkeleton } from '@/components/common/Loading'
 import { PageHeader } from '@/components/common/PageHeader'
-import { Pagination } from '@/components/common/Pagination'
 import { useQuery, useMutation } from '@/hooks/useStore'
 import { formatDateTime, timeAgo } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -31,8 +30,7 @@ const TYPE_LABELS = {
 export function NotificationsPage() {
   const navigate = useNavigate()
   const [filter, setFilter] = useState('all')
-  const [page, setPage] = useState(1)
-  const { data, loading, error, refetch } = useQuery(() => store.notifications.listNotifications({ unreadOnly: filter === 'unread', page, pageSize: 15 }), [filter, page])
+  const { data, loading, error, refetch } = useQuery(() => store.notifications.listNotifications({ unreadOnly: filter === 'unread', pageSize: 1000 }), [filter])
   const [markAll, { loading: marking }] = useMutation(() => store.notifications.markAllNotificationsRead(), { success: 'All notifications marked as read.' })
 
   const open = async (n) => {
@@ -53,10 +51,7 @@ export function NotificationsPage() {
       />
       <Tabs
         value={filter}
-        onValueChange={(v) => {
-          setFilter(v)
-          setPage(1)
-        }}
+        onValueChange={setFilter}
         className="mb-md"
       >
         <TabsList>
@@ -98,7 +93,6 @@ export function NotificationsPage() {
               ))}
             </ul>
           </Card>
-          <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onPageChange={setPage} />
         </>
       )}
     </>

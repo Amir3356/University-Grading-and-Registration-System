@@ -4395,7 +4395,7 @@
   "id": "enr_0550",
   "offeringId": "off_0031",
   "studentId": "stu_0002",
-  "status": "enrolled",
+  "status": "withdrawn",
   "isRepeat": false,
   "enrolledAt": "2026-08-14T00:00:00.000Z"
  },
@@ -4435,7 +4435,7 @@
   "id": "enr_0555",
   "offeringId": "off_0031",
   "studentId": "stu_0003",
-  "status": "enrolled",
+  "status": "pending",
   "isRepeat": false,
   "enrolledAt": "2026-08-19T00:00:00.000Z"
  },

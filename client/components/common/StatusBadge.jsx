@@ -27,10 +27,12 @@ export function GradeStatusBadge({ status, className }) {
 const GENERIC = {
   active: ['success', 'Active'],
   inactive: ['muted', 'Inactive'],
+  archived: ['muted', 'Archived'],
   suspended: ['danger', 'Suspended'],
   enrolled: ['info', 'Enrolled'],
   completed: ['secondary', 'Completed'],
   withdrawn: ['muted', 'Withdrawn'],
+  dropped: ['danger', 'Dropped'],
   pending: ['warning', 'Pending'],
   approved: ['success', 'Approved'],
   rejected: ['danger', 'Rejected'],

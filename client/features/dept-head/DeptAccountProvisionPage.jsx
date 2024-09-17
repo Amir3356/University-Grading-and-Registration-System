@@ -11,15 +11,17 @@ import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
 import { store } from '@/store'
+import { formatYearOfStudy } from '@/lib/format'
 import { TempPasswordDialog, UserActionDialogs } from '@/features/admin/users/UserActionDialogs'
 import { UserFormDialog } from '@/features/admin/users/UserFormDialog'
 
 const COLUMNS = [
   { key: 'no', header: 'No' },
   { key: 'name', header: 'Fullanme' },
-  { key: 'identifier', header: 'student_ID' },
-  { key: 'role', header: 'Role(Student only)' },
-  { key: 'department', header: 'DEpartment' },
+  { key: 'identifier', header: 'Student ID' },
+  { key: 'role', header: 'Role (Student only)' },
+  { key: 'department', header: 'Department' },
+  { key: 'admissionYear', header: 'Current Year' },
   { key: 'actions', header: 'Actions' },
 ]
 
@@ -110,6 +112,7 @@ export function DeptAccountProvisionPage() {
       <PageHeader
         title="Account Provision"
         description="Provision and manage student accounts for your department."
+        centered
         actions={
           <Button onClick={openCreate}>
             <Plus /> Create user
@@ -175,6 +178,9 @@ export function DeptAccountProvisionPage() {
                       </TableCell>
                       <TableCell>
                         <span className="text-foreground">{u.departmentName || headDept?.name || '—'}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-foreground">{formatYearOfStudy(u.yearOfStudy || u.batchYear || u.admissionYear)}</span>
                       </TableCell>
                       <TableCell className="text-right">
                         <UserRowActions

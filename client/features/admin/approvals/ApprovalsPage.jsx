@@ -11,7 +11,6 @@ import { ErrorState } from '@/components/common/ErrorState'
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { TableSkeleton } from '@/components/common/Loading'
 import { PageHeader } from '@/components/common/PageHeader'
-import { Pagination } from '@/components/common/Pagination'
 import { SearchInput } from '@/components/common/SearchInput'
 import { GradeStatusBadge, StatusBadge } from '@/components/common/StatusBadge'
 import { useLookups } from '@/context/lookups-context'
@@ -26,13 +25,11 @@ export function ApprovalsPage() {
   const [status, setStatus] = useState('pending')
   const [semesterId, setSemesterId] = useState('')
   const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
   const q = useDebounce(search, 300)
 
   const { data, loading, error, refetch } = useQuery(
-    () => store.grades.listApprovalRequests({ status: status === 'all' ? undefined : status, semesterId: semesterId || undefined, search: q, page, pageSize }),
-    [status, semesterId, q, page, pageSize],
+    () => store.grades.listApprovalRequests({ status: status === 'all' ? undefined : status, semesterId: semesterId || undefined, search: q, pageSize: 1000 }),
+    [status, semesterId, q],
   )
 
   const semesterOptions = (lookups?.semesters ?? []).map((s) => ({ value: s.id, label: s.name }))
@@ -55,10 +52,7 @@ export function ApprovalsPage() {
 
       <Tabs
         value={status}
-        onValueChange={(v) => {
-          setStatus(v)
-          setPage(1)
-        }}
+        onValueChange={setStatus}
         className="mb-4"
       >
         <TabsList>
@@ -72,18 +66,12 @@ export function ApprovalsPage() {
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <SearchInput
           value={search}
-          onChange={(v) => {
-            setSearch(v)
-            setPage(1)
-          }}
+          onChange={setSearch}
           placeholder="Search course or teacher…"
         />
         <FilterSelect
           value={semesterId}
-          onChange={(v) => {
-            setSemesterId(v)
-            setPage(1)
-          }}
+          onChange={setSemesterId}
           options={semesterOptions}
           allLabel="All semesters"
           label="Semester"
@@ -147,16 +135,6 @@ export function ApprovalsPage() {
               </TableBody>
             </Table>
           </div>
-          <Pagination
-            page={data.page}
-            pageSize={data.pageSize}
-            total={data.total}
-            onPageChange={setPage}
-            onPageSizeChange={(s) => {
-              setPageSize(s)
-              setPage(1)
-            }}
-          />
         </>
       )}
     </>

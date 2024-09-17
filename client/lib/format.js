@@ -39,6 +39,29 @@ export function formatGpa(value) {
   return Number(value).toFixed(2)
 }
 
+export function formatYearOfStudy(val) {
+  if (!val) return '—'
+  if (typeof val === 'string' && /\d+(st|nd|rd|th)\s+Year/i.test(val)) return val
+  const num = typeof val === 'number' ? val : parseInt(String(val).replace(/\D/g, ''), 10)
+  if (!Number.isFinite(num)) return '—'
+  let studyYear = num
+  if (num >= 100 && num <= 900) {
+    studyYear = Math.floor(num / 100)
+  } else if (num >= 1900 && num <= 2100) {
+    const currentYear = new Date().getFullYear()
+    studyYear = Math.min(5, Math.max(1, currentYear - num + 1))
+  }
+  // A programme is at most 5 years, so year of study is always 1–5.
+  studyYear = Math.min(5, Math.max(1, studyYear))
+  const ordinals = { 1: '1st Year', 2: '2nd Year', 3: '3rd Year', 4: '4th Year', 5: '5th Year' }
+  return ordinals[studyYear] || `${studyYear}th Year`
+}
+
+export function formatSemesterTerm(term) {
+  const labels = { Fall: 'First Semester', Spring: 'Second Semester', Summer: 'Summer Semester' }
+  return labels[term] ?? (term ? `${term} Semester` : '—')
+}
+
 export const GRADE_STATUS_LABELS = {
   not_started: 'Not started',
   draft: 'Draft',

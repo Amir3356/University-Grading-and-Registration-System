@@ -52,10 +52,7 @@ function seedState() {
 
 function load() {
   try {
-    let raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) {
-      raw = localStorage.getItem('ugs-db-v2')
-    }
+    const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
       if (TABLES.every((t) => t in parsed)) {
@@ -74,6 +71,17 @@ function load() {
         } else {
           const seedHead = SEED.users.find((u) => u.roleId === 'dept_head')
           if (seedHead) parsed.users.push(seedHead)
+        }
+        // Ensure sample pending and dropped/withdrawn enrollments exist for demonstration
+        const pendingEnrs = ['enr_0555', 'enr_0655', 'enr_0735']
+        const droppedEnrs = ['enr_0550', 'enr_0650', 'enr_0730']
+        for (const id of pendingEnrs) {
+          const item = parsed.courseEnrollments.find((e) => e.id === id)
+          if (item && item.status !== 'pending') item.status = 'pending'
+        }
+        for (const id of droppedEnrs) {
+          const item = parsed.courseEnrollments.find((e) => e.id === id)
+          if (item && item.status !== 'withdrawn' && item.status !== 'dropped') item.status = 'withdrawn'
         }
         return parsed
       }

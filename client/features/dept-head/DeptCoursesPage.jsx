@@ -1,8 +1,7 @@
 import { useState, useMemo } from 'react'
-import { BookOpen, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
+import { BookOpen, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { FormField } from '@/components/common/FormField'
@@ -130,46 +129,39 @@ export function DeptCoursesPage() {
         meta: { align: 'right' },
       },
       {
-        accessorKey: 'level',
-        header: 'Level',
-        cell: (info) => info.getValue(),
-        meta: { align: 'right' },
-      },
-      {
-        accessorKey: 'offeringCount',
-        header: 'Offerings',
-        cell: (info) => info.getValue() ?? 0,
-        meta: { align: 'right' },
-      },
-      {
         accessorKey: 'status',
         header: 'Status',
         cell: (info) => <StatusBadge status={info.getValue()} />,
       },
       {
         id: 'actions',
-        header: '',
+        header: 'Actions',
         enableSorting: false,
         meta: { align: 'right' },
         cell: ({ row }) => {
           const c = row.original
           return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${c.code}`}>
-                  <MoreHorizontal className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => setDialog({ open: true, course: c })}>
-                  <Pencil className="size-4 mr-2" /> Edit
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(c)}>
-                  <Trash2 className="size-4 mr-2" /> Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Edit ${c.code}`}
+                title="Edit course"
+                onClick={() => setDialog({ open: true, course: c })}
+              >
+                <Pencil className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                aria-label={`Delete ${c.code}`}
+                title="Delete course"
+                onClick={() => setDeleting(c)}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
           )
         },
       },

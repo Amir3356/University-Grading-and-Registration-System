@@ -9,6 +9,7 @@ import { FormField } from '@/components/common/FormField'
 import { PageHeader } from '@/components/common/PageHeader'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery, useMutation } from '@/hooks/useStore'
+import { formatSemesterTerm } from '@/lib/format'
 import { store } from '@/store'
 import { SelectField } from '../users/SelectField'
 
@@ -43,7 +44,12 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
     .filter((c) => c.status === 'active')
     .sort((a, b) => a.code.localeCompare(b.code))
     .map((c) => ({ value: c.id, label: `${c.code} — ${c.title}` }))
-  const semesterOptions = (lookups?.semesters ?? []).filter((s) => s.status !== 'closed').map((s) => ({ value: s.id, label: s.isCurrent ? `${s.name} (current)` : s.name }))
+  const semesterOptions = (lookups?.semesters ?? [])
+    .filter((s) => s.status !== 'closed')
+    .map((s) => {
+      const label = formatSemesterTerm(s.term)
+      return { value: s.id, label: s.isCurrent ? `${label} (current)` : label }
+    })
   // Teachers from the course's department first.
   const teachers = [...(lookups?.teachers ?? [])].sort(
     (a, b) => Number(b.departmentId === course?.departmentId) - Number(a.departmentId === course?.departmentId) || a.name.localeCompare(b.name),
@@ -126,7 +132,7 @@ export function AssignmentsPage() {
   const columns = [
     {
       key: 'courseCode',
-      header: 'Course',
+      header: 'Course Code',
       cell: (o) => (
         <div className="max-w-xs">
           <p className="font-medium">{o.course.code}</p>

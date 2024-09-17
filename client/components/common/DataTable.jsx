@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { ExportMenu } from '@/components/common/ExportMenu'
 import { TableSkeleton } from '@/components/common/Loading'
-import { Pagination } from '@/components/common/Pagination'
 import { SearchInput } from '@/components/common/SearchInput'
 import { cn } from '@/lib/utils'
 
@@ -39,8 +38,6 @@ export function DataTable({
   exportSubtitle,
   university,
   initialSort,
-  pageSize: initialPageSize = 10,
-  paginate = true,
   emptyTitle = 'No records found',
   emptyDescription,
   emptyIcon,
@@ -51,8 +48,6 @@ export function DataTable({
 }) {
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState(initialSort ?? null)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(initialPageSize)
 
   const getValue = (col, row) => (col.value ? col.value(row) : row[col.key])
 
@@ -83,9 +78,7 @@ export function DataTable({
     })
   }, [filtered, sort, columns])
 
-  const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize))
-  const currentPage = Math.min(page, pageCount)
-  const visible = paginate ? sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize) : sorted
+  const visible = sorted
 
   const toggleSort = (key) => {
     setSort((s) => (!s || s.key !== key ? { key, dir: 'asc' } : s.dir === 'asc' ? { key, dir: 'desc' } : null))
@@ -100,10 +93,7 @@ export function DataTable({
           {searchable && (
             <SearchInput
               value={search}
-              onChange={(v) => {
-                setSearch(v)
-                setPage(1)
-              }}
+              onChange={setSearch}
               placeholder={searchPlaceholder}
             />
           )}
@@ -141,7 +131,6 @@ export function DataTable({
                           className={cn('sort-button', active && 'sort-button--active')}
                         >
                           {c.header}
-                          {active ? sort.dir === 'asc' ? <ArrowUp /> : <ArrowDown /> : <ArrowUpDown className="sort-button__idle" />}
                         </button>
                       ) : (
                         c.header
@@ -185,19 +174,6 @@ export function DataTable({
             {footer}
           </Table>
         </div>
-      )}
-
-      {paginate && sorted.length > 0 && (
-        <Pagination
-          page={currentPage}
-          pageSize={pageSize}
-          total={sorted.length}
-          onPageChange={setPage}
-          onPageSizeChange={(s) => {
-            setPageSize(s)
-            setPage(1)
-          }}
-        />
       )}
     </div>
   )

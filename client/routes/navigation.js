@@ -4,6 +4,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   FileBarChart,
+  FileSpreadsheet,
   FileText,
   GraduationCap,
   LayoutDashboard,
@@ -73,14 +74,15 @@ export const NAVIGATION = {
       section: 'Teaching',
       items: [
         { to: '/teacher/courses', label: 'My Courses', icon: BookOpen },
-        { to: '/teacher/students', label: 'Students', icon: GraduationCap },
-        { to: '/teacher/assessments', label: 'Assessments', icon: ClipboardList },
+        { to: '/teacher/students', label: 'Course Students', icon: GraduationCap },
+        { to: '/teacher/assessments', label: 'Assessment Management', icon: ClipboardList },
       ],
     },
     {
       section: 'Grading',
       items: [
-        { to: '/teacher/grade-entry', label: 'Grade Entry', icon: NotebookPen },
+        { to: '/teacher/grade-sheet', label: 'Grade Sheet', icon: FileSpreadsheet },
+        { to: '/teacher/entermark', label: 'Entermark', icon: NotebookPen },
         { to: '/teacher/grade-submission', label: 'Grade Submission', icon: ClipboardCheck },
       ],
     },

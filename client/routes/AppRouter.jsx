@@ -50,8 +50,10 @@ const TeacherCourseDetailPage = page(() => import('@/features/teacher/courses/Co
 const TeacherStudentsPage = page(() => import('@/features/teacher/students/StudentsPage'), 'StudentsPage')
 const TeacherStudentPerformancePage = page(() => import('@/features/teacher/students/StudentPerformancePage'), 'StudentPerformancePage')
 const AssessmentsPage = page(() => import('@/features/teacher/assessments/AssessmentsPage'), 'AssessmentsPage')
+const EntermarkPage = page(() => import('@/features/teacher/grade-entry/EntermarkPage'), 'EntermarkPage')
 const GradeEntryIndexPage = page(() => import('@/features/teacher/grade-entry/GradeEntryIndexPage'), 'GradeEntryIndexPage')
 const GradeEntryPage = page(() => import('@/features/teacher/grade-entry/GradeEntryPage'), 'GradeEntryPage')
+const TeacherGradeSheetPage = page(() => import('@/features/teacher/grade-sheet/GradeSheetPage'), 'GradeSheetPage')
 const GradeSubmissionPage = page(() => import('@/features/teacher/submission/GradeSubmissionPage'), 'GradeSubmissionPage')
 const PerformanceReportsPage = page(() => import('@/features/teacher/reports/PerformanceReportsPage'), 'PerformanceReportsPage')
 
@@ -133,8 +135,11 @@ export function AppRouter() {
                 <Route path="/teacher/students" element={<TeacherStudentsPage />} />
                 <Route path="/teacher/assessments" element={<AssessmentsPage />} />
                 <Route path="/teacher/assessments/:offeringId" element={<AssessmentsPage />} />
+                <Route path="/teacher/entermark" element={<EntermarkPage />} />
+                <Route path="/teacher/entermark/:offeringId" element={<EntermarkPage />} />
                 <Route path="/teacher/grade-entry" element={<GradeEntryIndexPage />} />
                 <Route path="/teacher/grade-entry/:offeringId" element={<GradeEntryPage />} />
+                <Route path="/teacher/grade-sheet" element={<TeacherGradeSheetPage />} />
                 <Route path="/teacher/grade-submission" element={<GradeSubmissionPage />} />
                 <Route path="/teacher/reports" element={<PerformanceReportsPage />} />
                 <Route path="/teacher/reports/:offeringId" element={<PerformanceReportsPage />} />

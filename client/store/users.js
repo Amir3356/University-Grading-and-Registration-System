@@ -28,7 +28,14 @@ function userRow(u) {
   if (u.roleId === 'student') {
     const s = db.students.find((x) => x.userId === u.id)
     const dep = db.departments.find((d) => d.id === s?.departmentId)
-    return { ...base, name, profileId: s?.id, identifier: s?.studentNumber, departmentId: s?.departmentId, departmentName: dep?.name ?? '—', program: s?.program }
+    const studyYear = (() => {
+      const admitted = Number(s?.admissionYear)
+      if (!Number.isFinite(admitted)) return null
+      const year = new Date().getFullYear() - admitted + 1
+      return Math.min(5, Math.max(1, year))
+    })()
+    const ordinals = { 1: '1st Year', 2: '2nd Year', 3: '3rd Year', 4: '4th Year', 5: '5th Year' }
+    return { ...base, name, profileId: s?.id, identifier: s?.studentNumber, departmentId: s?.departmentId, departmentName: dep?.name ?? '—', program: s?.program, admissionYear: s?.admissionYear, batchYear: studyYear, yearOfStudy: studyYear ? (ordinals[studyYear] || `${studyYear}th Year`) : '—' }
   }
   if (u.roleId === 'teacher' || u.roleId === 'dept_head') {
     const t = db.teachers.find((x) => x.userId === u.id)
@@ -163,8 +170,8 @@ function assertUnique(data, ignoreUserId) {
 
 export async function createUser(data) {
   const actor = requireRole('admin', 'dept_head')
-  if (actor.roleId === 'dept_head' && data.roleId !== 'student') {
-    throw forbidden('Department heads can only create student accounts.')
+  if (actor.roleId === 'dept_head' && !['student', 'teacher'].includes(data.roleId)) {
+    throw forbidden('Department heads can only create student and teacher accounts.')
   }
   validate({ ...validateProfile(data, data.roleId), username: () => validateUsername(data) })
   if (data.password) validate({ password: () => validatePasswordStrength(data.password) })
@@ -228,8 +235,8 @@ export async function updateUser(id, data) {
   const db = read()
   const u = db.users.find((x) => x.id === id)
   if (!u) throw notFound('User')
-  if (actor.roleId === 'dept_head' && u.roleId !== 'student') {
-    throw forbidden('Department heads can only update student accounts.')
+  if (actor.roleId === 'dept_head' && !['student', 'teacher'].includes(u.roleId)) {
+    throw forbidden('Department heads can only update student and teacher accounts.')
   }
   const roleId = data.roleId ?? u.roleId
   const password = String(data.password ?? '')
@@ -321,8 +328,8 @@ export function deleteUser(id) {
   const u = db.users.find((x) => x.id === id)
   if (!u) throw notFound('User')
   if (id === actor.id) throw forbidden('You cannot delete your own account.')
-  if (actor.roleId === 'dept_head' && u.roleId !== 'student') {
-    throw forbidden('Department heads can only delete student accounts.')
+  if (actor.roleId === 'dept_head' && !['student', 'teacher'].includes(u.roleId)) {
+    throw forbidden('Department heads can only delete student and teacher accounts.')
   }
   const s = db.students.find((x) => x.userId === id)
   const t = db.teachers.find((x) => x.userId === id)
