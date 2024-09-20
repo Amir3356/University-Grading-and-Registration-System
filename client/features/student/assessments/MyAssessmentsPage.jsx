@@ -5,134 +5,186 @@ import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/common/DataTable'
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { PageHeader } from '@/components/common/PageHeader'
-import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
-import { formatDate, formatPercent } from '@/lib/format'
 import { store } from '@/store'
 import { todayIso, typeLabel } from '../components/policy'
 
-const STATUS_OPTIONS = [
-  { value: 'released', label: 'Released' },
-  { value: 'upcoming', label: 'Upcoming' },
-  { value: 'pending', label: 'Awaiting marks' },
-]
-
-const STATUS_BADGE = {
-  released: ['success', 'Released'],
-  upcoming: ['info', 'Upcoming'],
-  pending: ['warning', 'Awaiting marks'],
-}
-
-function statusOf(a, today) {
-  if (a.isReleased) return 'released'
-  return a.dueDate >= today ? 'upcoming' : 'pending'
+function getAssessmentStatus(a, today) {
+  if (a.marks != null) {
+    return 'graded'
+  }
+  if (a.dueDate && a.dueDate >= today) {
+    return 'upcoming'
+  }
+  return 'pending'
 }
 
 export function MyAssessmentsPage() {
   const navigate = useNavigate()
-  const lookups = useLookups()
-  const [semesterChoice, setSemesterChoice] = useState(null)
-  const [course, setCourse] = useState('')
-  const [status, setStatus] = useState('')
-  const semesterId = semesterChoice ?? lookups?.currentSemester?.id ?? ''
-  const { data, loading, error, refetch } = useQuery(() => store.student.listMyAssessments({ semesterId }), [semesterId], { enabled: Boolean(semesterId) })
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [courseFilter, setCourseFilter] = useState('all')
+
+  const { data, loading, error, refetch } = useQuery(
+    () => store.student.listMyAssessments(),
+    [],
+  )
 
   const today = todayIso()
-  const rows = useMemo(() => (data ?? []).map((a) => ({ ...a, status: statusOf(a, today) })), [data, today])
-  const courseOptions = useMemo(() => {
-    const map = new Map(rows.map((r) => [r.courseCode, r.courseTitle]))
-    return [...map].sort((a, b) => a[0].localeCompare(b[0])).map(([code, title]) => ({ value: code, label: `${code} · ${title}` }))
-  }, [rows])
-  const filtered = rows.filter((r) => (!course || r.courseCode === course) && (!status || r.status === status))
 
-  const semesterOptions = (lookups?.semesters ?? []).map((s) => ({ value: s.id, label: `${s.name}${s.isCurrent ? ' (current)' : ''}` }))
-  const semesterName = lookups?.semesters.find((s) => s.id === semesterId)?.name ?? ''
+  const rows = useMemo(() => {
+    return (data ?? []).map((a) => ({
+      ...a,
+      status: getAssessmentStatus(a, today),
+    }))
+  }, [data, today])
+
+  const courseOptions = useMemo(() => {
+    const map = new Map()
+    for (const r of rows) {
+      if (r.courseCode) {
+        map.set(r.courseCode, `${r.courseCode} — ${r.courseTitle || ''}`)
+      }
+    }
+    return [
+      { value: 'all', label: 'All courses' },
+      ...Array.from(map.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([value, label]) => ({ value, label })),
+    ]
+  }, [rows])
+
+  const statusOptions = [
+    { value: 'all', label: 'All statuses' },
+    { value: 'upcoming', label: 'upcoming' },
+    { value: 'pending', label: 'pending' },
+    { value: 'graded', label: 'graded' },
+  ]
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((r) => {
+      if (statusFilter !== 'all' && r.status !== statusFilter) {
+        return false
+      }
+      if (courseFilter !== 'all' && r.courseCode !== courseFilter) {
+        return false
+      }
+      return true
+    })
+  }, [rows, statusFilter, courseFilter])
+
+  const toolbar = (
+    <div
+      className="cluster"
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: '0.75rem',
+      }}
+    >
+      <div style={{ width: '12rem', minWidth: '9.5rem' }}>
+        <FilterSelect
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={statusOptions}
+          placeholder="All statuses"
+        />
+      </div>
+      {courseOptions.length > 1 && (
+        <div style={{ width: '13rem', minWidth: '10rem' }}>
+          <FilterSelect
+            value={courseFilter}
+            onChange={setCourseFilter}
+            options={courseOptions}
+            placeholder="All courses"
+          />
+        </div>
+      )}
+    </div>
+  )
 
   const columns = [
     {
       key: 'courseCode',
-      header: 'Course',
+      header: 'Course Code',
+      value: (r) => r.courseCode ?? '',
       cell: (r) => (
         <div>
-          <p className="font-medium">{r.courseCode}</p>
-          <p className="max-w-48 truncate text-xs text-muted-foreground">{r.courseTitle}</p>
+          <span className="font-semibold text-foreground">{r.courseCode}</span>
+          {r.courseTitle && (
+            <p className="truncate text-xs text-muted-foreground">{r.courseTitle}</p>
+          )}
         </div>
       ),
     },
-    { key: 'name', header: 'Assessment', className: 'font-medium' },
-    { key: 'type', header: 'Type', value: (r) => typeLabel(r.type) },
     {
-      key: 'dueDate',
-      header: 'Due date',
-      value: (r) => r.dueDate,
+      key: 'assessmentType',
+      header: 'Assessment Type',
+      value: (r) => typeLabel(r.type) || r.name || '—',
       cell: (r) => (
-        <span className="inline-flex items-center gap-2">
-          {formatDate(r.dueDate)}
-          {r.status === 'upcoming' && <Badge variant="info">Upcoming</Badge>}
-        </span>
+        <div>
+          <p className="font-medium text-foreground">{r.name}</p>
+          <p className="text-xs text-muted-foreground">{typeLabel(r.type)}</p>
+        </div>
       ),
     },
-    { key: 'weight', header: 'Weight', align: 'right', value: (r) => r.weight, cell: (r) => `${r.weight}%` },
     {
-      key: 'marks',
-      header: 'Marks',
-      align: 'right',
-      value: (r) => (r.marks != null ? `${r.marks}/${r.maxMarks}` : r.isReleased ? 'No mark' : 'Not released'),
-      cell: (r) =>
-        r.marks != null ? (
-          <span className="font-medium">
-            {r.marks}/{r.maxMarks}
-          </span>
-        ) : (
-          <span className="text-muted-foreground">{r.isReleased ? 'No mark' : `— / ${r.maxMarks}`}</span>
-        ),
+      key: 'totalMark',
+      header: 'Total mark',
+      value: (r) => r.maxMarks ?? 0,
+      cell: (r) => <span>{r.maxMarks ?? '—'}</span>,
+      align: 'center',
     },
-    { key: 'percent', header: 'Percent', align: 'right', value: (r) => r.percent, cell: (r) => formatPercent(r.percent) },
+    {
+      key: 'markObtained',
+      header: 'Mark Obtained',
+      value: (r) => (r.marks != null ? r.marks : -1),
+      cell: (r) => (
+        <span className={r.marks != null ? 'font-semibold text-foreground' : 'text-muted-foreground'}>
+          {r.marks != null ? r.marks : '—'}
+        </span>
+      ),
+      align: 'center',
+    },
     {
       key: 'status',
       header: 'Status',
-      value: (r) => STATUS_BADGE[r.status][1],
-      cell: (r) => <Badge variant={STATUS_BADGE[r.status][0]}>{STATUS_BADGE[r.status][1]}</Badge>,
+      value: (r) => r.status,
+      cell: (r) => {
+        const config = {
+          graded: 'success',
+          pending: 'warning',
+          upcoming: 'secondary',
+        }[r.status] ?? 'outline'
+
+        return <Badge variant={config}>{r.status}</Badge>
+      },
     },
   ]
 
   return (
     <>
-      <PageHeader title="My assessments" description="Assignments, quizzes and exams across your courses, with released marks." />
+      <PageHeader
+        title="My Assessments"
+        description="View assignments, quizzes, midterms, and exams"
+        centered
+      />
       <DataTable
         columns={columns}
-        rows={data ? filtered : undefined}
-        loading={loading || !data}
+        rows={filteredRows}
+        loading={loading}
         error={error}
         onRetry={refetch}
-        initialSort={{ key: 'dueDate', dir: 'asc' }}
+        rowKey={(r) => r.id}
         onRowClick={(r) => navigate(`/student/courses/${r.enrollmentId}`)}
-        exportName={`assessments_${semesterName}`}
-        exportTitle={`My assessments — ${semesterName}`}
-        university={lookups?.university}
-        searchPlaceholder="Search assessments…"
+        searchPlaceholder="Search course code, assessment type, or name…"
+        toolbar={toolbar}
         emptyIcon={ClipboardList}
-        emptyTitle={course || status ? 'No assessments match these filters' : 'No assessments this semester'}
-        emptyDescription={course || status ? 'Clear the course or status filter to see more.' : 'Assessments appear here once your teachers set them up.'}
-        toolbar={
-          <>
-            <FilterSelect
-              value={semesterId}
-              onChange={(v) => {
-                setSemesterChoice(v)
-                setCourse('')
-              }}
-              options={semesterOptions}
-              includeAll={false}
-              label="Semester"
-              placeholder="Semester"
-              className="sm:w-56"
-            />
-            <FilterSelect value={course} onChange={setCourse} options={courseOptions} allLabel="All courses" label="Course" className="sm:w-56" />
-            <FilterSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} allLabel="All statuses" label="Status" />
-          </>
-        }
+        emptyTitle="No assessments found"
+        emptyDescription="Assessments appear here once your teachers publish and schedule them."
       />
     </>
   )
 }
+
+export default MyAssessmentsPage

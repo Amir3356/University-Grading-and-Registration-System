@@ -1,256 +1,211 @@
-import { useState } from 'react'
-import { Award, ChevronRight, FileSpreadsheet, FileText } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle } from '@/components/ui/card'
+import { useMemo, useState } from 'react'
+import { Award, BookOpen, Calendar, ClipboardCheck } from 'lucide-react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { EmptyState } from '@/components/common/EmptyState'
-import { ErrorState } from '@/components/common/ErrorState'
 import { FilterSelect } from '@/components/common/FilterSelect'
-import { PageSkeleton } from '@/components/common/Loading'
 import { PageHeader } from '@/components/common/PageHeader'
-import { GradeBadge, PassFailBadge, StatusBadge } from '@/components/common/StatusBadge'
-import { useAuth } from '@/context/auth-context'
-import { useLookups } from '@/context/lookups-context'
-import { useQuery } from '@/hooks/useStore'
-import { createPdf, exportExcel, finishPdf, pdfTable } from '@/lib/export'
-import { formatGpa, formatNumber } from '@/lib/format'
-import { store } from '@/store'
-import { RESULT_STATUS_LABELS, gradeNote } from '../components/policy'
+import { StatCard } from '@/components/common/StatCard'
+import { StatusBadge } from '@/components/common/StatusBadge'
 
-/** Values shown for a course: only published results expose numbers. */
-function resultCells(c) {
-  const fg = c.finalGrade
-  if (!fg) return { score: null, letter: null, points: null, result: RESULT_STATUS_LABELS[c.resultStatus] }
-  return {
-    score: fg.special ? null : fg.totalScore,
-    letter: fg.letter,
-    points: fg.special ? null : fg.gradePoints,
-    result: fg.special ? (fg.special === 'W' ? 'Withdrawn' : 'Incomplete') : fg.passed ? 'Pass' : 'Fail',
-  }
-}
+const COURSES_DATA = [
+  {
+    courseCode: 'NET401',
+    courseName: 'Computer Networks',
+    totalScore: '85.5',
+    grade: 'A',
+    status: 'published',
+    academicYear: '2027',
+    semester: 'Semester 1',
+  },
+  {
+    courseCode: 'SWE301',
+    courseName: 'Software Engineering',
+    totalScore: '78.0',
+    grade: 'B',
+    status: 'published',
+    academicYear: '2027',
+    semester: 'Semester 1',
+  },
+]
 
 export function MyGradesPage() {
-  const { profile } = useAuth()
-  const lookups = useLookups()
-  const { data, loading, error, refetch } = useQuery(() => store.student.getMyGrades(), [])
-  const [year, setYear] = useState('')
-  const [semester, setSemester] = useState('')
+  const [academicYear, setAcademicYear] = useState('2027')
+  const [semester, setSemester] = useState('Semester 1')
+  const [courseChoice, setCourseChoice] = useState('all')
 
-  if (error) {
-    return (
-      <>
-        <PageHeader title="My grades" />
-        <ErrorState error={error} onRetry={refetch} />
-      </>
-    )
-  }
-  if (loading || !data) return <PageSkeleton />
+  const academicYearOptions = [
+    { value: '2027', label: '2027' },
+    { value: '2026', label: '2026' },
+    { value: '2025', label: '2025' },
+    { value: '2024', label: '2024' },
+  ]
 
-  const yearOptions = [...new Map(data.semesters.map((s) => [s.semester.academicYear?.id, s.semester.academicYear?.name])).entries()]
-    .filter(([id]) => id)
-    .map(([value, label]) => ({ value, label }))
-  const semesterOptions = data.semesters.filter((s) => !year || s.semester.academicYearId === year).map((s) => ({ value: s.semester.id, label: s.semester.name }))
-  const visible = data.semesters.filter((s) => (!year || s.semester.academicYearId === year) && (!semester || s.semester.id === semester))
-  const filterLabel = semester ? data.semesters.find((s) => s.semester.id === semester)?.semester.name : year ? yearOptions.find((y) => y.value === year)?.label : 'All semesters'
+  const semesterOptions = [
+    { value: 'Semester 1', label: 'Semester 1' },
+    { value: 'Semester 2', label: 'Semester 2' },
+  ]
 
-  const exportRows = visible.flatMap((s) =>
-    s.courses.map((c) => ({ ...c, ...resultCells(c), semesterName: s.semester.name, semGpa: s.gpa, semCgpa: s.cgpa, noteText: gradeNote(c) })),
-  )
+  const courseOptions = [
+    { value: 'all', label: 'All Courses' },
+    { value: 'NET401', label: 'NET401 — Computer Networks' },
+    { value: 'SWE301', label: 'SWE301 — Software Engineering' },
+  ]
 
-  const downloadPdf = () => {
-    if (!visible.length) return toast.info('There is nothing to export.')
-    try {
-      const s = profile
-      const { doc, y: startY } = createPdf({
-        title: 'Academic Results (Unofficial)',
-        university: lookups?.university,
-        subtitle: [
-          `Student: ${s?.name ?? ''}    ID: ${s?.studentNumber ?? ''}    Programme: ${s?.program ?? ''}`,
-          `Department: ${s?.department?.name ?? '—'}    Cumulative GPA: ${formatGpa(data.cgpa)}    Credits earned: ${data.earnedCredits}    Showing: ${filterLabel}`,
-        ],
-      })
-      let y = startY
-      const pageH = doc.internal.pageSize.getHeight()
-      for (const sem of visible) {
-        if (y > pageH - 140) {
-          doc.addPage()
-          y = 50
-        }
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(10)
-        doc.text(sem.semester.name, 40, y + 4)
-        doc.setFont('helvetica', 'normal')
-        y = pdfTable(doc, {
-          startY: y + 10,
-          head: ['Code', 'Course title', 'Credits', 'Score', 'Grade', 'Points', 'Result', 'Note'],
-          body: sem.courses.map((c) => {
-            const r = resultCells(c)
-            return [c.course.code, c.course.title, c.course.creditHours, r.score ?? '—', r.letter ?? '—', r.points != null ? r.points.toFixed(2) : '—', r.result, gradeNote(c)]
-          }),
-          foot: ['', `Semester GPA ${formatGpa(sem.gpa)}  ·  CGPA ${formatGpa(sem.cgpa)}`, sem.credits, '', '', '', '', ''],
-          columnStyles: { 0: { cellWidth: 50 }, 2: { halign: 'center', cellWidth: 40 }, 3: { halign: 'center', cellWidth: 40 }, 4: { halign: 'center', cellWidth: 38 }, 5: { halign: 'center', cellWidth: 40 } },
-        })
-        y += 18
-      }
-      doc.setFontSize(8)
-      doc.setTextColor(110)
-      doc.text('Only published results carry scores and grades. Unofficial document generated by the student.', 40, Math.min(y + 4, pageH - 40))
-      finishPdf(doc, `results_${s?.studentNumber ?? 'student'}`)
-      toast.success('Results downloaded as PDF.')
-    } catch (err) {
-      toast.error(err.message || 'Export failed.')
-    }
-  }
-
-  const downloadExcel = () => {
-    if (!exportRows.length) return toast.info('There is nothing to export.')
-    try {
-      exportExcel(`results_${profile?.studentNumber ?? 'student'}`, [
-        {
-          name: 'Results',
-          columns: [
-            { header: 'Semester', value: (r) => r.semesterName, width: 18 },
-            { header: 'Code', value: (r) => r.course.code },
-            { header: 'Course title', value: (r) => r.course.title, width: 32 },
-            { header: 'Credits', value: (r) => r.course.creditHours },
-            { header: 'Score', value: (r) => r.score },
-            { header: 'Grade', value: (r) => r.letter },
-            { header: 'Grade points', value: (r) => r.points },
-            { header: 'Result', value: (r) => r.result, width: 20 },
-            { header: 'Note', value: (r) => r.noteText, width: 28 },
-            { header: 'Semester GPA', value: (r) => r.semGpa },
-            { header: 'CGPA', value: (r) => r.semCgpa },
-          ],
-          rows: exportRows,
-        },
-      ])
-      toast.success('Results downloaded as Excel.')
-    } catch (err) {
-      toast.error(err.message || 'Export failed.')
-    }
-  }
+  const filteredCourses = useMemo(() => {
+    return COURSES_DATA.filter((c) => {
+      if (academicYear && c.academicYear !== academicYear && !c.academicYear.includes(academicYear)) return false
+      if (semester && c.semester !== semester) return false
+      if (courseChoice !== 'all' && c.courseCode !== courseChoice) return false
+      return true
+    })
+  }, [academicYear, semester, courseChoice])
 
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader
-        title="My grades"
-        description={`Cumulative GPA ${formatGpa(data.cgpa)} · ${data.earnedCredits} credits earned. Only published results show scores and grades.`}
-        actions={
-          <>
-            <Button variant="outline" size="sm" onClick={downloadPdf} disabled={!visible.length}>
-              <FileText /> Download PDF
-            </Button>
-            <Button variant="outline" size="sm" onClick={downloadExcel} disabled={!visible.length}>
-              <FileSpreadsheet /> Excel
-            </Button>
-          </>
-        }
+        title="My Grades"
+        description="View current course grades and individual assessment results."
       />
 
-      {data.semesters.length > 0 && (
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <FilterSelect
-            value={year}
-            onChange={(v) => {
-              setYear(v)
-              setSemester('')
-            }}
-            options={yearOptions}
-            allLabel="All academic years"
-            label="Academic year"
-          />
-          <FilterSelect value={semester} onChange={setSemester} options={semesterOptions} allLabel="All semesters" label="Semester" className="sm:w-56" />
-        </div>
-      )}
+      {/* Metric Cards Grid */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="Registered Courses"
+          value="6"
+          icon={BookOpen}
+          tone="default"
+        />
+        <StatCard
+          label="Published Grades"
+          value="4 / 6"
+          icon={ClipboardCheck}
+          tone="teal"
+        />
+        <StatCard
+          label="Semester GPA"
+          value="3.45"
+          icon={Award}
+          tone="warning"
+        />
+        <StatCard
+          label="Academic Year"
+          value={academicYear}
+          icon={Calendar}
+          tone="default"
+        />
+      </div>
 
-      {data.semesters.length === 0 ? (
-        <Card>
-          <EmptyState icon={Award} title="No courses yet" description="Your courses and grades will appear here once you are enrolled." />
-        </Card>
-      ) : visible.length === 0 ? (
-        <Card>
-          <EmptyState title="No semesters match these filters" />
-        </Card>
-      ) : (
-        <div className="flex flex-col gap-6">
-          {visible.map((s) => (
-            <SemesterCard key={s.semester.id} sem={s} />
-          ))}
-        </div>
-      )}
-    </>
-  )
-}
+      {/* Filter Grades Card */}
+      <Card className="p-5">
+        <CardHeader className="p-0 pb-4">
+          <CardTitle className="text-base font-semibold">Filter Grades</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="form-field">
+              <label htmlFor="academic-year-select" className="text-sm font-medium text-foreground">
+                Academic Year
+              </label>
+              <FilterSelect
+                id="academic-year-select"
+                value={academicYear}
+                onChange={setAcademicYear}
+                options={academicYearOptions}
+                placeholder="2027"
+                includeAll={false}
+                className="w-full"
+              />
+            </div>
 
-function SemesterCard({ sem }) {
-  return (
-    <Card className="gap-3 pb-0">
-      <CardHeader>
-        <div>
-          <CardTitle>{sem.semester.name}</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {sem.courses.length} course{sem.courses.length === 1 ? '' : 's'}
-            {sem.semester.isCurrent ? ' · current semester' : ''}
-          </p>
-        </div>
-        <p className="tabular text-sm text-muted-foreground">
-          GPA <span className="font-semibold text-foreground">{formatGpa(sem.gpa)}</span> · CGPA <span className="font-semibold text-foreground">{formatGpa(sem.cgpa)}</span> · {sem.credits} GPA credits
-        </p>
-      </CardHeader>
-      <Table>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead>Code</TableHead>
-            <TableHead>Course</TableHead>
-            <TableHead className="text-right">Credits</TableHead>
-            <TableHead className="text-right">Total</TableHead>
-            <TableHead className="text-center">Grade</TableHead>
-            <TableHead className="text-right">Points</TableHead>
-            <TableHead>Result</TableHead>
-            <TableHead>Note</TableHead>
-            <TableHead>
-              <span className="sr-only">Details</span>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sem.courses.map((c) => {
-            const fg = c.finalGrade
-            const note = gradeNote(c)
-            return (
-              <TableRow key={c.enrollmentId}>
-                <TableCell className="font-medium">{c.course.code}</TableCell>
-                <TableCell className="whitespace-normal">{c.course.title}</TableCell>
-                <TableCell className="tabular text-right">{c.course.creditHours}</TableCell>
-                {fg ? (
-                  <>
-                    <TableCell className="tabular text-right">{fg.special ? '—' : formatNumber(fg.totalScore, 2)}</TableCell>
-                    <TableCell className="text-center">
-                      <GradeBadge letter={fg.letter} passed={fg.passed} />
-                    </TableCell>
-                    <TableCell className="tabular text-right">{fg.special ? '—' : formatGpa(fg.gradePoints)}</TableCell>
-                    <TableCell>{fg.special ? <StatusBadge status="withdrawn" label={fg.special === 'W' ? 'Withdrawn' : 'Incomplete'} /> : <PassFailBadge passed={fg.passed} />}</TableCell>
-                  </>
-                ) : (
-                  <TableCell colSpan={4}>
-                    <StatusBadge status={c.resultStatus} label={RESULT_STATUS_LABELS[c.resultStatus]} />
-                  </TableCell>
-                )}
-                <TableCell className="text-xs whitespace-normal text-muted-foreground">{note}</TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon-sm" asChild>
-                    <Link to={`/student/courses/${c.enrollmentId}`} aria-label={`Assessment breakdown for ${c.course.code}`} title="Assessment breakdown">
-                      <ChevronRight />
-                    </Link>
-                  </Button>
-                </TableCell>
+            <div className="form-field">
+              <label htmlFor="semester-select" className="text-sm font-medium text-foreground">
+                Semester
+              </label>
+              <FilterSelect
+                id="semester-select"
+                value={semester}
+                onChange={setSemester}
+                options={semesterOptions}
+                placeholder="Semester 1"
+                includeAll={false}
+                className="w-full"
+              />
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="course-select" className="text-sm font-medium text-foreground">
+                Course
+              </label>
+              <FilterSelect
+                id="course-select"
+                value={courseChoice}
+                onChange={setCourseChoice}
+                options={courseOptions}
+                placeholder="All Courses"
+                includeAll={false}
+                className="w-full"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Course Grade Summary Card */}
+      <Card className="overflow-hidden">
+        <CardHeader className="p-5 pb-3 border-b">
+          <div className="flex flex-col gap-0.5">
+            <CardTitle className="text-base font-semibold">Course Grade Summary</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
+              Illustrative data only
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[160px]">Course Code</TableHead>
+                <TableHead>Course Name</TableHead>
+                <TableHead className="text-center w-[120px]">Total /100</TableHead>
+                <TableHead className="text-center w-[100px]">Grade</TableHead>
+                <TableHead className="text-right w-[130px]">Status</TableHead>
               </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {filteredCourses.map((c) => (
+                <TableRow key={c.courseCode}>
+                  <TableCell className="font-semibold text-foreground">
+                    {c.courseCode}
+                  </TableCell>
+                  <TableCell className="font-medium text-foreground">
+                    {c.courseName}
+                  </TableCell>
+                  <TableCell className="text-center font-semibold tabular-nums">
+                    {c.totalScore}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-primary/10 text-primary">
+                      {c.grade}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <StatusBadge status={c.status} label="Published" />
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filteredCourses.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    No course grades found for the selected filter.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
+
+export default MyGradesPage

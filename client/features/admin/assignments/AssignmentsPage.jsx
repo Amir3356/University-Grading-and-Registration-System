@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, UserCheck } from 'lucide-react'
+import { Pencil, Plus, Trash2, UserCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { DataTable } from '@/components/common/DataTable'
 import { FormField } from '@/components/common/FormField'
 import { PageHeader } from '@/components/common/PageHeader'
+import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery, useMutation } from '@/hooks/useStore'
 import { formatSemesterTerm } from '@/lib/format'
@@ -19,8 +20,17 @@ const teacherLabel = (t) => `${t.name} — ${t.department?.code ?? '—'}`
 
 function OfferingForm({ offering, defaultSemesterId, onClose }) {
   const lookups = useLookups()
+  const { profile } = useAuth()
   const isEdit = Boolean(offering)
+
+  const initialDeptId =
+    offering?.course?.departmentId ??
+    profile?.departmentId ??
+    (lookups?.departments ?? []).find((d) => d.headTeacherId === profile?.id)?.id ??
+    ''
+
   const [form, setForm] = useState({
+    departmentId: initialDeptId,
     courseId: offering?.courseId ?? '',
     semesterId: offering?.semesterId ?? defaultSemesterId ?? '',
     teacherId: offering?.teacherId ?? '',
@@ -32,27 +42,65 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
   const [save, { loading, fieldErrors }] = useMutation(
     (data) =>
       isEdit
-        ? store.academics.updateOffering(offering.id, { teacherId: data.teacherId, section: data.section, capacity: data.capacity, room: data.room, schedule: data.schedule })
+        ? store.academics.updateOffering(offering.id, {
+            teacherId: data.teacherId,
+            section: data.section,
+            capacity: data.capacity,
+            room: data.room,
+            schedule: data.schedule,
+          })
         : store.academics.createOffering(data),
     { success: isEdit ? 'Offering updated.' : 'Course offering created and teacher notified.', onSuccess: onClose },
   )
   const fe = fieldErrors ?? {}
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e?.target ? e.target.value : e }))
 
+  const departmentOptions = (lookups?.departments ?? []).map((d) => ({
+    value: d.id,
+    label: d.name,
+  }))
+
+  const handleDepartmentChange = (deptId) => {
+    setForm((f) => {
+      const courseStillValid = (lookups?.courses ?? []).some(
+        (c) => c.id === f.courseId && (!deptId || c.departmentId === deptId),
+      )
+      return {
+        ...f,
+        departmentId: deptId,
+        courseId: courseStillValid ? f.courseId : '',
+      }
+    })
+  }
+
+  const handleCourseChange = (courseId) => {
+    const selectedCourse = (lookups?.courses ?? []).find((c) => c.id === courseId)
+    setForm((f) => ({
+      ...f,
+      courseId,
+      departmentId: selectedCourse?.departmentId || f.departmentId,
+    }))
+  }
+
   const course = (lookups?.courses ?? []).find((c) => c.id === form.courseId)
   const courseOptions = (lookups?.courses ?? [])
     .filter((c) => c.status === 'active')
-    .sort((a, b) => a.code.localeCompare(b.code))
-    .map((c) => ({ value: c.id, label: `${c.code} — ${c.title}` }))
+    .filter((c) => !form.departmentId || c.departmentId === form.departmentId)
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .map((c) => ({ value: c.id, label: `${c.title} (${c.code})` }))
+
   const semesterOptions = (lookups?.semesters ?? [])
     .filter((s) => s.status !== 'closed')
     .map((s) => {
       const label = formatSemesterTerm(s.term)
       return { value: s.id, label: s.isCurrent ? `${label} (current)` : label }
     })
-  // Teachers from the course's department first.
+  // Teachers from the course's or selected department first.
+  const targetDeptId = course?.departmentId || form.departmentId
   const teachers = [...(lookups?.teachers ?? [])].sort(
-    (a, b) => Number(b.departmentId === course?.departmentId) - Number(a.departmentId === course?.departmentId) || a.name.localeCompare(b.name),
+    (a, b) =>
+      Number(b.departmentId === targetDeptId) - Number(a.departmentId === targetDeptId) ||
+      a.name.localeCompare(b.name),
   )
   const teacherOptions = teachers.map((t) => ({ value: t.id, label: teacherLabel(t) }))
   if (isEdit && offering.teacher && !teacherOptions.some((t) => t.value === offering.teacherId)) {
@@ -66,7 +114,15 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
       noValidate
       onSubmit={(e) => {
         e.preventDefault()
-        save(form)
+        save({
+          courseId: form.courseId,
+          semesterId: form.semesterId,
+          teacherId: form.teacherId,
+          section: form.section,
+          capacity: form.capacity,
+          room: form.room,
+          schedule: form.schedule,
+        })
       }}
     >
       {isEdit ? (
@@ -78,8 +134,34 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          <SelectField label="Course" required value={form.courseId} onChange={set('courseId')} options={courseOptions} error={fe.courseId} placeholder="Choose a course" className="sm:col-span-2" />
-          <SelectField label="Semester" required value={form.semesterId} onChange={set('semesterId')} options={semesterOptions} error={fe.semesterId} placeholder="Choose a semester" className="sm:col-span-2" />
+          <SelectField
+            label="Department"
+            value={form.departmentId}
+            onChange={handleDepartmentChange}
+            options={departmentOptions}
+            placeholder="Choose a department"
+            className="sm:col-span-2"
+          />
+          <SelectField
+            label="coursename"
+            required
+            value={form.courseId}
+            onChange={handleCourseChange}
+            options={courseOptions}
+            error={fe.courseId}
+            placeholder="Choose a coursename"
+            className="sm:col-span-2"
+          />
+          <SelectField
+            label="Semester"
+            required
+            value={form.semesterId}
+            onChange={set('semesterId')}
+            options={semesterOptions}
+            error={fe.semesterId}
+            placeholder="Choose a semester"
+            className="sm:col-span-2"
+          />
         </div>
       )}
       <SelectField
@@ -133,11 +215,30 @@ export function AssignmentsPage() {
     {
       key: 'courseCode',
       header: 'Course Code',
+      value: (o) => o.course?.code ?? '',
+      cell: (o) => <span className="font-medium text-foreground">{o.course?.code}</span>,
+    },
+    {
+      key: 'courseName',
+      header: 'course name',
+      value: (o) => o.course?.title ?? '',
+      cell: (o) => <span className="font-semibold text-foreground">{o.course?.title ?? '—'}</span>,
+    },
+    {
+      key: 'department',
+      header: 'Department',
+      value: (o) =>
+        o.course?.department?.name ??
+        (lookups?.departments ?? []).find((d) => d.id === o.course?.departmentId)?.name ??
+        o.teacher?.department?.name ??
+        '—',
       cell: (o) => (
-        <div className="max-w-xs">
-          <p className="font-medium">{o.course.code}</p>
-          <p className="truncate text-xs text-muted-foreground">{o.course.title}</p>
-        </div>
+        <span className="text-muted-foreground">
+          {o.course?.department?.name ??
+            (lookups?.departments ?? []).find((d) => d.id === o.course?.departmentId)?.name ??
+            o.teacher?.department?.name ??
+            '—'}
+        </span>
       ),
     },
     { key: 'section', header: 'Section' },
@@ -160,6 +261,37 @@ export function AssignmentsPage() {
         <div>
           <p>{o.room || '—'}</p>
           <p className="text-xs text-muted-foreground">{o.schedule}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      sortable: false,
+      searchable: false,
+      export: false,
+      align: 'right',
+      cell: (o) => (
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Edit ${o.course?.code ?? 'offering'}`}
+            title="Edit offering"
+            onClick={() => setDialog({ open: true, offering: o })}
+          >
+            <Pencil className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            aria-label={`Delete ${o.course?.code ?? 'offering'}`}
+            title="Delete offering"
+            onClick={() => setDeleting(o)}
+          >
+            <Trash2 className="size-4" />
+          </Button>
         </div>
       ),
     },

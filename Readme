@@ -7,3 +7,38 @@ Yes. You should create a Grade Sheets sidebar for the Teacher in your University
 
 
 For your University Grading System, I do not recommend an “Assignment Type” column in the Grade Sheets table if each row represents a student’s final course result.
+
+
+
+Grade Sheets — Combines assessment marks and calculates each student's final course result.
+
+
+Final Grade: Automatically calculated once the required assessments are complete
+
+
+
+
+Important: Why are the grades incomplete?
+Your table shows low accumulated scores, but the final grades are blank and the statuses are Incomplete. That is appropriate if required assessments—such as the midterm or final exam—have not yet been entered.
+The system should calculate the final grade only when all required marks are available. A withdrawn student should retain the W grade without being treated as an ordinary incomplete student.
+
+
+
+
+In your University Grading System, when the Teacher clicks Submit Grades, I recommend that the submitted grades go to the Department Head for review and approval.
+
+
+
+
+
+
+
+My Grades: View current course grades and individual assessment results.
+
+
+
+Transcript: View all semesters' official course results, cumulative GPA, and completed credits.
+
+
+
+Grade Report: Optional if you want a separate semester-specific report; otherwise, you can remove it to avoid duplicating the Transcript feature.

@@ -25,8 +25,8 @@ export function TranscriptPage() {
   return (
     <>
       <PageHeader
-        title="Unofficial transcript"
-        description="Your academic record of published results."
+        title="Transcript"
+        description="View all semesters' official course results, cumulative GPA, and completed credits."
         actions={
           data && (
             <div className="no-print flex flex-wrap gap-2">

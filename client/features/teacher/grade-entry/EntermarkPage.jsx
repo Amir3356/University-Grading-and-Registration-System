@@ -139,26 +139,14 @@ export function EntermarkPage() {
       header: 'Student Name',
       sortable: true,
       value: (r) => r.student.name,
-      cell: (r) => (
-        <div>
-          <p className="font-semibold">{r.student.name}</p>
-          <p className="text-xs text-muted-foreground">{r.student.email}</p>
-        </div>
-      ),
+      cell: (r) => <p className="font-semibold">{r.student.name}</p>,
     },
     {
       key: 'assessmentType',
       header: 'Assessment Type',
       sortable: true,
       value: (r) => typeLabel(r.assessment.type),
-      cell: (r) => (
-        <div>
-          <p className="font-semibold">{typeLabel(r.assessment.type)}</p>
-          <p className="text-xs text-muted-foreground">
-            {r.assessment.name} ({r.assessment.weight}%)
-          </p>
-        </div>
-      ),
+      cell: (r) => <p className="font-semibold">{typeLabel(r.assessment.type)}</p>,
     },
     {
       key: 'totalMarks',
@@ -225,6 +213,7 @@ export function EntermarkPage() {
       <PageHeader
         title="Entermark"
         description="Enter and manage student assessment marks."
+        centered
         actions={
           <Button
             disabled={!activeOfferingId || isLocked || assessments.length === 0}

@@ -19,18 +19,23 @@ const STATUS_OPTIONS = [
   { value: 'archived', label: 'Archived' },
 ]
 
-function CourseForm({ course, deptId, onClose }) {
+function CourseForm({ course, dept, deptId, onClose }) {
+  const lookups = useLookups()
   const isEdit = Boolean(course)
+  const defaultDeptName = dept?.name ?? 'Computer Science'
+  const initialDept =
+    (lookups?.departments ?? []).find((d) => d.id === course?.departmentId)?.name ?? defaultDeptName
 
   const [form, setForm] = useState({
     code: course?.code ?? '',
     title: course?.title ?? '',
+    department: initialDept,
     creditHours: String(course?.creditHours ?? 3),
     status: course?.status ?? 'active',
   })
   const [save, { loading, fieldErrors }] = useMutation(
     (data) =>
-      isEdit ? store.academics.updateCourse(course.id, data) : store.academics.createCourse({ ...data, departmentId: deptId }),
+      isEdit ? store.academics.updateCourse(course.id, data) : store.academics.createCourse(data),
     { success: isEdit ? 'Course updated.' : 'Course created.', onSuccess: onClose },
   )
   const fe = fieldErrors ?? {}
@@ -45,13 +50,19 @@ function CourseForm({ course, deptId, onClose }) {
         const codeNum = parseInt(form.code.replace(/\D/g, ''), 10)
         const autoLevel = Number.isFinite(codeNum) && codeNum >= 100 && codeNum <= 999 ? Math.floor(codeNum / 100) * 100 : (course?.level ?? 100)
 
+        const selectedDept = (lookups?.departments ?? []).find(
+          (d) => d.name.toLowerCase() === String(form.department).trim().toLowerCase(),
+        )
+        const resolvedDeptId = selectedDept?.id || deptId
+
         const data = {
           code: form.code,
           title: form.title,
+          department: form.department,
+          departmentId: resolvedDeptId,
           creditHours: form.creditHours,
           level: autoLevel,
           description: course?.description ?? '',
-          departmentId: deptId,
         }
         if (isEdit) data.status = form.status
         save(data)
@@ -61,10 +72,25 @@ function CourseForm({ course, deptId, onClose }) {
         <FormField label="Code" required error={fe.code} hint="e.g. CS101">
           <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} maxLength={10} />
         </FormField>
-        <FormField label="Course Name" required error={fe.title || fe.courseName}>
+        <FormField label="coursename" required error={fe.title || fe.courseName}>
           <Input value={form.title} onChange={set('title')} placeholder="e.g. Introduction to Programming" />
         </FormField>
       </div>
+
+      <FormField label="Department" required error={fe.department || fe.departmentId} hint="Department offering this course">
+        <Input
+          list="dept-courses-departments-list"
+          value={form.department}
+          onChange={set('department')}
+          placeholder="e.g. Computer Science"
+          autoComplete="off"
+        />
+      </FormField>
+      <datalist id="dept-courses-departments-list">
+        {(lookups?.departments ?? []).map((d) => (
+          <option key={d.id} value={d.name} />
+        ))}
+      </datalist>
 
       <FormField label="Credit hours" required error={fe.creditHours} hint="Between 1 and 6">
         <Input type="number" min={1} max={6} step={1} value={form.creditHours} onChange={set('creditHours')} />
@@ -119,8 +145,18 @@ export function DeptCoursesPage() {
       },
       {
         accessorKey: 'title',
-        header: 'Course Title',
+        header: 'coursename',
         cell: (info) => <span className="font-semibold text-foreground">{info.getValue()}</span>,
+      },
+      {
+        id: 'department',
+        header: 'Department',
+        accessorFn: (row) => {
+          const dId = row.departmentId || deptId
+          const department = (lookups?.departments ?? []).find((d) => d.id === dId) || dept
+          return department?.name ?? 'Computer Science'
+        },
+        cell: (info) => <span className="text-muted-foreground">{info.getValue()}</span>,
       },
       {
         accessorKey: 'creditHours',
@@ -166,7 +202,7 @@ export function DeptCoursesPage() {
         },
       },
     ],
-    [],
+    [dept, deptId, lookups?.departments],
   )
 
   return (
@@ -187,7 +223,7 @@ export function DeptCoursesPage() {
         loading={loading}
         error={error}
         onRetry={refetch}
-        searchPlaceholder="Search course code or title…"
+        searchPlaceholder="Search course code, coursename, or department…"
         initialSort={[{ id: 'code', desc: false }]}
         emptyIcon={BookOpen}
         emptyTitle="No courses found"
@@ -202,7 +238,13 @@ export function DeptCoursesPage() {
               {dialog.course ? 'Credit hours cannot change after grades have been published for this course.' : 'Add a course to the department catalogue.'}
             </DialogDescription>
           </DialogHeader>
-          <CourseForm key={dialog.course?.id ?? 'new'} course={dialog.course} deptId={deptId} onClose={() => setDialog((d) => ({ ...d, open: false }))} />
+          <CourseForm
+            key={dialog.course?.id ?? 'new'}
+            course={dialog.course}
+            dept={dept}
+            deptId={deptId}
+            onClose={() => setDialog((d) => ({ ...d, open: false }))}
+          />
         </DialogContent>
       </Dialog>
 

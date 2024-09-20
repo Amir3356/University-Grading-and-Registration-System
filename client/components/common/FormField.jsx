@@ -9,18 +9,35 @@ import { cn } from '@/lib/utils'
 export function FormField({ label, error, hint, required, children, className }) {
   const id = useId()
   const descId = `${id}-desc`
-  const child = Children.only(children)
-  const control = isValidElement(child)
-    ? cloneElement(child, {
-        id: child.props.id ?? id,
-        'aria-invalid': error ? true : undefined,
-        'aria-describedby': error || hint ? descId : undefined,
-      })
-    : child
+  let control
+  let targetId = id
+
+  if (isValidElement(children)) {
+    targetId = children.props.id ?? id
+    control = cloneElement(children, {
+      id: targetId,
+      'aria-invalid': error ? true : undefined,
+      'aria-describedby': error || hint ? descId : undefined,
+    })
+  } else {
+    let cloned = false
+    control = Children.map(children, (child) => {
+      if (!cloned && isValidElement(child)) {
+        cloned = true
+        targetId = child.props.id ?? id
+        return cloneElement(child, {
+          id: targetId,
+          'aria-invalid': error ? true : undefined,
+          'aria-describedby': error || hint ? descId : undefined,
+        })
+      }
+      return child
+    })
+  }
   return (
     <div className={cn('form-field', className)}>
       {label && (
-        <Label htmlFor={child.props?.id ?? id}>
+        <Label htmlFor={targetId}>
           {label}
           {required && (
             <span className="form-field__required" aria-hidden="true">

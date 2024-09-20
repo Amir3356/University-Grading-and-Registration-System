@@ -64,6 +64,7 @@ const StudentCourseDetailPage = page(() => import('@/features/student/courses/Co
 const MyAssessmentsPage = page(() => import('@/features/student/assessments/MyAssessmentsPage'), 'MyAssessmentsPage')
 const MyGradesPage = page(() => import('@/features/student/grades/MyGradesPage'), 'MyGradesPage')
 const ProgressPage = page(() => import('@/features/student/progress/ProgressPage'), 'ProgressPage')
+const GradeReportPage = page(() => import('@/features/student/reports/GradeReportPage'), 'GradeReportPage')
 const TranscriptPage = page(() => import('@/features/student/transcript/TranscriptPage'), 'TranscriptPage')
 
 function HomeRedirect() {
@@ -122,6 +123,8 @@ export function AppRouter() {
                 <Route path="/dept-head/students" element={<DeptStudentsPage />} />
                 <Route path="/dept-head/assignments" element={<AssignmentsPage />} />
                 <Route path="/dept-head/approvals" element={<DeptApprovalsPage />} />
+                <Route path="/dept-head/grade-approval" element={<DeptApprovalsPage />} />
+                <Route path="/dept-head/grade-approvals" element={<DeptApprovalsPage />} />
                 <Route path="/dept-head/approvals/:requestId" element={<ApprovalDetailPage />} />
                 <Route path="/dept-head/reports" element={<DeptReportsPage />} />
                 <Route path="/dept-head/reports/grade-sheet/:offeringId" element={<GradeSheetPage />} />
@@ -151,6 +154,7 @@ export function AppRouter() {
                 <Route path="/student/courses/:enrollmentId" element={<StudentCourseDetailPage />} />
                 <Route path="/student/assessments" element={<MyAssessmentsPage />} />
                 <Route path="/student/grades" element={<MyGradesPage />} />
+                <Route path="/student/grade-report" element={<GradeReportPage />} />
                 <Route path="/student/progress" element={<ProgressPage />} />
                 <Route path="/student/transcript" element={<TranscriptPage />} />
               </Route>

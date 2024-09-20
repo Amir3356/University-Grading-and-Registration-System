@@ -102,11 +102,11 @@ export function getMyCourse(enrollmentId) {
 export function listMyAssessments({ semesterId } = {}) {
   const user = requireRole('student')
   const me = studentProfile(user)
-  const sid = semesterId || currentSemester().id
+  const sid = !semesterId || semesterId === 'all' ? null : semesterId
   const out = []
   for (const e of myEnrollments(me)) {
     const o = read().courseOfferings.find((x) => x.id === e.offeringId)
-    if (o.semesterId !== sid) continue
+    if (sid && o.semesterId !== sid) continue
     const c = read().courses.find((x) => x.id === o.courseId)
     for (const a of visibleAssessments(e, o)) out.push({ ...a, enrollmentId: e.id, courseCode: c.code, courseTitle: c.title, percent: a.marks != null ? (a.marks / a.maxMarks) * 100 : null })
   }

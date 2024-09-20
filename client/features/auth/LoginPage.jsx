@@ -78,12 +78,12 @@ export function LoginPage() {
               </Select>
             </FormField>
             {form.role === 'student' || form.role === 'teacher' || form.role === 'dept_head' ? (
-              <FormField label={form.role === 'student' ? 'Student ID' : form.role === 'dept_head' ? 'Department ID' : 'Teacher ID'} error={fieldErrors.identifier} required>
+              <FormField label={form.role === 'student' ? 'Student ID' : form.role === 'dept_head' ? 'Department Head ID' : 'Teacher ID'} error={fieldErrors.identifier} required>
                 <Input
                   autoComplete="off"
                   value={form.identifier}
                   onChange={(e) => setForm({ ...form, identifier: e.target.value })}
-                  placeholder={form.role === 'student' ? 'e.g. UGR/26/0001' : form.role === 'dept_head' ? 'e.g. CS or dep_cs' : 'e.g. EMP-CS-02'}
+                  placeholder={form.role === 'student' ? 'e.g. UGR/26/0001' : form.role === 'dept_head' ? 'e.g. EMP-CS-02 or CS' : 'e.g. EMP-CS-02'}
                 />
               </FormField>
             ) : (

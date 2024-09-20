@@ -12,7 +12,6 @@ import {
   NotebookPen,
   ScrollText,
   SlidersHorizontal,
-  TrendingUp,
   UserCheck,
   Users,
 } from 'lucide-react'
@@ -56,7 +55,6 @@ export const NAVIGATION = {
       section: 'Department',
       items: [
         { to: '/dept-head/courses', label: 'Department Courses', icon: BookOpen },
-        { to: '/dept-head/teachers', label: 'Department Teachers', icon: Users },
         { to: '/dept-head/students', label: 'Department Students', icon: GraduationCap },
         { to: '/dept-head/assignments', label: 'Teacher Assignments', icon: UserCheck },
       ],
@@ -64,6 +62,7 @@ export const NAVIGATION = {
     {
       section: 'Grading',
       items: [
+        { to: '/dept-head/approvals', label: 'Grade Approval', icon: ClipboardCheck },
         { to: '/dept-head/reports', label: 'Reports', icon: FileBarChart },
       ],
     },
@@ -95,7 +94,7 @@ export const NAVIGATION = {
         { to: '/student/courses', label: 'My Courses', icon: BookOpen },
         { to: '/student/assessments', label: 'My Assessments', icon: ListChecks },
         { to: '/student/grades', label: 'My Grades', icon: BookOpenCheck },
-        { to: '/student/progress', label: 'GPA & Academic Progress', icon: TrendingUp },
+        { to: '/student/grade-report', label: 'Grade Report', icon: FileBarChart },
         { to: '/student/transcript', label: 'Transcript', icon: FileText },
       ],
     },
