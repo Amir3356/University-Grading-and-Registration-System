@@ -1,1 +1,20 @@
 /* Student pages. Classes are prefixed with .stu- or scoped to a page root class. */
+
+.withdrawal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-top: 0.75rem;
+}
+
+.withdrawal-form .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.withdrawal-form .dialog__footer {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}

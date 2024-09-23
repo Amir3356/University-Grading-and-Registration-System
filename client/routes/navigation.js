@@ -1,6 +1,7 @@
 import {
   BookOpen,
   BookOpenCheck,
+  CalendarClock,
   ClipboardCheck,
   ClipboardList,
   FileBarChart,
@@ -13,6 +14,7 @@ import {
   ScrollText,
   SlidersHorizontal,
   UserCheck,
+  UserMinus,
   Users,
 } from 'lucide-react'
 
@@ -29,6 +31,16 @@ export const NAVIGATION = {
       items: [
         { to: '/admin/courses', label: 'Courses', icon: BookOpen },
         { to: '/admin/assignments', label: 'Teacher Assignments', icon: UserCheck },
+        {
+          to: '/admin/semester-registration',
+          label: 'Semester Registration Management',
+          icon: CalendarClock,
+          children: [
+            { to: '/admin/semester-registration/periods', label: 'Registration Periods' },
+            { to: '/admin/semester-registration/students', label: 'Student Registrations' },
+          ],
+        },
+        { to: '/admin/withdrawals', label: 'Student Withdrawals', icon: UserMinus },
       ],
     },
     {
@@ -91,11 +103,13 @@ export const NAVIGATION = {
     {
       section: 'Academics',
       items: [
+        { to: '/student/registrations', label: 'Semester Registration', icon: UserCheck },
         { to: '/student/courses', label: 'My Courses', icon: BookOpen },
         { to: '/student/assessments', label: 'My Assessments', icon: ListChecks },
         { to: '/student/grades', label: 'My Grades', icon: BookOpenCheck },
         { to: '/student/grade-report', label: 'Grade Report', icon: FileBarChart },
         { to: '/student/transcript', label: 'Transcript', icon: FileText },
+        { to: '/student/withdrawals', label: 'Withdrawal Request', icon: UserMinus },
       ],
     },
   ],

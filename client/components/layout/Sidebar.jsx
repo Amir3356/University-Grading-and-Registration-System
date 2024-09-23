@@ -1,5 +1,5 @@
 import { GraduationCap } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
@@ -7,6 +7,7 @@ import { NAVIGATION } from '@/routes/navigation'
 
 export function SidebarNav({ collapsed = false, badges = {}, onNavigate }) {
   const { user } = useAuth()
+  const location = useLocation()
   const sections = NAVIGATION[user?.roleId] ?? []
   return (
     <nav aria-label="Main navigation" className="sidebar__nav">
@@ -16,6 +17,7 @@ export function SidebarNav({ collapsed = false, badges = {}, onNavigate }) {
           <ul className="sidebar__list">
             {section.items.map((item) => {
               const badge = item.badgeKey ? badges[item.badgeKey] : null
+              const isCurrent = location.pathname === item.to || (item.to !== '/admin' && location.pathname.startsWith(item.to))
               const link = (
                 <NavLink to={item.to} end={item.end} onClick={onNavigate} className="sidebar__link">
                   <item.icon aria-hidden="true" />
@@ -32,7 +34,27 @@ export function SidebarNav({ collapsed = false, badges = {}, onNavigate }) {
                       <TooltipContent side="right">{item.label}</TooltipContent>
                     </Tooltip>
                   ) : (
-                    link
+                    <>
+                      {link}
+                      {isCurrent && item.children && !collapsed && (
+                        <ul className="sidebar__sublist">
+                          {item.children.map((child) => (
+                            <li key={child.label}>
+                              <NavLink
+                                to={child.to}
+                                className={({ isActive }) =>
+                                  `sidebar__sublink ${isActive ? 'sidebar__sublink--active' : ''}`
+                                }
+                                onClick={onNavigate}
+                              >
+                                <span className="sidebar__subdot">•</span>
+                                <span>{child.label}</span>
+                              </NavLink>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
                   )}
                 </li>
               )

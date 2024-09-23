@@ -1,9 +1,21 @@
-import { CalendarClock, Info, Mail, MapPin, User } from 'lucide-react'
+import { useState } from 'react'
+import { CalendarClock, Info, LogOut, Mail, MapPin, User } from 'lucide-react'
 import { useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Textarea } from '@/components/ui/textarea'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { PageSkeleton } from '@/components/common/Loading'
@@ -16,6 +28,9 @@ import { RESULT_STATUS_LABELS, todayIso, typeLabel } from '../components/policy'
 
 export function CourseDetailPage() {
   const { enrollmentId } = useParams()
+  const [isWithdrawOpen, setIsWithdrawOpen] = useState(false)
+  const [withdrawReason, setWithdrawReason] = useState('')
+  const [withdrawalPending, setWithdrawalPending] = useState(false)
   const { data, loading, error, refetch } = useQuery(() => store.student.getMyCourse(enrollmentId), [enrollmentId])
 
   if (error) {
@@ -32,9 +47,43 @@ export function CourseDetailPage() {
   const today = todayIso()
   const assessedWeight = c.assessments.filter((a) => a.marks != null).reduce((s, a) => s + Number(a.weight), 0)
 
+  const handleWithdrawSubmit = (e) => {
+    e.preventDefault()
+    if (!withdrawReason.trim()) {
+      toast.error('Please enter a reason for withdrawal.')
+      return
+    }
+    setWithdrawalPending(true)
+    setIsWithdrawOpen(false)
+    toast.success(`Withdrawal request submitted for ${c.course.code}. Awaiting staff approval.`)
+  }
+
   return (
     <>
-      <PageHeader title={`${c.course.code} · ${c.course.title}`} description={`${c.semester.name} · Section ${c.section} · ${c.course.creditHours} credit hours`} backTo="/student/courses" backLabel="My courses">
+      <PageHeader
+        title={`${c.course.code} · ${c.course.title}`}
+        description={`${c.semester.name} · Section ${c.section} · ${c.course.creditHours} credit hours`}
+        backTo="/student/courses"
+        backLabel="My courses"
+        actions={
+          c.status !== 'withdrawn' && (
+            <div className="flex items-center gap-2">
+              {withdrawalPending ? (
+                <Badge variant="warning">Withdrawal Pending</Badge>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setIsWithdrawOpen(true)}
+                >
+                  Request Withdrawal
+                </Button>
+              )}
+            </div>
+          )
+        }
+      >
         <div className="mt-2 flex flex-wrap gap-2">
           <StatusBadge status={c.status} />
           {c.isRepeat && <Badge variant="outline">Repeat attempt</Badge>}
@@ -169,6 +218,55 @@ export function CourseDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Course Withdrawal Request Dialog */}
+      <Dialog open={isWithdrawOpen} onOpenChange={setIsWithdrawOpen}>
+        <DialogContent size="md">
+          <form onSubmit={handleWithdrawSubmit}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <LogOut className="h-5 w-5" />
+                Request Course Withdrawal
+              </DialogTitle>
+              <DialogDescription>
+                Request to withdraw from {c.course.code} — {c.course.title}.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 py-3">
+              <Alert variant="destructive" className="text-xs">
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  Withdrawing from this course requires authorized university approval. Upon approval, your status will reflect as Withdrawn.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-1.5">
+                <label htmlFor="course-withdraw-reason" className="text-xs font-semibold text-foreground">
+                  Reason for Course Withdrawal <span className="text-destructive">*</span>
+                </label>
+                <Textarea
+                  id="course-withdraw-reason"
+                  placeholder="Explain why you wish to withdraw from this course..."
+                  value={withdrawReason}
+                  onChange={(e) => setWithdrawReason(e.target.value)}
+                  rows={4}
+                  required
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsWithdrawOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="destructive">
+                Submit Course Withdrawal
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

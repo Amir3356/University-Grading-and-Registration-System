@@ -30,6 +30,7 @@ const GENERIC = {
   archived: ['muted', 'Archived'],
   suspended: ['danger', 'Suspended'],
   enrolled: ['info', 'Enrolled'],
+  registered: ['success', 'Registered'],
   completed: ['secondary', 'Completed'],
   withdrawn: ['muted', 'Withdrawn'],
   dropped: ['danger', 'Dropped'],

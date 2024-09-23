@@ -42,3 +42,26 @@ Transcript: View all semesters' official course results, cumulative GPA, and com
 
 
 Grade Report: Optional if you want a separate semester-specific report; otherwise, you can remove it to avoid duplicating the Transcript feature.
+
+
+
+
+
+
+
+
+. Which sidebar should you use?
+System Administrator: Semester Registration Management
+Configure each semester's registration opening date, deadline, registration types, and status.
+
+
+
+Student: Semester Registration
+Students register for the current semester, select their registration type, and check their registration status.
+
+
+
+3. How the system should work
+1. 2026 — First Semester: The administrator opens registration. The student selects Regular (Café) or Non-Regular (Non-Café) and submits the registration.
+2. 2026 — Second Semester: The administrator opens a new registration period. The same student must submit a new registration, even if they registered in the first semester.
+3. 2027 — First Semester: The process repeats for the new academic year. Previous registration records remain saved.

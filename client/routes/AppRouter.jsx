@@ -33,6 +33,10 @@ const StudentReportPage = page(() => import('@/features/admin/reports/StudentRep
 const GradeSheetPage = page(() => import('@/features/admin/reports/GradeSheetPage'), 'GradeSheetPage')
 const AuditLogsPage = page(() => import('@/features/admin/audit/AuditLogsPage'), 'AuditLogsPage')
 const SettingsPage = page(() => import('@/features/admin/settings/SettingsPage'), 'SettingsPage')
+const SemesterRegistrationPage = page(() => import('@/features/admin/registration/SemesterRegistrationPage'), 'SemesterRegistrationPage')
+const RegistrationPeriodsPage = page(() => import('@/features/admin/registration/RegistrationPeriodsPage'), 'RegistrationPeriodsPage')
+const StudentRegistrationsPage = page(() => import('@/features/admin/registration/StudentRegistrationsPage'), 'StudentRegistrationsPage')
+const AdminWithdrawalsPage = page(() => import('@/features/admin/withdrawals/AdminWithdrawalsPage'), 'AdminWithdrawalsPage')
 
 // Department Head
 const DeptHeadDashboardPage = page(() => import('@/features/dept-head/DeptHeadDashboardPage'), 'DeptHeadDashboardPage')
@@ -59,6 +63,7 @@ const PerformanceReportsPage = page(() => import('@/features/teacher/reports/Per
 
 // Student
 const StudentDashboardPage = page(() => import('@/features/student/dashboard/StudentDashboardPage'), 'StudentDashboardPage')
+const RegistrationsPage = page(() => import('@/features/student/registration/RegistrationsPage'), 'RegistrationsPage')
 const StudentCoursesPage = page(() => import('@/features/student/courses/MyCoursesPage'), 'MyCoursesPage')
 const StudentCourseDetailPage = page(() => import('@/features/student/courses/CourseDetailPage'), 'CourseDetailPage')
 const MyAssessmentsPage = page(() => import('@/features/student/assessments/MyAssessmentsPage'), 'MyAssessmentsPage')
@@ -66,6 +71,7 @@ const MyGradesPage = page(() => import('@/features/student/grades/MyGradesPage')
 const ProgressPage = page(() => import('@/features/student/progress/ProgressPage'), 'ProgressPage')
 const GradeReportPage = page(() => import('@/features/student/reports/GradeReportPage'), 'GradeReportPage')
 const TranscriptPage = page(() => import('@/features/student/transcript/TranscriptPage'), 'TranscriptPage')
+const WithdrawalRequestsPage = page(() => import('@/features/student/withdrawals/WithdrawalRequestsPage'), 'WithdrawalRequestsPage')
 
 function HomeRedirect() {
   const { user, loading } = useAuth()
@@ -112,6 +118,11 @@ export function AppRouter() {
                 <Route path="/admin/reports/grade-sheet/:offeringId" element={<GradeSheetPage />} />
                 <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
                 <Route path="/admin/settings" element={<SettingsPage />} />
+                <Route path="/admin/semester-registration" element={<RegistrationPeriodsPage />} />
+                <Route path="/admin/semester-registration/periods" element={<RegistrationPeriodsPage />} />
+                <Route path="/admin/semester-registration/students" element={<StudentRegistrationsPage />} />
+                <Route path="/admin/registration-management" element={<RegistrationPeriodsPage />} />
+                <Route path="/admin/withdrawals" element={<AdminWithdrawalsPage />} />
               </Route>
 
               <Route element={<ProtectedRoute roles={['dept_head']} />}>
@@ -150,6 +161,8 @@ export function AppRouter() {
 
               <Route element={<ProtectedRoute roles={['student']} />}>
                 <Route path="/student" element={<StudentDashboardPage />} />
+                <Route path="/student/registrations" element={<RegistrationsPage />} />
+                <Route path="/student/registration" element={<RegistrationsPage />} />
                 <Route path="/student/courses" element={<StudentCoursesPage />} />
                 <Route path="/student/courses/:enrollmentId" element={<StudentCourseDetailPage />} />
                 <Route path="/student/assessments" element={<MyAssessmentsPage />} />
@@ -157,6 +170,8 @@ export function AppRouter() {
                 <Route path="/student/grade-report" element={<GradeReportPage />} />
                 <Route path="/student/progress" element={<ProgressPage />} />
                 <Route path="/student/transcript" element={<TranscriptPage />} />
+                <Route path="/student/withdrawals" element={<WithdrawalRequestsPage />} />
+                <Route path="/student/withdrawal-requests" element={<WithdrawalRequestsPage />} />
               </Route>
 
               <Route path="*" element={<NotFoundPage />} />
