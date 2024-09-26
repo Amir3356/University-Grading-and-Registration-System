@@ -13,6 +13,12 @@ import { SelectField } from './SelectField'
 
 const DEFAULT_ROLE_OPTIONS = [{ value: 'dept_head', label: 'Department Head' }]
 
+export const PROGRAM_TYPE_OPTIONS = [
+  { value: 'Regular', label: 'Regular' },
+  { value: 'Weekend', label: 'Weekend' },
+  { value: 'Extensions', label: 'Extensions' },
+]
+
 /** Resolve a typed department name or code to a department record. */
 function findDepartment(departments, value) {
   const typed = String(value ?? '').trim().toLowerCase()
@@ -30,6 +36,7 @@ function initialForm(user) {
     identifier: user && user.identifier !== '—' ? (user.identifier ?? '') : '',
     departmentId: user?.departmentId ?? '',
     program: p?.program ?? user?.program ?? '',
+    programType: p?.programType ?? user?.programType ?? 'Regular',
     admissionYear: String(p?.admissionYear ?? new Date().getFullYear()),
     title: p?.title ?? user?.title ?? 'Prof.',
     specialization: p?.specialization ?? '',
@@ -57,6 +64,7 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
     password: '',
     identifier: '',
     department: defaultDepartment ?? '',
+    programType: 'Regular',
   })
   const [nameError, setNameError] = useState(null)
   const [usernameError, setUsernameError] = useState(null)
@@ -110,6 +118,7 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
       email: store.users.suggestEmail(form.username || form.fullName),
       identifier: isAdmin ? '' : form.identifier.trim(),
       admissionYear: String(new Date().getFullYear()),
+      programType: form.roleId === 'student' ? form.programType : undefined,
     })
   }
 
@@ -143,6 +152,16 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
       <FormField label="Department" required={needsDepartment} error={departmentError ?? (needsDepartment ? fe.departmentId : undefined)}>
         <Input value={form.department} onChange={set('department')} autoComplete="off" placeholder="e.g. Computer Science" />
       </FormField>
+      {form.roleId === 'student' && (
+        <SelectField
+          label="Program type"
+          required
+          value={form.programType}
+          onChange={set('programType')}
+          options={PROGRAM_TYPE_OPTIONS}
+          error={fe.programType}
+        />
+      )}
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
           Cancel
@@ -206,6 +225,7 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
     rest.firstName = parts[0]
     rest.lastName = parts.slice(1).join(' ')
     rest.departmentId = departmentId
+    if (form.roleId === 'student') rest.programType = form.programType
     if (needsDepartment && !rest.identifier) rest.identifier = store.users.suggestIdentifier(form.roleId, departmentId)
     save(rest)
   }
@@ -237,6 +257,16 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
           <Input value="—" disabled readOnly />
         )}
       </FormField>
+      {form.roleId === 'student' && (
+        <SelectField
+          label="Program type"
+          required
+          value={form.programType}
+          onChange={set('programType')}
+          options={PROGRAM_TYPE_OPTIONS}
+          error={fe.programType}
+        />
+      )}
       <FormField label="Password" error={fe.password} hint="Leave blank to keep the current password.">
         <Input type="password" value={form.password} onChange={set('password')} autoComplete="new-password" placeholder="New password" />
       </FormField>

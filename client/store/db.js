@@ -83,6 +83,15 @@ function load() {
           const item = parsed.courseEnrollments.find((e) => e.id === id)
           if (item && item.status !== 'withdrawn' && item.status !== 'dropped') item.status = 'withdrawn'
         }
+        if (Array.isArray(parsed.semesters)) {
+          for (const s of parsed.semesters) {
+            const m = String(s.name).match(/^(Fall|Spring|Summer)\s+(\d{4})/i)
+            if (m) {
+              const termMap = { fall: 'First Semester', spring: 'Second Semester', summer: 'Summer Semester' }
+              s.name = `${m[2]} ${termMap[m[1].toLowerCase()] || `${m[1]} Semester`}`
+            }
+          }
+        }
         return parsed
       }
     }

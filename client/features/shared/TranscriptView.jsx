@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { EmptyState } from '@/components/common/EmptyState'
 import { GradeBadge } from '@/components/common/StatusBadge'
 import { Badge } from '@/components/ui/badge'
-import { formatDate, formatGpa } from '@/lib/format'
+import { formatDate, formatGpa, formatSemesterName } from '@/lib/format'
 
 /** Read-only transcript rendering shared by the admin and student transcript pages. */
 export function TranscriptView({ transcript: t }) {
@@ -43,7 +43,7 @@ export function TranscriptView({ transcript: t }) {
         t.semesters.map((sem) => (
           <Card key={sem.semesterId} className="card--table">
             <CardHeader>
-              <CardTitle>{sem.name}</CardTitle>
+              <CardTitle>{formatSemesterName(sem.name)}</CardTitle>
               <p className="tabular text-sm text-muted">
                 GPA <strong>{formatGpa(sem.gpa)}</strong> · CGPA <strong>{formatGpa(sem.cgpa)}</strong>
               </p>
@@ -88,10 +88,6 @@ export function TranscriptView({ transcript: t }) {
           </Card>
         ))
       )}
-      <p className="text-xs text-muted">
-        Grading scale: {t.scale.map((e) => `${e.letter} ${e.min}–${Math.floor(e.max)}`).join(' · ')}. W = Withdrawn, I = Incomplete. Repeated courses:{' '}
-        {t.policy.repeatPolicy === 'latest' ? 'latest attempt counts' : t.policy.repeatPolicy === 'highest' ? 'highest attempt counts' : 'all attempts count'} toward the CGPA.
-      </p>
     </div>
   )
 }

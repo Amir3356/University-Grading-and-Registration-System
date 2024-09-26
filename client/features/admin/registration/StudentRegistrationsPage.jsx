@@ -6,9 +6,9 @@ import {
   UserX,
   Search,
   ChevronDown,
-  Eye,
   CheckCircle2,
   FileSpreadsheet,
+  Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -16,6 +16,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
@@ -384,6 +385,11 @@ export function StudentRegistrationsPage() {
   const studentStartCount = filteredStudents.length === 0 ? 0 : (studentPage - 1) * studentsPerPage + 1
   const studentEndCount = Math.min(studentPage * studentsPerPage, filteredStudents.length)
 
+  const handleDeleteStudent = (studentId, studentName) => {
+    setStudents((prev) => prev.filter((s) => s.id !== studentId))
+    toast.success(`Registration record for ${studentName} deleted.`)
+  }
+
   const renderStatusBadge = (status) => {
     switch (status) {
       case 'Registered':
@@ -594,50 +600,65 @@ export function StudentRegistrationsPage() {
                   <td>{renderStatusBadge(student.status)}</td>
                   <td>{student.registrationDate}</td>
                   <td>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button type="button" className="reg-action-trigger">
-                          <span>{student.status === 'Pending' ? 'Review' : 'View'}</span>
-                          <ChevronDown size={14} aria-hidden="true" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuLabel>
-                          {student.name} ({student.id})
-                        </DropdownMenuLabel>
-                        <DropdownMenuItem
-                          onClick={() => toast.info(`Viewing student profile: ${student.name} (${student.id})`)}
-                        >
-                          <Eye size={14} className="mr-2" />
-                          View Profile & Details
-                        </DropdownMenuItem>
-                        {student.status === 'Pending' && (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button type="button" className="reg-action-trigger">
+                            <span>{student.status === 'Pending' ? 'Review' : 'View'}</span>
+                            <ChevronDown size={14} aria-hidden="true" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuLabel>
+                            {student.name} ({student.id})
+                          </DropdownMenuLabel>
+
+                          {student.status === 'Pending' && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setStudents((prev) =>
+                                  prev.map((s) => (s.id === student.id ? { ...s, status: 'Registered' } : s))
+                                )
+                                toast.success(`Registration approved for ${student.name}`)
+                              }}
+                            >
+                              <CheckCircle2 size={14} className="mr-2 text-emerald-600" />
+                              Approve Registration
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             onClick={() => {
+                              const newType = student.registrationType === 'Café' ? 'Non-Café' : 'Café'
                               setStudents((prev) =>
-                                prev.map((s) => (s.id === student.id ? { ...s, status: 'Registered' } : s))
+                                prev.map((s) => (s.id === student.id ? { ...s, registrationType: newType } : s))
                               )
-                              toast.success(`Registration approved for ${student.name}`)
+                              toast.success(`Changed registration type to ${newType}`)
                             }}
                           >
-                            <CheckCircle2 size={14} className="mr-2 text-emerald-600" />
-                            Approve Registration
+                            <FileSpreadsheet size={14} className="mr-2" />
+                            Switch Café / Non-Café
                           </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          onClick={() => {
-                            const newType = student.registrationType === 'Café' ? 'Non-Café' : 'Café'
-                            setStudents((prev) =>
-                              prev.map((s) => (s.id === student.id ? { ...s, registrationType: newType } : s))
-                            )
-                            toast.success(`Changed registration type to ${newType}`)
-                          }}
-                        >
-                          <FileSpreadsheet size={14} className="mr-2" />
-                          Switch Café / Non-Café
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/40"
+                            onClick={() => handleDeleteStudent(student.id, student.name)}
+                          >
+                            <Trash2 size={14} className="mr-2 text-rose-600" />
+                            Delete Registration
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+
+                      <button
+                        type="button"
+                        className="reg-action-delete"
+                        title="Delete registration"
+                        aria-label={`Delete registration record for ${student.name}`}
+                        onClick={() => handleDeleteStudent(student.id, student.name)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

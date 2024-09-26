@@ -11,18 +11,17 @@ import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
 import { store } from '@/store'
-import { formatYearOfStudy } from '@/lib/format'
 import { TempPasswordDialog, UserActionDialogs } from '@/features/admin/users/UserActionDialogs'
 import { UserFormDialog } from '@/features/admin/users/UserFormDialog'
 
 const COLUMNS = [
-  { key: 'no', header: 'No' },
-  { key: 'name', header: 'Fullanme' },
-  { key: 'identifier', header: 'Student ID' },
-  { key: 'role', header: 'Role (Student only)' },
-  { key: 'department', header: 'Department' },
-  { key: 'admissionYear', header: 'Current Year' },
-  { key: 'actions', header: 'Actions' },
+  { key: 'name', header: 'Fullname' },
+  { key: 'username', header: 'username' },
+  { key: 'role', header: 'Role' },
+  { key: 'identifier', header: 'StudentID' },
+  { key: 'department', header: 'DEpartment' },
+  { key: 'programType', header: 'Program TYpe' },
+  { key: 'actions', header: 'Action' },
 ]
 
 const STUDENT_ROLE_OPTIONS = [{ value: 'student', label: 'Student' }]
@@ -123,7 +122,7 @@ export function DeptAccountProvisionPage() {
       <div className="flex flex-col gap-4">
         {/* Content Table */}
         {loading && !data ? (
-          <TableSkeleton cols={6} />
+          <TableSkeleton cols={7} />
         ) : error ? (
           <ErrorState error={error} onRetry={refetch} />
         ) : (
@@ -134,7 +133,7 @@ export function DeptAccountProvisionPage() {
                   {COLUMNS.map((c) => (
                     <TableHead
                       key={c.key}
-                      className={c.key === 'no' ? 'w-16' : c.key === 'actions' ? 'text-right' : undefined}
+                      className={c.key === 'actions' ? 'text-right' : undefined}
                     >
                       {c.header}
                     </TableHead>
@@ -159,28 +158,38 @@ export function DeptAccountProvisionPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  items.map((u, i) => (
+                  items.map((u) => (
                     <TableRow key={u.id} className="hover:bg-muted/50">
-                      <TableCell className="tabular text-muted">{i + 1}</TableCell>
                       <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-foreground">{u.name}</span>
-                          <span className="text-xs text-muted-foreground">{u.username}</span>
-                        </div>
+                        <span className="font-medium text-foreground">{u.name}</span>
                       </TableCell>
                       <TableCell>
-                        <span className="font-mono text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded">
-                          {u.identifier !== '—' ? u.identifier : '—'}
-                        </span>
+                        <span className="font-mono text-xs text-muted-foreground">{u.username || '—'}</span>
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary">Student</Badge>
                       </TableCell>
                       <TableCell>
+                        <span className="font-mono text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded">
+                          {u.identifier && u.identifier !== '—' ? u.identifier : '—'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
                         <span className="text-foreground">{u.departmentName || headDept?.name || '—'}</span>
                       </TableCell>
                       <TableCell>
-                        <span className="text-foreground">{formatYearOfStudy(u.yearOfStudy || u.batchYear || u.admissionYear)}</span>
+                        <Badge
+                          variant="outline"
+                          className={`text-[11px] font-medium whitespace-nowrap ${
+                            (u.programType || 'Regular').toLowerCase() === 'regular'
+                              ? 'border-blue-200 text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/20'
+                              : (u.programType || '').toLowerCase().includes('ext')
+                              ? 'border-purple-200 text-purple-700 dark:text-purple-400 bg-purple-50/50 dark:bg-purple-950/20'
+                              : 'border-amber-200 text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20'
+                          }`}
+                        >
+                          {u.programType || 'Regular'}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <UserRowActions

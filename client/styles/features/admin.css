@@ -551,6 +551,18 @@
   border: 1px solid #bbf7d0;
 }
 
+.reg-badge--extension {
+  background: #f3e8ff;
+  color: #7e22ce;
+  border: 1px solid #e9d5ff;
+}
+
+.reg-badge--weekend {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
 .reg-badge--open {
   background: #dcfce7;
   color: #15803d;
@@ -603,6 +615,18 @@
   background: rgba(21, 128, 61, 0.2);
   color: #86efac;
   border-color: rgba(21, 128, 61, 0.35);
+}
+
+.dark .reg-badge--extension {
+  background: rgba(126, 34, 206, 0.2);
+  color: #d8b4fe;
+  border-color: rgba(126, 34, 206, 0.35);
+}
+
+.dark .reg-badge--weekend {
+  background: rgba(180, 83, 9, 0.2);
+  color: #fde047;
+  border-color: rgba(180, 83, 9, 0.35);
 }
 
 .dark .reg-badge--open {
@@ -716,6 +740,32 @@
 .reg-action-trigger:hover {
   background: var(--muted);
   border-color: #2563eb;
+}
+
+.reg-action-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reg-action-delete:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+.dark .reg-action-delete:hover {
+  background: rgba(220, 38, 38, 0.15);
+  border-color: rgba(220, 38, 38, 0.4);
+  color: #f87171;
 }
 
 /* Pagination */

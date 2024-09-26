@@ -1,5 +1,5 @@
 import { createPdf, finishPdf, pdfTable } from '@/lib/export'
-import { formatDate, formatGpa } from '@/lib/format'
+import { formatDate, formatGpa, formatSemesterName } from '@/lib/format'
 
 /** Render a transcript (from store.reports.getTranscript / store.student.getMyTranscript) to PDF. */
 export function downloadTranscriptPdf(t, { official = false } = {}) {
@@ -21,7 +21,7 @@ export function downloadTranscriptPdf(t, { official = false } = {}) {
     }
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(10)
-    doc.text(sem.name, 40, y + 4)
+    doc.text(formatSemesterName(sem.name), 40, y + 4)
     doc.setFont('helvetica', 'normal')
     y = pdfTable(doc, {
       startY: y + 10,

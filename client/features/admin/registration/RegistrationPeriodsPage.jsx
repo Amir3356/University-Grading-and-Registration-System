@@ -11,8 +11,8 @@ import {
   Save,
   X,
   Calendar,
-  Eye,
   Clock,
+  Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -29,7 +29,7 @@ const INITIAL_PERIODS = [
     id: 'per-2026-1',
     academicYear: '2026',
     semester: 'First Semester',
-    registrationTypes: ['Café', 'Non-Café'],
+    registrationTypes: ['Café', 'Non-Café', 'Extension'],
     startDate: 'Jan 05, 2026',
     deadline: 'Jan 20, 2026',
     rawStartDate: '2026-01-05',
@@ -40,7 +40,7 @@ const INITIAL_PERIODS = [
     id: 'per-2026-2',
     academicYear: '2026',
     semester: 'Second Semester',
-    registrationTypes: ['Café', 'Non-Café'],
+    registrationTypes: ['Café', 'Non-Café', 'Extension', 'Weekend'],
     startDate: 'Jun 01, 2026',
     deadline: 'Jun 15, 2026',
     rawStartDate: '2026-06-01',
@@ -87,6 +87,8 @@ export function RegistrationPeriodsPage() {
     allowedTypes: {
       regular: true,
       nonRegular: true,
+      extension: true,
+      weekend: true,
     },
     startDate: '2026-06-01',
     deadline: '2026-06-15',
@@ -122,7 +124,7 @@ export function RegistrationPeriodsPage() {
     setFormState({
       academicYear: '2026',
       semester: 'First Semester',
-      allowedTypes: { regular: true, nonRegular: true },
+      allowedTypes: { regular: true, nonRegular: true, extension: false, weekend: false },
       startDate: '2026-06-01',
       deadline: '2026-06-15',
       status: 'Scheduled',
@@ -132,10 +134,16 @@ export function RegistrationPeriodsPage() {
 
   const handleEditPeriod = (period) => {
     setEditingPeriodId(period.id)
+    const types = period.registrationTypes || []
     setFormState({
       academicYear: period.academicYear,
       semester: period.semester,
-      allowedTypes: { regular: true, nonRegular: true },
+      allowedTypes: {
+        regular: types.includes('Café') || types.includes('Regular'),
+        nonRegular: types.includes('Non-Café') || types.includes('Non-Regular'),
+        extension: types.includes('Extension'),
+        weekend: types.includes('Weekend'),
+      },
       startDate: period.rawStartDate || '2026-06-01',
       deadline: period.rawDeadline || '2026-06-15',
       status: period.status === 'Not Configured' ? 'Scheduled' : period.status,
@@ -159,6 +167,8 @@ export function RegistrationPeriodsPage() {
     const regTypes = []
     if (formState.allowedTypes.regular) regTypes.push('Café')
     if (formState.allowedTypes.nonRegular) regTypes.push('Non-Café')
+    if (formState.allowedTypes.extension) regTypes.push('Extension')
+    if (formState.allowedTypes.weekend) regTypes.push('Weekend')
 
     if (editingPeriodId) {
       setPeriods((prev) =>
@@ -195,6 +205,11 @@ export function RegistrationPeriodsPage() {
       setPeriods((prev) => [...prev, newPeriod])
       toast.success('New registration period created successfully.')
     }
+  }
+
+  const handleDeletePeriod = (period) => {
+    setPeriods((prev) => prev.filter((p) => p.id !== period.id))
+    toast.success(`Registration period for ${period.academicYear} (${period.semester}) deleted.`)
   }
 
   const renderStatusBadge = (status) => {
@@ -361,7 +376,15 @@ export function RegistrationPeriodsPage() {
                           {period.registrationTypes.map((type) => (
                             <span
                               key={type}
-                              className={`reg-badge ${type === 'Café' ? 'reg-badge--cafe' : 'reg-badge--non-cafe'}`}
+                              className={`reg-badge ${
+                                type === 'Café' || type === 'Regular'
+                                  ? 'reg-badge--cafe'
+                                  : type === 'Extension'
+                                  ? 'reg-badge--extension'
+                                  : type === 'Weekend'
+                                  ? 'reg-badge--weekend'
+                                  : 'reg-badge--non-cafe'
+                              }`}
                             >
                               {type}
                             </span>
@@ -372,53 +395,64 @@ export function RegistrationPeriodsPage() {
                       <td>{period.deadline}</td>
                       <td>{renderStatusBadge(period.status)}</td>
                       <td>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button type="button" className="reg-action-trigger">
-                              <span>
-                                {period.status === 'Open'
-                                  ? 'Edit'
-                                  : period.status === 'Closed'
-                                    ? 'View'
-                                    : 'Configure'}
-                              </span>
-                              <ChevronDown size={14} aria-hidden="true" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44">
-                            <DropdownMenuLabel>Period Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => handleEditPeriod(period)}>
-                              <Calendar size={14} className="mr-2" />
-                              Configure Period
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setPeriods((prev) =>
-                                  prev.map((p) =>
-                                    p.id === period.id
-                                      ? { ...p, status: p.status === 'Open' ? 'Closed' : 'Open' }
-                                      : p
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button type="button" className="reg-action-trigger">
+                                <span>
+                                  {period.status === 'Open'
+                                    ? 'Edit'
+                                    : period.status === 'Closed'
+                                      ? 'View'
+                                      : 'Configure'}
+                                </span>
+                                <ChevronDown size={14} aria-hidden="true" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuLabel>Period Actions</DropdownMenuLabel>
+                              <DropdownMenuItem onClick={() => handleEditPeriod(period)}>
+                                <Calendar size={14} className="mr-2" />
+                                Configure Period
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setPeriods((prev) =>
+                                    prev.map((p) =>
+                                      p.id === period.id
+                                        ? { ...p, status: p.status === 'Open' ? 'Closed' : 'Open' }
+                                        : p
+                                    )
                                   )
-                                )
-                                toast.success(
-                                  `Period status toggled to ${period.status === 'Open' ? 'Closed' : 'Open'}`
-                                )
-                              }}
-                            >
-                              <Clock size={14} className="mr-2" />
-                              {period.status === 'Open' ? 'Close Period' : 'Open Period'}
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() =>
-                                toast.info(`Viewing full log for ${period.academicYear} - ${period.semester}`)
-                              }
-                            >
-                              <Eye size={14} className="mr-2" />
-                              View Audit Details
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                                  toast.success(
+                                    `Period status toggled to ${period.status === 'Open' ? 'Closed' : 'Open'}`
+                                  )
+                                }}
+                              >
+                                <Clock size={14} className="mr-2" />
+                                {period.status === 'Open' ? 'Close Period' : 'Open Period'}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/40"
+                                onClick={() => handleDeletePeriod(period)}
+                              >
+                                <Trash2 size={14} className="mr-2 text-rose-600" />
+                                Delete Period
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+
+                          <button
+                            type="button"
+                            className="reg-action-delete"
+                            title="Delete period"
+                            aria-label={`Delete registration period for ${period.academicYear} ${period.semester}`}
+                            onClick={() => handleDeletePeriod(period)}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -554,6 +588,34 @@ export function RegistrationPeriodsPage() {
                         className="reg-control-input"
                       />
                       <span>Non-Regular (Non-Café)</span>
+                    </label>
+                    <label className="reg-control-label">
+                      <input
+                        type="checkbox"
+                        checked={formState.allowedTypes.extension}
+                        onChange={(e) =>
+                          setFormState((f) => ({
+                            ...f,
+                            allowedTypes: { ...f.allowedTypes, extension: e.target.checked },
+                          }))
+                        }
+                        className="reg-control-input"
+                      />
+                      <span>Extension</span>
+                    </label>
+                    <label className="reg-control-label">
+                      <input
+                        type="checkbox"
+                        checked={formState.allowedTypes.weekend}
+                        onChange={(e) =>
+                          setFormState((f) => ({
+                            ...f,
+                            allowedTypes: { ...f.allowedTypes, weekend: e.target.checked },
+                          }))
+                        }
+                        className="reg-control-input"
+                      />
+                      <span>Weekend</span>
                     </label>
                   </div>
                 </div>

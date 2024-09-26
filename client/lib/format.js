@@ -62,6 +62,23 @@ export function formatSemesterTerm(term) {
   return labels[term] ?? (term ? `${term} Semester` : '—')
 }
 
+export function formatSemesterName(name) {
+  if (!name) return ''
+  const m1 = String(name).match(/^(Fall|Spring|Summer)\s+(\d{4})(?:\/\d{4})?/i)
+  if (m1) {
+    const termMap = { fall: 'First Semester', spring: 'Second Semester', summer: 'Summer Semester' }
+    const termLabel = termMap[m1[1].toLowerCase()] || `${m1[1]} Semester`
+    return `${m1[2]} ${termLabel}`
+  }
+  const m2 = String(name).match(/^(\d{4})(?:\/\d{4})?\s+(Fall|Spring|Summer)/i)
+  if (m2) {
+    const termMap = { fall: 'First Semester', spring: 'Second Semester', summer: 'Summer Semester' }
+    const termLabel = termMap[m2[2].toLowerCase()] || `${m2[2]} Semester`
+    return `${m2[1]} ${termLabel}`
+  }
+  return name
+}
+
 export const GRADE_STATUS_LABELS = {
   not_started: 'Not started',
   draft: 'Draft',

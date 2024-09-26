@@ -29,8 +29,6 @@ export const NAVIGATION = {
     {
       section: 'Academics',
       items: [
-        { to: '/admin/courses', label: 'Courses', icon: BookOpen },
-        { to: '/admin/assignments', label: 'Teacher Assignments', icon: UserCheck },
         {
           to: '/admin/semester-registration',
           label: 'Semester Registration Management',

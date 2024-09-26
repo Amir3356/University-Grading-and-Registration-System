@@ -34,8 +34,15 @@ function userRow(u) {
       const year = new Date().getFullYear() - admitted + 1
       return Math.min(5, Math.max(1, year))
     })()
+    const progType = s?.programType || (
+      s?.studentNumber?.endsWith('2') || s?.studentNumber?.endsWith('5')
+        ? 'Weekend'
+        : s?.studentNumber?.endsWith('3') || s?.studentNumber?.endsWith('7')
+        ? 'Extensions'
+        : 'Regular'
+    )
     const ordinals = { 1: '1st Year', 2: '2nd Year', 3: '3rd Year', 4: '4th Year', 5: '5th Year' }
-    return { ...base, name, profileId: s?.id, identifier: s?.studentNumber, departmentId: s?.departmentId, departmentName: dep?.name ?? '—', program: s?.program, admissionYear: s?.admissionYear, batchYear: studyYear, yearOfStudy: studyYear ? (ordinals[studyYear] || `${studyYear}th Year`) : '—' }
+    return { ...base, name, profileId: s?.id, identifier: s?.studentNumber, departmentId: s?.departmentId, departmentName: dep?.name ?? '—', program: s?.program, programType: progType, admissionYear: s?.admissionYear, batchYear: studyYear, yearOfStudy: studyYear ? (ordinals[studyYear] || `${studyYear}th Year`) : '—' }
   }
   if (u.roleId === 'teacher' || u.roleId === 'dept_head') {
     const t = db.teachers.find((x) => x.userId === u.id)
@@ -203,6 +210,7 @@ export async function createUser(data) {
         studentNumber: data.identifier.trim(),
         departmentId: data.departmentId,
         program: data.program?.trim() || read().departments.find((d) => d.id === data.departmentId).name,
+        programType: data.programType || 'Regular',
         admissionYear: Number(data.admissionYear),
         dateOfBirth: data.dateOfBirth || null,
         status: 'active',
@@ -268,7 +276,7 @@ export async function updateUser(id, data) {
     }
     if (roleId === 'student') {
       const s = tx.table('students').find((x) => x.userId === id)
-      const patch = { studentNumber: data.identifier.trim(), departmentId: data.departmentId, program: data.program?.trim() ?? '', admissionYear: Number(data.admissionYear), dateOfBirth: data.dateOfBirth || null }
+      const patch = { studentNumber: data.identifier.trim(), departmentId: data.departmentId, program: data.program?.trim() ?? '', programType: data.programType || s?.programType || 'Regular', admissionYear: Number(data.admissionYear), dateOfBirth: data.dateOfBirth || null }
       if (s) Object.assign(s, patch)
       else tx.insert('students', { id: newId('stu'), userId: id, status: 'active', ...patch })
     }

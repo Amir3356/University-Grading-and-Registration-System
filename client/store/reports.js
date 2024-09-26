@@ -2,6 +2,7 @@
 import { now, read, resetDatabase, transaction } from './db'
 import { academicStanding, gradeDistribution, round } from '@/lib/grading'
 import { average } from '@/lib/utils'
+import { formatSemesterName } from '@/lib/format'
 import {
   assertOfferingAccess,
   audit,
@@ -285,7 +286,7 @@ export function buildTranscript(studentId) {
     generatedAt: now(),
     semesters: record.semesters.map((sem) => ({
       semesterId: sem.semesterId,
-      name: sem.semester.name,
+      name: formatSemesterName(sem.semester.name),
       gpa: sem.gpa,
       cgpa: sem.cgpa,
       credits: sem.credits,
