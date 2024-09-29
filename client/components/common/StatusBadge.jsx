@@ -61,7 +61,7 @@ export function GradeBadge({ letter, passed, className }) {
   return (
     <span
       className={cn('grade-chip', special ? 'grade-chip--special' : fail && 'grade-chip--fail', className)}
-      title={letter === 'W' ? 'Withdrawn' : letter === 'I' ? 'Incomplete' : fail ? 'Fail' : 'Pass'}
+      title={letter === 'W' ? 'Withdrawn' : letter === 'I' ? 'Incomplete' : fail ? 'Dropped' : 'Pass'}
     >
       {letter}
     </span>
@@ -76,7 +76,7 @@ export function PassFailBadge({ passed }) {
     </Badge>
   ) : (
     <Badge variant="danger">
-      <XCircle aria-hidden="true" /> Fail
+      <XCircle aria-hidden="true" /> Dropped
     </Badge>
   )
 }

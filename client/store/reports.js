@@ -301,7 +301,7 @@ export function buildTranscript(studentId) {
         countsInGpa: r.countsInGpa,
         isRepeat: r.isRepeat,
         superseded: Boolean(r.supersededBy),
-        note: r.note || (r.supersededBy ? 'Repeated' : null),
+        note: r.note || (r.letter === 'F' ? 'Dropped' : r.supersededBy ? 'Repeated' : null),
       })),
     })),
     cgpa: record.cgpa,

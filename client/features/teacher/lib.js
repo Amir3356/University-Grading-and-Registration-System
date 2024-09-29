@@ -69,7 +69,7 @@ export function gradeSheetColumns(assessments) {
     { header: 'Total', value: (r) => (r.enrollment.status === 'withdrawn' ? '' : r.complete ? r.total : '') },
     { header: 'Letter', value: (r) => r.letter ?? '' },
     { header: 'Grade points', value: (r) => r.gradePoints ?? '' },
-    { header: 'Result', value: (r) => (r.passed == null ? '' : r.passed ? 'Pass' : 'Fail') },
+    { header: 'Result', value: (r) => (r.passed == null ? '' : r.passed ? 'Pass' : 'Dropped') },
   ]
 }
 

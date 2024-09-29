@@ -18,3 +18,18 @@
   padding-top: 0.75rem;
   border-top: 1px solid var(--border);
 }
+
+.stu-grades-filter-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
+  width: 100%;
+}
+
+.stu-grades-filter-row .form-field {
+  flex: 1 1 200px;
+  min-width: 180px;
+}
+

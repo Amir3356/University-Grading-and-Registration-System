@@ -65,3 +65,40 @@ Students register for the current semester, select their registration type, and 
 1. 2026 — First Semester: The administrator opens registration. The student selects Regular (Café) or Non-Regular (Non-Café) and submits the registration.
 2. 2026 — Second Semester: The administrator opens a new registration period. The same student must submit a new registration, even if they registered in the first semester.
 3. 2027 — First Semester: The process repeats for the new academic year. Previous registration records remain saved.
+
+
+
+
+
+
+
+
+Viewed MyGradesPage.jsx:1-60
+
+Depending on what you are referring to by **"extra value"**, here is the breakdown:
+
+---
+
+### 1. Are there other status values besides "Published"?
+Yes. In the grading system workflow, a course grade can have these other status values:
+* **`In progress`**: The semester is active, and assessments are ongoing.
+* **`Pending`**: The semester ended; grades have been submitted but are awaiting Department Head / Admin approval.
+* **`Published`**: Approved and officially released to the student.
+* **`Withdrawn`**: Student requested and was approved for course withdrawal (`W`).
+* **`Dropped`**: The course was dropped / non-passing (`F`).
+
+---
+
+### 2. In the current "My Grades" table:
+Right now, the table has 2 mock courses:
+* **NET401** (Computer Networks) — Grade: **A** (85.5) — Status: **Published**
+* **SWE301** (Software Engineering) — Grade: **B** (78.0) — Status: **Published**
+
+Both currently have `status: 'published'`.
+
+---
+
+### Would you like to:
+1. **Add other statuses** (e.g., a course with `In progress`, `Pending`, or `Dropped`) so you can see different status badges in the table?
+2. **Remove or change** any specific column or value that you consider extra?
+3. **Connect this page to real student store data** so it reflects dynamic grades from the system?

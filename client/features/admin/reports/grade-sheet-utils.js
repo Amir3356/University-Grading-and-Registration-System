@@ -4,7 +4,7 @@ import { formatNumber, formatPercent, GRADE_STATUS_LABELS } from '@/lib/format'
 
 export const isWithdrawn = (r) => r.enrollment?.status === 'withdrawn'
 
-export const resultLabel = (r) => (isWithdrawn(r) ? 'Withdrawn' : r.passed == null ? 'Incomplete' : r.passed ? 'Pass' : 'Fail')
+export const resultLabel = (r) => (isWithdrawn(r) ? 'Withdrawn' : r.passed == null ? 'Incomplete' : r.passed ? 'Pass' : 'Dropped')
 
 /** Export columns ({header, value}) for a grade sheet. */
 export function gradeSheetExportColumns(assessments) {

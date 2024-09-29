@@ -83,7 +83,6 @@ export const NAVIGATION = {
       section: 'Teaching',
       items: [
         { to: '/teacher/courses', label: 'My Courses', icon: BookOpen },
-        { to: '/teacher/students', label: 'Course Students', icon: GraduationCap },
         { to: '/teacher/assessments', label: 'Assessment Management', icon: ClipboardList },
       ],
     },

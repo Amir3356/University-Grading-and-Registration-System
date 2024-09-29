@@ -42,7 +42,7 @@ function Report({ offeringId, university }) {
     { key: 'runningPercent', header: 'Current %', align: 'right', cell: (r) => formatPercent(r.runningPercent) },
     { key: 'total', header: 'Total', align: 'right', value: (r) => (r.complete ? r.total : null), cell: (r) => (r.complete ? formatNumber(r.total, 2) : '—') },
     { key: 'letter', header: 'Letter', align: 'center', value: (r) => (r.complete || r.letter === 'W' ? r.letter : null), cell: (r) => <GradeBadge letter={r.complete || r.letter === 'W' ? r.letter : null} passed={r.passed} /> },
-    { key: 'passed', header: 'Result', value: (r) => (r.passed == null ? '' : r.passed ? 'Pass' : 'Fail'), cell: (r) => <PassFailBadge passed={r.passed} /> },
+    { key: 'passed', header: 'Result', value: (r) => (r.passed == null ? '' : r.passed ? 'Pass' : 'Dropped'), cell: (r) => <PassFailBadge passed={r.passed} /> },
   ]
 
   return (

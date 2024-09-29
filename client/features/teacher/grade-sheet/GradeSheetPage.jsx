@@ -27,6 +27,7 @@ const TOTAL_MAX = 100
 /** Ready once every assessment is marked, Withdrawn for dropped students. */
 function statusOf(row) {
   if (row.enrollment.status === 'withdrawn') return { label: 'Withdrawn', variant: 'muted' }
+  if (row.letter === 'F' || row.passed === false) return { label: 'Dropped', variant: 'danger' }
   if (row.complete) return { label: 'Ready', variant: 'success' }
   return { label: 'Incomplete', variant: 'warning' }
 }

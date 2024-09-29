@@ -1,10 +1,8 @@
 import { useMemo, useState } from 'react'
-import { Award, BookOpen, Calendar, ClipboardCheck } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { PageHeader } from '@/components/common/PageHeader'
-import { StatCard } from '@/components/common/StatCard'
 import { StatusBadge } from '@/components/common/StatusBadge'
 
 const COURSES_DATA = [
@@ -23,6 +21,42 @@ const COURSES_DATA = [
     totalScore: '78.0',
     grade: 'B',
     status: 'published',
+    academicYear: '2027',
+    semester: 'Semester 1',
+  },
+  {
+    courseCode: 'CS302',
+    courseName: 'Database Systems',
+    totalScore: '—',
+    grade: '—',
+    status: 'in_progress',
+    academicYear: '2027',
+    semester: 'Semester 1',
+  },
+  {
+    courseCode: 'CS305',
+    courseName: 'Operating Systems',
+    totalScore: '72.0',
+    grade: '—',
+    status: 'pending',
+    academicYear: '2027',
+    semester: 'Semester 1',
+  },
+  {
+    courseCode: 'MTH201',
+    courseName: 'Discrete Mathematics',
+    totalScore: '—',
+    grade: 'W',
+    status: 'withdrawn',
+    academicYear: '2027',
+    semester: 'Semester 1',
+  },
+  {
+    courseCode: 'PHY101',
+    courseName: 'Physics for Computing',
+    totalScore: '42.0',
+    grade: 'Dropped',
+    status: 'dropped',
     academicYear: '2027',
     semester: 'Semester 1',
   },
@@ -45,11 +79,17 @@ export function MyGradesPage() {
     { value: 'Semester 2', label: 'Semester 2' },
   ]
 
-  const courseOptions = [
-    { value: 'all', label: 'All Courses' },
-    { value: 'NET401', label: 'NET401 — Computer Networks' },
-    { value: 'SWE301', label: 'SWE301 — Software Engineering' },
-  ]
+  const courseOptions = useMemo(() => {
+    const list = [{ value: 'all', label: 'All Courses' }]
+    const seen = new Set()
+    COURSES_DATA.forEach((c) => {
+      if (!seen.has(c.courseCode)) {
+        seen.add(c.courseCode)
+        list.push({ value: c.courseCode, label: `${c.courseCode} — ${c.courseName}` })
+      }
+    })
+    return list
+  }, [])
 
   const filteredCourses = useMemo(() => {
     return COURSES_DATA.filter((c) => {
@@ -65,35 +105,8 @@ export function MyGradesPage() {
       <PageHeader
         title="My Grades"
         description="View current course grades and individual assessment results."
+        centered
       />
-
-      {/* Metric Cards Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Registered Courses"
-          value="6"
-          icon={BookOpen}
-          tone="default"
-        />
-        <StatCard
-          label="Published Grades"
-          value="4 / 6"
-          icon={ClipboardCheck}
-          tone="teal"
-        />
-        <StatCard
-          label="Semester GPA"
-          value="3.45"
-          icon={Award}
-          tone="warning"
-        />
-        <StatCard
-          label="Academic Year"
-          value={academicYear}
-          icon={Calendar}
-          tone="default"
-        />
-      </div>
 
       {/* Filter Grades Card */}
       <Card className="p-5">
@@ -101,8 +114,18 @@ export function MyGradesPage() {
           <CardTitle className="text-base font-semibold">Filter Grades</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="form-field">
+          <div
+            className="stu-grades-filter-row"
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              alignItems: 'flex-start',
+              gap: '1rem',
+              width: '100%',
+            }}
+          >
+            <div className="form-field" style={{ flex: '1 1 200px', minWidth: '180px' }}>
               <label htmlFor="academic-year-select" className="text-sm font-medium text-foreground">
                 Academic Year
               </label>
@@ -117,7 +140,7 @@ export function MyGradesPage() {
               />
             </div>
 
-            <div className="form-field">
+            <div className="form-field" style={{ flex: '1 1 200px', minWidth: '180px' }}>
               <label htmlFor="semester-select" className="text-sm font-medium text-foreground">
                 Semester
               </label>
@@ -132,7 +155,7 @@ export function MyGradesPage() {
               />
             </div>
 
-            <div className="form-field">
+            <div className="form-field" style={{ flex: '1 1 200px', minWidth: '180px' }}>
               <label htmlFor="course-select" className="text-sm font-medium text-foreground">
                 Course
               </label>
@@ -184,12 +207,24 @@ export function MyGradesPage() {
                     {c.totalScore}
                   </TableCell>
                   <TableCell className="text-center">
-                    <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-primary/10 text-primary">
-                      {c.grade}
-                    </span>
+                    {c.grade === '—' ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : c.grade === 'Dropped' ? (
+                      <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-destructive/10 text-destructive border border-destructive/20">
+                        Dropped
+                      </span>
+                    ) : c.grade === 'W' ? (
+                      <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-muted text-muted-foreground">
+                        W
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-primary/10 text-primary">
+                        {c.grade}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <StatusBadge status={c.status} label="Published" />
+                    <StatusBadge status={c.status} />
                   </TableCell>
                 </TableRow>
               ))}

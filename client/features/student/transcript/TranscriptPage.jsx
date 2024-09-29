@@ -1,6 +1,5 @@
-import { Download, Info, Printer } from 'lucide-react'
+import { Download, Printer } from 'lucide-react'
 import { toast } from 'sonner'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ErrorState } from '@/components/common/ErrorState'
 import { PageSkeleton } from '@/components/common/Loading'
@@ -27,6 +26,7 @@ export function TranscriptPage() {
       <PageHeader
         title="Transcript"
         description="View all semesters' official course results, cumulative GPA, and completed credits."
+        centered
         actions={
           data && (
             <div className="no-print flex flex-wrap gap-2">
@@ -45,15 +45,7 @@ export function TranscriptPage() {
       ) : loading || !data ? (
         <PageSkeleton />
       ) : (
-        <>
-          <Alert variant="info" className="no-print mb-4">
-            <Info aria-hidden="true" />
-            <AlertDescription>
-              Only published results appear on your transcript. Courses in progress or awaiting approval are not shown. For an official transcript, contact the registrar.
-            </AlertDescription>
-          </Alert>
-          <TranscriptView transcript={data} />
-        </>
+        <TranscriptView transcript={data} />
       )}
     </>
   )

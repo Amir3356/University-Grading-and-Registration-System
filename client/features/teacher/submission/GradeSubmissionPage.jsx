@@ -50,7 +50,7 @@ const previewColumns = [
   {
     key: 'passed',
     header: 'Result',
-    value: (r) => (r.enrollment.status === 'withdrawn' ? 'Withdrawn' : r.passed == null ? '' : r.passed ? 'Pass' : 'Fail'),
+    value: (r) => (r.enrollment.status === 'withdrawn' ? 'Withdrawn' : r.passed == null ? '' : r.passed ? 'Pass' : 'Dropped'),
     cell: (r) => (r.enrollment.status === 'withdrawn' ? <StatusBadge status="withdrawn" /> : <PassFailBadge passed={r.passed} />),
   },
 ]
