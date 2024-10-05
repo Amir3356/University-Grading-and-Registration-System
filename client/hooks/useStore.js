@@ -1,4 +1,4 @@
-import { useCallback, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { toast } from 'sonner'
 import { getVersion, subscribe } from '@/store/db'
 
@@ -8,39 +8,60 @@ export function useStoreVersion() {
 }
 
 /**
- * Read data from the local store.
- * `fn` runs synchronously during render and re-runs when `deps` change or, with `live`
- * (the default), whenever the stored data changes. With `live: false` the result is a
- * snapshot that only updates on `refetch()` — useful for forms being edited.
- * Returns { data, error, loading, refetch }. `loading` is always false (kept for symmetry).
+ * Read data from the store.
+ * Supports both synchronous functions and async Promises.
+ * Returns { data, error, loading, refetch }.
  */
 export function useQuery(fn, deps = [], { enabled = true, live = true } = {}) {
   const version = useStoreVersion()
   const [nonce, setNonce] = useState(0)
-  const key = [enabled, live ? version : nonce, ...deps]
-  // Recompute only when the key changes (state derived during render, no effect needed).
-  const [cache, setCache] = useState(() => ({ key, result: run(fn, enabled) }))
-  let result = cache.result
-  if (!sameKey(cache.key, key)) {
-    result = run(fn, enabled)
-    setCache({ key, result })
-  }
+  const [state, setState] = useState(() => {
+    if (!enabled) return { data: undefined, error: null, loading: false }
+    try {
+      const res = fn()
+      if (res && typeof res.then === 'function') {
+        return { data: undefined, error: null, loading: true }
+      }
+      return { data: res, error: null, loading: false }
+    } catch (error) {
+      return { data: undefined, error, loading: false }
+    }
+  })
+
+  useEffect(() => {
+    if (!enabled) {
+      setState({ data: undefined, error: null, loading: false })
+      return
+    }
+
+    let cancelled = false
+    try {
+      const res = fn()
+      if (res && typeof res.then === 'function') {
+        setState((s) => (s.loading ? s : { ...s, loading: true }))
+        res
+          .then((data) => {
+            if (!cancelled) setState({ data, error: null, loading: false })
+          })
+          .catch((error) => {
+            if (!cancelled) setState({ data: undefined, error, loading: false })
+          })
+      } else {
+        setState({ data: res, error: null, loading: false })
+      }
+    } catch (error) {
+      setState({ data: undefined, error, loading: false })
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [enabled, live ? version : nonce, ...deps])
+
   const refetch = useCallback(() => setNonce((n) => n + 1), [])
-  return { ...result, loading: false, refetch }
+  return { ...state, refetch }
 }
 
-function run(fn, enabled) {
-  if (!enabled) return { data: undefined, error: null }
-  try {
-    return { data: fn(), error: null }
-  } catch (error) {
-    return { data: undefined, error }
-  }
-}
-
-function sameKey(a, b) {
-  return a.length === b.length && a.every((v, i) => Object.is(v, b[i]))
-}
 
 /**
  * Wrap a store change with loading state, toast feedback and field errors.

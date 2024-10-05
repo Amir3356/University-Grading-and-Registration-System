@@ -183,6 +183,11 @@ export function getVersion() {
   return version
 }
 
+export function bumpVersion() {
+  emit()
+}
+
+
 // Keep tabs in sync.
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {

@@ -4,16 +4,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { PageHeader } from '@/components/common/PageHeader'
 import { StatusBadge } from '@/components/common/StatusBadge'
+import { useQuery } from '@/hooks/useStore'
+import { store } from '@/store'
 
-const COURSES_DATA = [
+const FALLBACK_COURSES_DATA = [
   {
     courseCode: 'NET401',
     courseName: 'Computer Networks',
     totalScore: '85.5',
     grade: 'A',
     status: 'published',
-    academicYear: '2027',
-    semester: 'Semester 1',
+    academicYear: '2026/2027',
+    semester: 'First Semester',
   },
   {
     courseCode: 'SWE301',
@@ -21,51 +23,32 @@ const COURSES_DATA = [
     totalScore: '78.0',
     grade: 'B',
     status: 'published',
-    academicYear: '2027',
-    semester: 'Semester 1',
-  },
-  {
-    courseCode: 'CS302',
-    courseName: 'Database Systems',
-    totalScore: '—',
-    grade: '—',
-    status: 'in_progress',
-    academicYear: '2027',
-    semester: 'Semester 1',
-  },
-  {
-    courseCode: 'CS305',
-    courseName: 'Operating Systems',
-    totalScore: '72.0',
-    grade: '—',
-    status: 'pending',
-    academicYear: '2027',
-    semester: 'Semester 1',
-  },
-  {
-    courseCode: 'MTH201',
-    courseName: 'Discrete Mathematics',
-    totalScore: '—',
-    grade: 'W',
-    status: 'withdrawn',
-    academicYear: '2027',
-    semester: 'Semester 1',
-  },
-  {
-    courseCode: 'PHY101',
-    courseName: 'Physics for Computing',
-    totalScore: '42.0',
-    grade: 'Dropped',
-    status: 'dropped',
-    academicYear: '2027',
-    semester: 'Semester 1',
+    academicYear: '2026/2027',
+    semester: 'First Semester',
   },
 ]
 
 export function MyGradesPage() {
-  const [academicYear, setAcademicYear] = useState('2027')
-  const [semester, setSemester] = useState('Semester 1')
+  const { data: realCourses } = useQuery(() => store.student.listMyCourses(), [])
+  const [academicYear, setAcademicYear] = useState('all')
+  const [semester, setSemester] = useState('all')
   const [courseChoice, setCourseChoice] = useState('all')
+
+  const coursesList = useMemo(() => {
+    if (Array.isArray(realCourses) && realCourses.length > 0) {
+      return realCourses.map((c) => ({
+        courseCode: c.course?.code || c.courseCode,
+        courseName: c.course?.title || c.courseTitle,
+        totalScore: c.finalGrade?.totalScore ?? (c.runningPercent != null ? c.runningPercent : '—'),
+        grade: c.finalGrade?.letter || (c.resultStatus === 'published' ? c.letter : '—'),
+        status: c.resultStatus || c.status,
+        academicYear: c.semester?.academicYear?.name || '2026/2027',
+        semester: c.semester?.name || 'First Semester',
+      }))
+    }
+    return FALLBACK_COURSES_DATA
+  }, [realCourses])
+
 
   const academicYearOptions = [
     { value: '2027', label: '2027' },
@@ -82,23 +65,24 @@ export function MyGradesPage() {
   const courseOptions = useMemo(() => {
     const list = [{ value: 'all', label: 'All Courses' }]
     const seen = new Set()
-    COURSES_DATA.forEach((c) => {
+    coursesList.forEach((c) => {
       if (!seen.has(c.courseCode)) {
         seen.add(c.courseCode)
         list.push({ value: c.courseCode, label: `${c.courseCode} — ${c.courseName}` })
       }
     })
     return list
-  }, [])
+  }, [coursesList])
 
   const filteredCourses = useMemo(() => {
-    return COURSES_DATA.filter((c) => {
-      if (academicYear && c.academicYear !== academicYear && !c.academicYear.includes(academicYear)) return false
-      if (semester && c.semester !== semester) return false
+    return coursesList.filter((c) => {
+      if (academicYear && academicYear !== 'all' && c.academicYear !== academicYear && !c.academicYear.includes(academicYear)) return false
+      if (semester && semester !== 'all' && c.semester !== semester) return false
       if (courseChoice !== 'all' && c.courseCode !== courseChoice) return false
       return true
     })
-  }, [academicYear, semester, courseChoice])
+  }, [coursesList, academicYear, semester, courseChoice])
+
 
   return (
     <div className="space-y-6">

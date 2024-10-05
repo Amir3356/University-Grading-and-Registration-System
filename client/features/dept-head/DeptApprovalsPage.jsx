@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { api } from '@/api/client'
+
 import {
   ArrowLeft,
   Award,
@@ -199,6 +201,32 @@ export function DeptApprovalsPage() {
   const [approvals, setApprovals] = useState(loadStoredData)
   const [selectedRowId, setSelectedRowId] = useState(null)
 
+  useEffect(() => {
+    async function loadRealSubmissions() {
+      try {
+        const res = await api.get('/grade-submissions')
+        const items = res?.items || (Array.isArray(res) ? res : [])
+        if (items.length > 0) {
+          const mapped = items.map((s) => ({
+            id: s.id,
+            submissionId: s.id,
+            courseCode: s.offering?.course?.code || s.courseCode || 'CS101',
+            courseName: s.offering?.course?.title || s.courseTitle || 'Course',
+            teacherName: s.teacher?.name || 'Teacher',
+            teacherId: s.teacher?.employeeNumber || 'TCH',
+            totalStudent: s.studentCount || 45,
+            submissionDate: s.submittedAt ? new Date(s.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recent',
+            status: s.status ? s.status.charAt(0).toUpperCase() + s.status.slice(1) : 'Pending',
+          }))
+          setApprovals(mapped)
+        }
+      } catch {
+        // Fall back to stored data
+      }
+    }
+    loadRealSubmissions()
+  }, [])
+
   const selectedRow = useMemo(
     () => approvals.find((a) => a.id === selectedRowId) || null,
     [approvals, selectedRowId],
@@ -213,10 +241,18 @@ export function DeptApprovalsPage() {
     }
   }
 
-  const handleApprove = (id) => {
+  const handleApprove = async (id) => {
     const target = approvals.find((a) => a.id === id)
     const isCurrentlyApproved = target?.status === 'Approved'
     const newStatus = isCurrentlyApproved ? 'Pending' : 'Approved'
+
+    if (newStatus === 'Approved' && target?.submissionId) {
+      try {
+        await api.post(`/grade-submissions/${target.submissionId}/approve`, { comment: 'Approved by department head' })
+      } catch (err) {
+        console.warn('Backend approval warning:', err)
+      }
+    }
 
     const next = approvals.map((a) =>
       a.id === id ? { ...a, status: newStatus } : a,
@@ -230,10 +266,18 @@ export function DeptApprovalsPage() {
     }
   }
 
-  const handleReject = (id) => {
+  const handleReject = async (id) => {
     const target = approvals.find((a) => a.id === id)
     const isCurrentlyRejected = target?.status === 'Rejected'
     const newStatus = isCurrentlyRejected ? 'Pending' : 'Rejected'
+
+    if (newStatus === 'Rejected' && target?.submissionId) {
+      try {
+        await api.post(`/grade-submissions/${target.submissionId}/reject`, { comment: 'Returned by department head for revision' })
+      } catch (err) {
+        console.warn('Backend rejection warning:', err)
+      }
+    }
 
     const next = approvals.map((a) =>
       a.id === id ? { ...a, status: newStatus } : a,

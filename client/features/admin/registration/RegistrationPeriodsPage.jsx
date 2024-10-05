@@ -1,4 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { api } from '@/api/client'
+
 import {
   CalendarDays,
   CalendarCheck2,
@@ -77,6 +79,33 @@ export function RegistrationPeriodsPage() {
   const [periodYearFilter, setPeriodYearFilter] = useState('All')
   const [periodSemFilter, setPeriodSemFilter] = useState('All')
   const [periodStatusFilter, setPeriodStatusFilter] = useState('All')
+
+  useEffect(() => {
+    async function fetchPeriods() {
+      try {
+        const res = await api.get('/registration-periods')
+        const items = res?.items || (Array.isArray(res) ? res : [])
+        if (items.length > 0) {
+          const mapped = items.map((p) => ({
+            id: p.id,
+            academicYear: p.semester?.academicYear?.name || p.academicYear || '2026',
+            semester: p.semester?.name || p.semester || 'First Semester',
+            registrationTypes: p.allowedRegistrationTypes || ['Café', 'Non-Café'],
+            startDate: p.startDate ? new Date(p.startDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—',
+            deadline: p.endDate ? new Date(p.endDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—',
+            rawStartDate: p.startDate ? p.startDate.split('T')[0] : '',
+            rawDeadline: p.endDate ? p.endDate.split('T')[0] : '',
+            status: p.status === 'open' ? 'Open' : p.status === 'closed' ? 'Closed' : p.status ? p.status.charAt(0).toUpperCase() + p.status.slice(1) : 'Scheduled',
+          }))
+          setPeriods(mapped)
+        }
+      } catch {
+        // Fall back to initial periods
+      }
+    }
+    fetchPeriods()
+  }, [])
+
 
   // Right Drawer state: Open by default as in screenshot
   const [isDrawerOpen, setIsDrawerOpen] = useState(true)
