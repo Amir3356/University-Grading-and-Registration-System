@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { api } from '@/api/client'
+import { listRegistrationPeriodsApi } from '@/api/registration'
 
 import {
   CalendarDays,
@@ -83,7 +83,7 @@ export function RegistrationPeriodsPage() {
   useEffect(() => {
     async function fetchPeriods() {
       try {
-        const res = await api.get('/registration-periods')
+        const res = await listRegistrationPeriodsApi()
         const items = res?.items || (Array.isArray(res) ? res : [])
         if (items.length > 0) {
           const mapped = items.map((p) => ({

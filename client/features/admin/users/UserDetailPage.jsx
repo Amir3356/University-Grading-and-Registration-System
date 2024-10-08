@@ -231,10 +231,8 @@ export function UserDetailPage() {
                 <CardTitle>Recent activity</CardTitle>
                 <CardDescription className="mt-1">Actions performed by this user.</CardDescription>
               </div>
-              <Button variant="outline" size="sm" asChild>
-                <Link to={`/admin/audit-logs?search=${encodeURIComponent(user.name)}`}>View audit log</Link>
-              </Button>
             </CardHeader>
+
             <CardContent>
               {user.recentActivity?.length ? (
                 <ul className="divide-y">

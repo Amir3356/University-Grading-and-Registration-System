@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { api } from '@/api/client'
+import { listApprovalRequestsApi, approveGradesApi, rejectGradesApi } from '@/api/grades'
 
 import {
   ArrowLeft,
@@ -204,7 +204,7 @@ export function DeptApprovalsPage() {
   useEffect(() => {
     async function loadRealSubmissions() {
       try {
-        const res = await api.get('/grade-submissions')
+        const res = await listApprovalRequestsApi()
         const items = res?.items || (Array.isArray(res) ? res : [])
         if (items.length > 0) {
           const mapped = items.map((s) => ({
@@ -248,7 +248,7 @@ export function DeptApprovalsPage() {
 
     if (newStatus === 'Approved' && target?.submissionId) {
       try {
-        await api.post(`/grade-submissions/${target.submissionId}/approve`, { comment: 'Approved by department head' })
+        await approveGradesApi(target.submissionId, { comment: 'Approved by department head' })
       } catch (err) {
         console.warn('Backend approval warning:', err)
       }
@@ -273,7 +273,7 @@ export function DeptApprovalsPage() {
 
     if (newStatus === 'Rejected' && target?.submissionId) {
       try {
-        await api.post(`/grade-submissions/${target.submissionId}/reject`, { comment: 'Returned by department head for revision' })
+        await rejectGradesApi(target.submissionId, { comment: 'Returned by department head for revision' })
       } catch (err) {
         console.warn('Backend rejection warning:', err)
       }

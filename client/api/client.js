@@ -1,169 +1,230 @@
+import axios from 'axios';
 import { StoreError } from '@/store/helpers';
+import {
+  TOKEN_KEY,
+  REFRESH_TOKEN_KEY,
+  USER_KEY,
+  PROFILE_KEY,
+  getStoredToken,
+  getStoredRefreshToken,
+  getStoredUser,
+  getStoredProfile,
+  setStoredSession,
+  clearStoredSession,
+} from '@/lib/storage';
 
-const API_BASE = '/api/v1';
+// Re-export storage helpers for backward compatibility
+export {
+  TOKEN_KEY,
+  REFRESH_TOKEN_KEY,
+  USER_KEY,
+  PROFILE_KEY,
+  getStoredToken,
+  getStoredRefreshToken,
+  getStoredUser,
+  getStoredProfile,
+  setStoredSession,
+  clearStoredSession,
+};
 
-export const TOKEN_KEY = 'ugs_token';
-export const REFRESH_TOKEN_KEY = 'ugs_refresh_token';
-export const USER_KEY = 'ugs_user';
-export const PROFILE_KEY = 'ugs_profile';
+import { API_BASE_URL, API_TIMEOUT, DEFAULT_HEADERS, ENDPOINTS } from '@/config/api.config';
 
-export function getStoredToken() {
-  return localStorage.getItem(TOKEN_KEY);
-}
+export const API_BASE = API_BASE_URL;
 
-export function getStoredRefreshToken() {
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
-}
-
-export function getStoredUser() {
-  try {
-    const raw = localStorage.getItem(USER_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function getStoredProfile() {
-  try {
-    const raw = localStorage.getItem(PROFILE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function setStoredSession(token, refreshToken, user, profile) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-  if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
-  if (profile) localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-}
-
-export function clearStoredSession() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-  localStorage.removeItem(PROFILE_KEY);
-}
+export const apiClient = axios.create({
+  baseURL: API_BASE,
+  timeout: API_TIMEOUT,
+  headers: {
+    Accept: DEFAULT_HEADERS.Accept || 'application/json',
+  },
+});
 
 let isRefreshing = false;
-let refreshSubscribers = [];
+let failedQueue = [];
 
-function onRefreshed(token) {
-  refreshSubscribers.forEach((cb) => cb(token));
-  refreshSubscribers = [];
-}
-
-function addRefreshSubscriber(cb) {
-  refreshSubscribers.push(cb);
+function processQueue(error, token = null) {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
 }
 
 async function doRefreshToken() {
   const refreshToken = getStoredRefreshToken();
   if (!refreshToken) throw new Error('No refresh token available');
 
-  const res = await fetch(`${API_BASE}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
-  });
+  const res = await axios.post(
+    `${API_BASE}${ENDPOINTS.AUTH.REFRESH}`,
+    { refreshToken },
+    { headers: { 'Content-Type': 'application/json' } }
+  );
 
-  if (!res.ok) {
-    clearStoredSession();
-    throw new Error('Session expired');
-  }
-
-  const data = await res.json();
+  const data = res.data;
   localStorage.setItem(TOKEN_KEY, data.token);
   return data.token;
 }
 
-export async function apiRequest(endpoint, options = {}) {
-  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
-  const token = getStoredToken();
+// Request Interceptor: Attach bearer token and ensure proper Content-Type
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = getStoredToken();
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
 
-  const headers = {
-    Accept: 'application/json',
-    ...options.headers,
-  };
+    if (!(config.data instanceof FormData) && !config.headers['Content-Type']) {
+      config.headers['Content-Type'] = 'application/json';
+    }
 
-  if (!(options.body instanceof FormData) && !headers['Content-Type']) {
-    headers['Content-Type'] = 'application/json';
-  }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+// Response Interceptor: 401 token refresh queue & standard StoreError mapping
+apiClient.interceptors.response.use(
+  (response) => {
+    if (response.status === 204) {
+      response.data = null;
+    }
+    return response;
+  },
+  async (error) => {
+    const originalRequest = error.config;
 
-  let res = await fetch(url, { ...options, headers });
+    // Automatic token refresh on 401 Unauthorized
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      getStoredRefreshToken() &&
+      !originalRequest.url?.includes(ENDPOINTS.AUTH.LOGIN) &&
+      !originalRequest.url?.includes(ENDPOINTS.AUTH.REFRESH)
+    ) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return apiClient(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
 
-  // Handle 401 Unauthorized with automatic token refresh
-  if (res.status === 401 && getStoredRefreshToken() && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/refresh')) {
-    if (!isRefreshing) {
+      originalRequest._retry = true;
       isRefreshing = true;
+
       try {
         const newToken = await doRefreshToken();
         isRefreshing = false;
-        onRefreshed(newToken);
-      } catch (err) {
+        processQueue(null, newToken);
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return apiClient(originalRequest);
+      } catch (refreshErr) {
         isRefreshing = false;
-        window.location.href = '/login';
+        processQueue(refreshErr, null);
+        clearStoredSession();
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
         throw new StoreError('unauthenticated', 'Session expired. Please log in again.');
       }
     }
 
-    const retryPromise = new Promise((resolve) => {
-      addRefreshSubscriber((newToken) => {
-        headers.Authorization = `Bearer ${newToken}`;
-        resolve(fetch(url, { ...options, headers }));
-      });
-    });
+    // Normalize error response to StoreError
+    const res = error.response;
+    if (res) {
+      const errData = res.data;
+      const err = errData?.error;
+      const kind =
+        err?.kind ||
+        (res.status === 404
+          ? 'not_found'
+          : res.status === 403
+          ? 'forbidden'
+          : res.status === 401
+          ? 'unauthenticated'
+          : res.status === 422
+          ? 'validation'
+          : 'error');
+      const message = err?.message || errData?.message || res.statusText || 'Request failed';
+      const fieldErrors = err?.fieldErrors || errData?.fieldErrors || err?.details || null;
+      throw new StoreError(kind, message, fieldErrors);
+    }
 
-    res = await retryPromise;
+    throw new StoreError('error', error.message || 'Network connection failed');
   }
+);
 
-  if (res.status === 204) {
-    return null;
+function cleanParams(params) {
+  if (!params || typeof params !== 'object') return {};
+  const clean = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      clean[key] = value;
+    }
   }
-
-  const contentType = res.headers.get('content-type') || '';
-  if (contentType.includes('text/csv')) {
-    return await res.text();
-  }
-
-  let data;
-  try {
-    data = await res.json();
-  } catch {
-    data = null;
-  }
-
-  if (!res.ok) {
-    const err = data?.error;
-    const kind = err?.kind || (res.status === 404 ? 'not_found' : res.status === 403 ? 'forbidden' : res.status === 401 ? 'unauthenticated' : 'error');
-    const message = err?.message || res.statusText || 'Request failed';
-    const fieldErrors = err?.fieldErrors || null;
-    throw new StoreError(kind, message, fieldErrors);
-  }
-
-  return data;
+  return clean;
 }
 
-export const api = {
-  get: (path, params) => {
-    let url = path;
-    if (params) {
-      const cleanParams = Object.entries(params)
-        .filter(([_, v]) => v !== undefined && v !== null && v !== '')
-        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-        .join('&');
-      if (cleanParams) url += (url.includes('?') ? '&' : '?') + cleanParams;
+/**
+ * Backward-compatible apiRequest wrapper backed by Axios
+ */
+export async function apiRequest(endpoint, options = {}) {
+  const config = {
+    url: endpoint,
+    method: (options.method || 'GET').toUpperCase(),
+    headers: options.headers ? { ...options.headers } : {},
+    ...options,
+  };
+
+  if (options.body) {
+    if (typeof options.body === 'string') {
+      try {
+        config.data = JSON.parse(options.body);
+      } catch {
+        config.data = options.body;
+      }
+    } else {
+      config.data = options.body;
     }
-    return apiRequest(url, { method: 'GET' });
+  }
+
+  const response = await apiClient(config);
+  return response.data;
+}
+
+/**
+ * Standard HTTP methods backed by Axios
+ */
+export const api = {
+  get: async (path, params, config = {}) => {
+    const response = await apiClient.get(path, {
+      ...config,
+      params: params ? cleanParams(params) : undefined,
+    });
+    return response.data;
   },
-  post: (path, body) => apiRequest(path, { method: 'POST', body: JSON.stringify(body) }),
-  put: (path, body) => apiRequest(path, { method: 'PUT', body: JSON.stringify(body) }),
-  patch: (path, body) => apiRequest(path, { method: 'PATCH', body: JSON.stringify(body) }),
-  delete: (path) => apiRequest(path, { method: 'DELETE' }),
+  post: async (path, body, config = {}) => {
+    const response = await apiClient.post(path, body, config);
+    return response.data;
+  },
+  put: async (path, body, config = {}) => {
+    const response = await apiClient.put(path, body, config);
+    return response.data;
+  },
+  patch: async (path, body, config = {}) => {
+    const response = await apiClient.patch(path, body, config);
+    return response.data;
+  },
+  delete: async (path, config = {}) => {
+    const response = await apiClient.delete(path, config);
+    return response.data;
+  },
 };
+
+export default apiClient;

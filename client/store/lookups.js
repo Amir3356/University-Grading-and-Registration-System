@@ -1,6 +1,6 @@
-import { api } from '@/api/client'
+import { getLookupsApi } from '@/api/lookups';
 
 /** Reference data needed by forms and filters across the app. */
 export async function getLookups() {
-  return await api.get('/lookups')
+  return await getLookupsApi();
 }

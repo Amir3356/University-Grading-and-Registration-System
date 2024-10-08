@@ -1,0 +1,50 @@
+[
+ {
+  "id": "admin",
+  "name": "System Administrator",
+  "description": "Manages the academic environment, users and grading policies.",
+  "permissions": [
+   "users.manage",
+   "academics.manage",
+   "grades.approve",
+   "grades.publish",
+   "reports.view",
+   "settings.manage",
+   "audit.view"
+  ]
+ },
+ {
+  "id": "dept_head",
+  "name": "Department Head",
+  "description": "Supervises departmental academic activities, reviews and approves grades.",
+  "permissions": [
+   "department.view",
+   "courses.view_department",
+   "teachers.view_department",
+   "students.view_department",
+   "grades.approve_department",
+   "reports.department"
+  ]
+ },
+ {
+  "id": "teacher",
+  "name": "Teacher",
+  "description": "Manages assessments and grades for assigned course offerings.",
+  "permissions": [
+   "courses.view_assigned",
+   "assessments.manage",
+   "grades.enter",
+   "grades.submit",
+   "reports.course"
+  ]
+ },
+ {
+  "id": "student",
+  "name": "Student",
+  "description": "Views own courses, grades, GPA and transcript.",
+  "permissions": [
+   "grades.view_own",
+   "transcript.view_own"
+  ]
+ }
+]

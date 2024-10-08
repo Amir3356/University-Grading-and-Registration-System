@@ -10,6 +10,7 @@ import { FormField } from '@/components/common/FormField'
 import { Spinner } from '@/components/common/Loading'
 import { useAuth } from '@/context/auth-context'
 import { HOME_BY_ROLE } from '@/routes/navigation'
+import { validateForm, loginFormSchema } from '@/lib/validators'
 
 const ROLES = [
   { value: 'admin', label: 'Admin' },
@@ -33,11 +34,18 @@ export function LoginPage() {
 
   const submit = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
     setError(null)
     setFieldErrors({})
+
+    const validation = validateForm(loginFormSchema, form)
+    if (!validation.success) {
+      setFieldErrors(validation.errors)
+      return
+    }
+
+    setSubmitting(true)
     try {
-      const res = await login(form)
+      const res = await login(validation.data)
       // Role-based redirect: each role lands on its own dashboard.
       const from = location.state?.from?.pathname
       const home = HOME_BY_ROLE[res.user.roleId]

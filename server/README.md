@@ -11,7 +11,6 @@ Backend server built with Node.js, Express.js, and native PostgreSQL, implementi
 - **Database Driver**: `pg` with connection pooling and transactional execution helpers
 - **Authentication**: JWT access tokens (15-min expiry) & refresh tokens (7-day expiry with SHA-256 database hashing)
 - **Password Security**: `bcryptjs` with salt rounds = 10
-- **Testing**: Node.js native test runner (`node:test`, `node:assert/strict`) & `supertest`
 
 ---
 
@@ -19,53 +18,52 @@ Backend server built with Node.js, Express.js, and native PostgreSQL, implementi
 
 ```
 server/
-├── migrations/
-│   └── 001_initial_schema.sql     # Complete schema (35 tables, constraints, indexes, triggers)
-├── src/
-│   ├── config/
-│   │   ├── env.js                 # Environment variable loader
-│   │   └── database.js            # PostgreSQL pool and transaction wrapper
-│   ├── controllers/               # Express request/response handlers
-│   │   ├── academicController.js
-│   │   ├── assessmentController.js
-│   │   ├── auditController.js
-│   │   ├── authController.js
-│   │   ├── gradebookController.js
-│   │   ├── lookupController.js
-│   │   ├── notificationController.js
-│   │   ├── offeringController.js
-│   │   ├── registrationController.js
-│   │   ├── reportController.js
-│   │   ├── settingsController.js
-│   │   ├── submissionController.js
-│   │   ├── userController.js
-│   │   ├── withdrawalController.js
-│   │   └── workspaceController.js
-│   ├── middleware/
-│   │   ├── audit.js               # Audit log recording utility
-│   │   ├── auth.js                # JWT verification and user context injection
-│   │   ├── authorize.js           # Role and department-scope authorization
-│   │   └── errorHandler.js        # Standardized API error response handler
-│   ├── repositories/              # Direct SQL queries and data access
-│   ├── routes/                    # RESTful route definitions mounted under /api/v1
-│   ├── scripts/
-│   │   ├── migrate.js             # Runs database migrations
-│   │   └── seed.js                # Populates comprehensive demo dataset
-│   ├── services/                  # Business logic and cross-entity workflows
-│   ├── utils/
-│   │   ├── errors.js              # Standardized AppError hierarchy
-│   │   ├── formatters.js          # snake_case / camelCase and pagination helpers
-│   │   ├── gpaCalculator.js       # GPA, CGPA, quality points & academic standing
-│   │   ├── idGenerator.js         # Domain-prefixed unique identifiers
-│   │   ├── jwt.js                 # Token signing and verification
-│   │   └── password.js            # bcrypt hashing and strength checking
-│   ├── app.js                     # Express app setup and middleware pipeline
-│   └── server.js                  # Server entry point and DB connection verification
-├── tests/
-│   └── api.test.js                # Automated integration test suite
-├── .env                           # Environment configuration
-└── package.json
+├── config/
+│   └── database.js            # PostgreSQL pool and transaction wrapper
+├── controllers/               # Express request/response handlers
+│   ├── academicController.js
+│   ├── assessmentController.js
+│   ├── auditController.js
+│   ├── authController.js
+│   ├── gradebookController.js
+│   ├── lookupController.js
+│   ├── notificationController.js
+│   ├── offeringController.js
+│   ├── registrationController.js
+│   ├── reportController.js
+│   ├── settingsController.js
+│   ├── submissionController.js
+│   ├── userController.js
+│   ├── withdrawalController.js
+│   └── workspaceController.js
+├── middleware/
+│   ├── audit.js               # Audit log recording utility
+│   ├── auth.js                # JWT verification and user context injection
+│   ├── authorize.js           # Role and department-scope authorization
+│   └── errorHandler.js        # Standardized API error response handler
+├── migrations/                # Classified modular SQL migrations (applied sequentially)
+│   ├── 001_auth_identity.sql
+│   ├── 002_departments_academics.sql
+│   ├── 003_calendar_registration.sql
+│   ├── 004_offerings_enrollments.sql
+│   ├── 005_assessments_grading.sql
+│   ├── 006_withdrawals.sql
+│   ├── 007_communication_audit.sql
+│   └── 008_settings_policies.sql
+├── models/                    # Data schemas (Zod) and database domain models
+├── repositories/              # Direct SQL queries and database operations
+├── routes/                    # RESTful route definitions mounted under /api/v1
+├── seed/                      # Custom seed script and database seed data
+│   ├── data/                  # Source JSON datasets (users, courses, grades, etc.)
+│   └── index.js               # Database seeder using pg and bcryptjs
+├── services/                  # Business logic and cross-entity workflows
+├── utils/                     # Reusable helpers (JWT, password, response, formatters)
+├── .env                       # Environment configuration
+├── app.js                     # Express app setup and middleware pipeline
+├── package.json
+└── server.js                  # Server entry point and DB connection verification
 ```
+
 
 ---
 
@@ -102,14 +100,11 @@ CORS_ORIGIN=http://localhost:5173
 ```bash
 cd server
 npm install
-npm run migrate   # Executes migrations/001_initial_schema.sql
-npm run seed      # Seeds 77 users, courses, offerings, enrollments, assessments & grades
+npm run migrate        # Runs database migrations using node-pg-migrate
+npm run migrate:down   # Rolls back the latest migration batch
+npm run seed           # Runs custom seed script (seed/index.js) using pg & seed data
 ```
 
-### Run Tests
-```bash
-npm test
-```
 
 ### Start Backend API Server
 ```bash

@@ -1,0 +1,47 @@
+[
+ {
+  "id": "dep_cs",
+  "code": "CS",
+  "name": "Computer Science",
+  "description": "Computing theory, software engineering and information systems.",
+  "headTeacherId": "tch_0002",
+  "createdAt": "2024-06-01T00:00:00.000Z",
+  "updatedAt": "2024-06-01T00:00:00.000Z"
+ },
+ {
+  "id": "dep_math",
+  "code": "MATH",
+  "name": "Mathematics",
+  "description": "Pure and applied mathematics, statistics and modelling.",
+  "headTeacherId": "tch_0005",
+  "createdAt": "2024-06-01T00:00:00.000Z",
+  "updatedAt": "2024-06-01T00:00:00.000Z"
+ },
+ {
+  "id": "dep_bus",
+  "code": "BUS",
+  "name": "Business Administration",
+  "description": "Management, accounting, finance and marketing.",
+  "headTeacherId": "tch_0008",
+  "createdAt": "2024-06-01T00:00:00.000Z",
+  "updatedAt": "2024-06-01T00:00:00.000Z"
+ },
+ {
+  "id": "dep_ee",
+  "code": "EE",
+  "name": "Electrical Engineering",
+  "description": "Circuits, electronics, signals and power systems.",
+  "headTeacherId": "tch_0011",
+  "createdAt": "2024-06-01T00:00:00.000Z",
+  "updatedAt": "2024-06-01T00:00:00.000Z"
+ },
+ {
+  "id": "dep_bio",
+  "code": "BIO",
+  "name": "Biology",
+  "description": "Life sciences from molecules to ecosystems.",
+  "headTeacherId": "tch_0014",
+  "createdAt": "2024-06-01T00:00:00.000Z",
+  "updatedAt": "2024-06-01T00:00:00.000Z"
+ }
+]
