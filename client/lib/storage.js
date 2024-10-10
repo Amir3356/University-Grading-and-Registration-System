@@ -1,18 +1,20 @@
 /**
  * Storage utility for client-side authentication and session state.
- * Manages localStorage tokens, cached user objects, and profile records.
+ * Auth tokens are stored in browser cookies (instead of localStorage).
+ * User profile objects are cached in localStorage.
  */
 
 import { TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY, PROFILE_KEY } from '@/config/constants';
+import { getCookie, setCookie, removeCookie } from './cookies.js';
 
 export { TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY, PROFILE_KEY };
 
 export function getStoredToken() {
-  return localStorage.getItem(TOKEN_KEY);
+  return getCookie(TOKEN_KEY) || null;
 }
 
 export function getStoredRefreshToken() {
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
+  return getCookie(REFRESH_TOKEN_KEY) || null;
 }
 
 export function getStoredUser() {
@@ -34,13 +36,27 @@ export function getStoredProfile() {
 }
 
 export function setStoredSession(token, refreshToken, user, profile) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  // Store authentication tokens strictly in browser cookies
+  if (token) {
+    setCookie(TOKEN_KEY, token, { expires: 1 });
+  }
+  if (refreshToken) {
+    setCookie(REFRESH_TOKEN_KEY, refreshToken, { expires: 7 });
+  }
+  // Clean up any legacy tokens in localStorage
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+
   if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
   if (profile) localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
 }
 
 export function clearStoredSession() {
+  // Clear authentication cookies
+  removeCookie(TOKEN_KEY);
+  removeCookie(REFRESH_TOKEN_KEY);
+
+  // Clear legacy tokens and cached user state
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);

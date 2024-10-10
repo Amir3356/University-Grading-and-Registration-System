@@ -2,11 +2,18 @@
  * Application constants, storage keys, user roles, and domain statuses.
  */
 
-// Local storage keys
+// Browser cookie keys for authentication tokens
 export const TOKEN_KEY = 'ugs_token';
 export const REFRESH_TOKEN_KEY = 'ugs_refresh_token';
+
+// Local storage cache keys for user identity & profile
 export const USER_KEY = 'ugs_user';
 export const PROFILE_KEY = 'ugs_profile';
+
+export const COOKIE_KEYS = {
+  TOKEN: TOKEN_KEY,
+  REFRESH_TOKEN: REFRESH_TOKEN_KEY,
+};
 
 export const STORAGE_KEYS = {
   TOKEN: TOKEN_KEY,

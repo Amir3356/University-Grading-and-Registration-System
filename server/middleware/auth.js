@@ -5,12 +5,16 @@ import { defineAbilityFor } from './authorize.js';
 
 export async function authenticate(req, res, next) {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Extract token from browser cookies first, falling back to Bearer header
+    let token = req.cookies?.ugs_token || req.cookies?.token || req.cookies?.accessToken;
+    if (!token && req.headers.authorization?.startsWith('Bearer ')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (!token) {
       throw new UnauthorizedError('Authentication token missing or invalid.');
     }
 
-    const token = authHeader.split(' ')[1];
     const decoded = verifyAccessToken(token);
     if (!decoded || !decoded.userId) {
       throw new UnauthorizedError('Token expired or invalid.');
@@ -84,8 +88,13 @@ export async function authenticate(req, res, next) {
 }
 
 export async function optionalAuthenticate(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
+  const hasToken =
+    req.cookies?.ugs_token ||
+    req.cookies?.token ||
+    req.cookies?.accessToken ||
+    (req.headers.authorization && req.headers.authorization.startsWith('Bearer '));
+
+  if (hasToken) {
     return authenticate(req, res, next);
   }
   req.user = null;

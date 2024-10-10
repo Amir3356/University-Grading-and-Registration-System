@@ -28,12 +28,14 @@ export {
 };
 
 import { API_BASE_URL, API_TIMEOUT, DEFAULT_HEADERS, ENDPOINTS } from '@/config/api.config';
+import { setCookie } from '@/lib/cookies.js';
 
 export const API_BASE = API_BASE_URL;
 
 export const apiClient = axios.create({
   baseURL: API_BASE,
   timeout: API_TIMEOUT,
+  withCredentials: true,
   headers: {
     Accept: DEFAULT_HEADERS.Accept || 'application/json',
   },
@@ -60,11 +62,14 @@ async function doRefreshToken() {
   const res = await axios.post(
     `${API_BASE}${ENDPOINTS.AUTH.REFRESH}`,
     { refreshToken },
-    { headers: { 'Content-Type': 'application/json' } }
+    {
+      withCredentials: true,
+      headers: { 'Content-Type': 'application/json' },
+    }
   );
 
   const data = res.data;
-  localStorage.setItem(TOKEN_KEY, data.token);
+  setCookie(TOKEN_KEY, data.token, { expires: 1 });
   return data.token;
 }
 
