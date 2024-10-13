@@ -33,6 +33,7 @@ CREATE TABLE users (
     status VARCHAR(10) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
     deactivation_reason TEXT,
     last_login_at TIMESTAMPTZ,
+    is_seed BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

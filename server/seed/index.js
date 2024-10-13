@@ -49,11 +49,15 @@ export async function seedDatabase() {
     console.log('Seeding users...');
     const usersData = readJson('users.json');
     for (const u of usersData) {
+      const passwordHash = u.password
+        ? await bcrypt.hash(u.password, 10)
+        : defaultPasswordHash;
+
       await client.query(
         `INSERT INTO users (
            id, role_id, username, first_name, last_name, email, phone,
-           password_hash, must_change_password, status, last_login_at, created_at, updated_at
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+           password_hash, must_change_password, status, is_seed, last_login_at, created_at, updated_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, $11, $12, $13)
          ON CONFLICT (id) DO UPDATE SET
            role_id = EXCLUDED.role_id,
            username = EXCLUDED.username,
@@ -62,6 +66,7 @@ export async function seedDatabase() {
            email = EXCLUDED.email,
            phone = EXCLUDED.phone,
            password_hash = EXCLUDED.password_hash,
+           is_seed = true,
            status = EXCLUDED.status`,
         [
           u.id,
@@ -71,7 +76,7 @@ export async function seedDatabase() {
           u.lastName,
           u.email,
           u.phone || null,
-          defaultPasswordHash,
+          passwordHash,
           u.mustChangePassword ?? false,
           u.status || 'active',
           u.lastLoginAt || null,

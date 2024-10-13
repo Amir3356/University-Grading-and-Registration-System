@@ -14,16 +14,25 @@ import { SelectField } from './SelectField'
 const DEFAULT_ROLE_OPTIONS = [{ value: 'dept_head', label: 'Department Head' }]
 
 export const PROGRAM_TYPE_OPTIONS = [
-  { value: 'Regular', label: 'Regular' },
-  { value: 'Weekend', label: 'Weekend' },
-  { value: 'Extensions', label: 'Extensions' },
+  { value: 'regular', label: 'Regular' },
+  { value: 'weekend', label: 'Weekend' },
+  { value: 'extension', label: 'Extension' },
 ]
 
 /** Resolve a typed department name or code to a department record. */
 function findDepartment(departments, value) {
   const typed = String(value ?? '').trim().toLowerCase()
   if (!typed) return null
-  return departments.find((d) => d.name.toLowerCase() === typed || d.code.toLowerCase() === typed) ?? null
+  return (
+    departments.find(
+      (d) =>
+        d.id.toLowerCase() === typed ||
+        d.name.toLowerCase() === typed ||
+        d.code.toLowerCase() === typed ||
+        d.name.toLowerCase().includes(typed) ||
+        typed.includes(d.name.toLowerCase())
+    ) ?? null
+  )
 }
 
 function initialForm(user) {
@@ -36,7 +45,7 @@ function initialForm(user) {
     identifier: user && user.identifier !== '—' ? (user.identifier ?? '') : '',
     departmentId: user?.departmentId ?? '',
     program: p?.program ?? user?.program ?? '',
-    programType: p?.programType ?? user?.programType ?? 'Regular',
+    programType: (p?.programType ?? user?.programType ?? 'regular').toLowerCase().replace('extensions', 'extension'),
     admissionYear: String(p?.admissionYear ?? new Date().getFullYear()),
     title: p?.title ?? user?.title ?? 'Prof.',
     specialization: p?.specialization ?? '',
@@ -64,7 +73,7 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
     password: '',
     identifier: '',
     department: defaultDepartment ?? '',
-    programType: 'Regular',
+    programType: 'regular',
   })
   const [nameError, setNameError] = useState(null)
   const [usernameError, setUsernameError] = useState(null)
@@ -92,6 +101,10 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
       setUsernameError('Enter a username.')
       return
     }
+    if (form.username.trim().length < 3) {
+      setUsernameError('Username must be at least 3 characters.')
+      return
+    }
     setUsernameError(null)
     const isAdmin = form.roleId === 'admin'
     if (!isAdmin && !form.identifier.trim()) {
@@ -100,25 +113,30 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
     }
     setIdentifierError(null)
     const needsDepartment = !isAdmin
-    const department = findDepartment(allDepartments, form.department)
-    if (needsDepartment && !department) {
-      setDepartmentError('Enter an existing department name.')
+    if (needsDepartment && !form.department.trim()) {
+      setDepartmentError('Enter or select a department.')
       return
     }
     setDepartmentError(null)
+    const department = findDepartment(allDepartments, form.department)
+    const departmentId = department ? department.id : form.department.trim()
     const [firstName, ...rest] = parts
-    const departmentId = needsDepartment ? department.id : ''
+
+    const cleanUser = form.username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '')
+    const email = `${cleanUser || 'user'}@university.edu`
+
     save({
       firstName,
       lastName: rest.join(' '),
       username: form.username.trim(),
       roleId: form.roleId,
-      password: isAdmin ? form.password : '',
-      departmentId,
-      email: store.users.suggestEmail(form.username || form.fullName),
-      identifier: isAdmin ? '' : form.identifier.trim(),
-      admissionYear: String(new Date().getFullYear()),
-      programType: form.roleId === 'student' ? form.programType : undefined,
+      password: isAdmin && form.password?.trim() ? form.password.trim() : undefined,
+      departmentId: needsDepartment ? departmentId : undefined,
+      department: needsDepartment ? form.department.trim() : undefined,
+      email,
+      identifier: isAdmin ? `ADM-${form.username.trim()}` : form.identifier.trim(),
+      admissionYear: form.roleId === 'student' ? new Date().getFullYear() : undefined,
+      programType: form.roleId === 'student' ? (form.programType || 'regular').toLowerCase().replace('extensions', 'extension') : undefined,
     })
   }
 
@@ -150,7 +168,23 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
         </FormField>
       )}
       <FormField label="Department" required={needsDepartment} error={departmentError ?? (needsDepartment ? fe.departmentId : undefined)}>
-        <Input value={form.department} onChange={set('department')} autoComplete="off" placeholder="e.g. Computer Science" />
+        <Input
+          list="create-user-departments-list"
+          value={form.department}
+          onChange={(e) => {
+            set('department')(e)
+            if (departmentError) setDepartmentError(null)
+          }}
+          autoComplete="off"
+          placeholder="Select or enter department (e.g. Computer Science)"
+        />
+        <datalist id="create-user-departments-list">
+          {allDepartments.map((d) => (
+            <option key={d.id} value={d.name}>
+              {d.code} — {d.name}
+            </option>
+          ))}
+        </datalist>
       </FormField>
       {form.roleId === 'student' && (
         <SelectField
@@ -212,22 +246,29 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
     }
     setUsernameError(null)
     const needsDepartment = form.roleId !== 'admin'
-    const department = findDepartment(allDepartments, form.department)
-    if (needsDepartment && !department) {
-      setDepartmentError('Enter an existing department name.')
+    if (needsDepartment && !form.department.trim()) {
+      setDepartmentError('Enter or select a department.')
       return
     }
     setDepartmentError(null)
-    const departmentId = needsDepartment ? department.id : ''
-    const rest = { ...form }
-    delete rest.fullName
-    delete rest.department
-    rest.firstName = parts[0]
-    rest.lastName = parts.slice(1).join(' ')
-    rest.departmentId = departmentId
-    if (form.roleId === 'student') rest.programType = form.programType
-    if (needsDepartment && !rest.identifier) rest.identifier = store.users.suggestIdentifier(form.roleId, departmentId)
-    save(rest)
+    const department = findDepartment(allDepartments, form.department)
+    const departmentId = department ? department.id : form.department.trim()
+    const [firstName, ...rest] = parts
+
+    const payload = {
+      firstName,
+      lastName: rest.join(' '),
+      username: form.username.trim(),
+      roleId: form.roleId,
+      departmentId: needsDepartment ? departmentId : undefined,
+      department: needsDepartment ? form.department.trim() : undefined,
+      email: form.email?.trim() || undefined,
+      phone: form.phone?.trim() || null,
+      identifier: form.identifier?.trim() || undefined,
+      programType: form.roleId === 'student' ? (form.programType || 'regular').toLowerCase().replace('extensions', 'extension') : undefined,
+      password: form.password?.trim() ? form.password.trim() : undefined,
+    }
+    save(payload)
   }
 
   const fe = fieldErrors ?? {}
@@ -252,7 +293,25 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
       />
       <FormField label="Department" required={needsDepartment} error={departmentError ?? (needsDepartment ? fe.departmentId : undefined)}>
         {needsDepartment ? (
-          <Input value={form.department} onChange={set('department')} autoComplete="off" placeholder="e.g. Computer Science" />
+          <>
+            <Input
+              list="edit-user-departments-list"
+              value={form.department}
+              onChange={(e) => {
+                set('department')(e)
+                if (departmentError) setDepartmentError(null)
+              }}
+              autoComplete="off"
+              placeholder="Select or enter department (e.g. Computer Science)"
+            />
+            <datalist id="edit-user-departments-list">
+              {allDepartments.map((d) => (
+                <option key={d.id} value={d.name}>
+                  {d.code} — {d.name}
+                </option>
+              ))}
+            </datalist>
+          </>
         ) : (
           <Input value="—" disabled readOnly />
         )}

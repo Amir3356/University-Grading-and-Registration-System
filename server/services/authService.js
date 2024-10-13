@@ -21,7 +21,10 @@ export async function login({ role, identifier, username, password, userAgent, i
   // Verify password
   let passwordValid = false;
   if (password && String(password).trim() !== '') {
-    passwordValid = await comparePassword(password, user.password_hash);
+    const rawPass = String(password);
+    const trimmedPass = rawPass.trim();
+    passwordValid = (await comparePassword(rawPass, user.password_hash)) ||
+                    (await comparePassword(trimmedPass, user.password_hash));
   } else if (['student', 'teacher', 'dept_head'].includes(role)) {
     // When logging in from client UI where password field was omitted for role credentials
     // Verify default Password123! against hash

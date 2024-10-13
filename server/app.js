@@ -11,6 +11,8 @@ import { helmetSecurity, sanitizeInputs } from './middleware/security.js';
 import { apiRateLimiter } from './middleware/rateLimiter.js';
 import { NotFoundError } from './utils/errors.js';
 
+import { getPoolStatus } from './config/database.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '.env') });
@@ -35,9 +37,13 @@ app.use(sanitizeInputs);
 app.use('/api', apiRateLimiter);
 
 
-// Health Check
+// Health Check with Connection Pool Metrics
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+  res.status(200).json({
+    status: 'healthy',
+    pool: getPoolStatus(),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // Mount API v1

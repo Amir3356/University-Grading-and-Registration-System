@@ -61,6 +61,16 @@ function load() {
           const deptHeadRole = SEED.roles.find((r) => r.id === 'dept_head')
           if (deptHeadRole) parsed.roles.push(deptHeadRole)
         }
+        // Ensure admin user usr_0001 has username Amir
+        const adminUser = parsed.users.find((u) => u.id === 'usr_0001');
+        if (adminUser) {
+          adminUser.username = 'Amir';
+          adminUser.firstName = 'Amir';
+          adminUser.email = 'amir@university.edu';
+          adminUser.roleId = 'admin';
+          adminUser.status = 'active';
+        }
+
         // Ensure at least one active user has roleId = 'dept_head'
         const deptHeadUser = parsed.users.find(
           (u) => u.id === 'usr_0004' || u.username === 'tewodros.assefa' || u.username === 'dept_head',

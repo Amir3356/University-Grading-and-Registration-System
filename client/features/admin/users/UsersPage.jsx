@@ -55,9 +55,11 @@ export function UsersPage() {
   const [created, setCreated] = useState(null)
 
   const { data, loading, error, refetch } = useQuery(
-    () => store.users.listUsers({ pageSize: null }),
+    () => store.users.listUsers({ pageSize: null, excludeSeed: true }),
     [],
   )
+
+  const items = (data?.items ?? []).filter((u) => !u.isSeed && !u.is_seed && !/^usr_\d{4}$/.test(u.id))
 
   const openCreate = () => {
     setEditingId(null)
@@ -71,8 +73,8 @@ export function UsersPage() {
   return (
     <>
       <PageHeader
-        title="Users"
-        description="Manage student, teacher and administrator accounts."
+        title="Account Provision"
+        description="Provision and manage department head and user accounts."
         centered
         actions={
           <Button onClick={openCreate}>
@@ -98,37 +100,43 @@ export function UsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.items.length === 0 ? (
+                {items.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
                     <TableCell colSpan={COLUMNS.length + 1} className="whitespace-normal">
                       <EmptyState compact icon={Users} title="No users yet" description="Create the first account to get started." />
                     </TableCell>
                   </TableRow>
                 ) : (
-                  data.items.map((u, i) => (
-                    <TableRow
-                      key={u.id}
-                      tabIndex={0}
-                      className="cursor-pointer focus-visible:bg-muted focus-visible:outline-none"
-                      onClick={() => navigate(`/admin/users/${u.id}`)}
-                      onKeyDown={(e) => e.key === 'Enter' && e.target === e.currentTarget && navigate(`/admin/users/${u.id}`)}
-                    >
-                      <TableCell className="tabular text-muted">{i + 1}</TableCell>
-                      <TableCell className="font-medium">{u.name}</TableCell>
-                      <TableCell>
-                        <Badge variant={ROLE_BADGE[u.roleId]}>{ROLE_LABELS[u.roleId]}</Badge>
-                      </TableCell>
-                      <TableCell className="tabular">{u.identifier}</TableCell>
-                      <TableCell>{u.departmentName}</TableCell>
-                      <TableCell>
-                        <UserRowActions
-                          user={u}
-                          onEdit={() => openEdit(u)}
-                          onAction={(type) => setAction({ type, user: u })}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  items.map((u, i) => {
+                    const name = u.name || `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim()
+                    const roleId = u.roleId || u.role_id
+                    const identifier = u.identifier || u.employee_number || u.student_number || '—'
+                    const departmentName = u.departmentName || u.department_name || '—'
+                    return (
+                      <TableRow
+                        key={u.id}
+                        tabIndex={0}
+                        className="cursor-pointer focus-visible:bg-muted focus-visible:outline-none"
+                        onClick={() => navigate(`/admin/users/${u.id}`)}
+                        onKeyDown={(e) => e.key === 'Enter' && e.target === e.currentTarget && navigate(`/admin/users/${u.id}`)}
+                      >
+                        <TableCell className="tabular text-muted">{i + 1}</TableCell>
+                        <TableCell className="font-medium">{name}</TableCell>
+                        <TableCell>
+                          <Badge variant={ROLE_BADGE[roleId]}>{ROLE_LABELS[roleId] || roleId}</Badge>
+                        </TableCell>
+                        <TableCell className="tabular">{identifier}</TableCell>
+                        <TableCell>{departmentName}</TableCell>
+                        <TableCell>
+                          <UserRowActions
+                            user={{ ...u, name }}
+                            onEdit={() => openEdit(u)}
+                            onAction={(type) => setAction({ type, user: { ...u, name } })}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
                 )}
               </TableBody>
             </Table>
@@ -142,11 +150,11 @@ export function UsersPage() {
         userId={editingId}
         onCreated={(res) =>
           setCreated({
-            name: res.user.name,
-            username: res.username,
-            password: res.temporaryPassword,
-            identifier: res.user.identifier,
-            roleId: res.user.roleId,
+            name: res?.user?.name || `${res?.user?.firstName || ''} ${res?.user?.lastName || ''}`.trim(),
+            username: res?.username || res?.user?.username,
+            password: res?.temporaryPassword,
+            identifier: res?.user?.identifier,
+            roleId: res?.user?.roleId,
           })
         }
       />

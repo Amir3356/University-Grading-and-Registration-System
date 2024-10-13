@@ -1,5 +1,6 @@
 import { query, withTransaction } from '../config/database.js';
 import * as userRepo from '../repositories/userRepository.js';
+import * as deptRepo from '../repositories/departmentRepository.js';
 import { newId, generateTemporaryPassword } from '../utils/idGenerator.js';
 import { hashPassword } from '../utils/password.js';
 import { ValidationError, ConflictError, NotFoundError, ForbiddenError } from '../utils/errors.js';
@@ -81,9 +82,78 @@ export async function createUser(data, caller) {
   if (!data.firstName?.trim()) errors.firstName = 'First name is required.';
   if (!data.lastName?.trim()) errors.lastName = 'Last name is required.';
   if (!data.username?.trim()) errors.username = 'Username is required.';
-  if (!data.email?.trim()) errors.email = 'Email is required.';
-  if (!data.identifier?.trim()) errors.identifier = 'Student / Teacher ID is required.';
-  if (!data.departmentId) errors.departmentId = 'Department is required.';
+
+  // Ensure valid email - auto-generate if missing or invalid
+  if (!data.email || typeof data.email !== 'string' || !data.email.trim() || !data.email.includes('@')) {
+    const baseName = data.username || `${data.firstName || 'user'}.${data.lastName || 'name'}`;
+    const suggested = await suggestEmail(baseName);
+    data.email = suggested.email;
+  }
+
+  // Admin users don't require identifier or department
+  if (data.roleId !== 'admin') {
+    if (!data.identifier || typeof data.identifier !== 'string' || !data.identifier.trim()) {
+      errors.identifier =
+        data.roleId === 'student'
+          ? 'Student ID is required.'
+          : data.roleId === 'dept_head'
+            ? 'Department Head ID is required.'
+            : 'Teacher ID is required.';
+    }
+  } else {
+    if (!data.identifier || typeof data.identifier !== 'string' || !data.identifier.trim()) {
+      data.identifier = `ADM-${(data.username || 'admin').trim()}`;
+    }
+  }
+
+  // Resolve Department flexibly (by ID, Code, Name or auto-create for Admin)
+  const deptInput = String(data.departmentId || data.department || '').trim();
+  let resolvedDeptId = null;
+
+  if (deptInput) {
+    const deptMatch = await query(
+      `SELECT id, name FROM departments
+       WHERE id = $1
+          OR lower(code) = lower($1)
+          OR lower(name) = lower($1)
+          OR lower(name) ILIKE lower($2)
+       ORDER BY CASE WHEN id = $1 THEN 1 WHEN lower(code) = lower($1) THEN 2 ELSE 3 END
+       LIMIT 1`,
+      [deptInput, `%${deptInput}%`]
+    );
+
+    if (deptMatch.rows.length > 0) {
+      resolvedDeptId = deptMatch.rows[0].id;
+      data.department = deptMatch.rows[0].name;
+    } else if (caller?.roleId === 'admin') {
+      let code = deptInput.split(/\s+/).map((w) => w[0]).join('').toUpperCase().slice(0, 6);
+      if (!code || code.length < 2) {
+        code = deptInput.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4) || 'DEPT';
+      }
+      let finalCode = code;
+      let counter = 1;
+      while (await deptRepo.findByCode(finalCode)) {
+        finalCode = `${code}${counter++}`;
+      }
+      const newDeptId = `dep_${finalCode.toLowerCase()}`;
+      await query(
+        `INSERT INTO departments (id, code, name, description, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, now(), now())
+         ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`,
+        [newDeptId, finalCode, deptInput, `Department of ${deptInput}`]
+      );
+      resolvedDeptId = newDeptId;
+      data.department = deptInput;
+    }
+  }
+
+  if (resolvedDeptId) {
+    data.departmentId = resolvedDeptId;
+  }
+
+  if (data.roleId !== 'admin' && !data.departmentId) {
+    errors.departmentId = 'Department is required.';
+  }
 
   if (Object.keys(errors).length > 0) {
     throw new ValidationError('Please correct the highlighted fields.', errors);
@@ -95,10 +165,13 @@ export async function createUser(data, caller) {
     throw new ValidationError('This username is already in use.', { username: 'This username is already in use.' });
   }
 
-  const existingEmail = await userRepo.findByEmail(data.email);
+  let finalEmail = data.email.trim();
+  const existingEmail = await userRepo.findByEmail(finalEmail);
   if (existingEmail) {
-    throw new ValidationError('This email is already in use.', { email: 'This email is already in use.' });
+    const suggested = await suggestEmail(data.username || `${data.firstName}.${data.lastName}`);
+    finalEmail = suggested.email;
   }
+  data.email = finalEmail;
 
   const tempPassword = data.password && String(data.password).trim() !== ''
     ? data.password
@@ -129,6 +202,17 @@ export async function createUser(data, caller) {
     // Profile creation
     if (data.roleId === 'student') {
       const studentId = newId('stu');
+      let programId = data.programId;
+      if (!programId) {
+        const progRes = await client.query('SELECT id FROM programs WHERE department_id = $1 LIMIT 1', [data.departmentId]);
+        if (progRes.rows.length > 0) {
+          programId = progRes.rows[0].id;
+        } else {
+          const anyProg = await client.query('SELECT id FROM programs LIMIT 1');
+          programId = anyProg.rows[0]?.id || 'prg_bsc_cs';
+        }
+      }
+      const normProgramType = (data.programType || 'regular').toLowerCase().replace('extensions', 'extension');
       await client.query(
         `INSERT INTO students (
            id, user_id, student_number, department_id, program_id, program_type,
@@ -139,10 +223,10 @@ export async function createUser(data, caller) {
           userId,
           data.identifier.trim(),
           data.departmentId,
-          data.programId || 'prg_bsc_cs',
-          data.programType || 'regular',
-          data.admissionYear || new Date().getFullYear(),
-          data.yearOfStudy || 1,
+          programId,
+          normProgramType,
+          data.admissionYear ? parseInt(data.admissionYear, 10) : new Date().getFullYear(),
+          data.yearOfStudy ? parseInt(data.yearOfStudy, 10) : 1,
           data.dateOfBirth || null,
         ]
       );
@@ -194,9 +278,12 @@ export async function createUser(data, caller) {
         username: user.username,
         firstName: user.first_name,
         lastName: user.last_name,
+        name: `${user.first_name} ${user.last_name}`.trim(),
         email: user.email,
         phone: user.phone,
         status: user.status,
+        identifier: data.identifier?.trim() || '—',
+        departmentName: data.department || null,
       },
       username: user.username,
       temporaryPassword: tempPassword,
@@ -225,6 +312,23 @@ export async function updateUser(id, data, caller) {
     }
   }
 
+  // Resolve Department if provided
+  const deptInput = String(data.departmentId || data.department || '').trim();
+  if (deptInput) {
+    const deptMatch = await query(
+      `SELECT id FROM departments
+       WHERE id = $1
+          OR lower(code) = lower($1)
+          OR lower(name) = lower($1)
+          OR lower(name) ILIKE lower($2)
+       LIMIT 1`,
+      [deptInput, `%${deptInput}%`]
+    );
+    if (deptMatch.rows.length > 0) {
+      data.departmentId = deptMatch.rows[0].id;
+    }
+  }
+
   return await withTransaction(async (client) => {
     await client.query(
       `UPDATE users
@@ -237,6 +341,14 @@ export async function updateUser(id, data, caller) {
        WHERE id = $1`,
       [id, data.firstName, data.lastName, data.email, data.phone || null, data.roleId]
     );
+
+    if (data.password && String(data.password).trim() !== '') {
+      const passwordHash = await hashPassword(data.password.trim());
+      await client.query(
+        `UPDATE users SET password_hash = $2, must_change_password = false, updated_at = now() WHERE id = $1`,
+        [id, passwordHash]
+      );
+    }
 
     // Update profile
     if (user.role_id === 'student') {
