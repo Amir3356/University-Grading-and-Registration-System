@@ -174,8 +174,8 @@ export async function createUser(data, caller) {
   data.email = finalEmail;
 
   const tempPassword = data.password && String(data.password).trim() !== ''
-    ? data.password
-    : generateTemporaryPassword();
+    ? String(data.password).trim()
+    : 'Password123!';
   const passwordHash = await hashPassword(tempPassword);
 
   return await withTransaction(async (client) => {
@@ -396,11 +396,7 @@ export async function setUserStatus(id, { status, reason }, caller) {
     throw new ConflictError('You cannot deactivate your own account.');
   }
 
-  if (status === 'inactive' && (!reason || !String(reason).trim())) {
-    throw new ValidationError('A reason is required when deactivating an account.', {
-      reason: 'Please provide a deactivation reason.',
-    });
-  }
+  const cleanReason = reason && String(reason).trim() ? String(reason).trim() : null;
 
   return await withTransaction(async (client) => {
     const userRes = await client.query(`SELECT * FROM users WHERE id = $1`, [id]);
@@ -411,7 +407,7 @@ export async function setUserStatus(id, { status, reason }, caller) {
       `UPDATE users
        SET status = $2, deactivation_reason = $3, updated_at = now()
        WHERE id = $1`,
-      [id, status, reason || null]
+      [id, status, cleanReason]
     );
 
     // If student, set academic_status
@@ -426,12 +422,12 @@ export async function setUserStatus(id, { status, reason }, caller) {
       entityType: 'user',
       entityId: id,
       details: `Changed account status to ${status}`,
-      reason,
+      reason: cleanReason,
       before: { status: user.status },
       after: { status },
     });
 
-    return { id, status, reason };
+    return { id, status, reason: cleanReason };
   });
 }
 

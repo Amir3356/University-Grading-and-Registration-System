@@ -1,17 +1,19 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Pencil, Plus, Trash2, UserCheck, UserX, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
+import { FilterSelect } from '@/components/common/FilterSelect'
+import { SearchInput } from '@/components/common/SearchInput'
 import { TableSkeleton } from '@/components/common/Loading'
 import { PageHeader } from '@/components/common/PageHeader'
 import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
 import { store } from '@/store'
-import { TempPasswordDialog, UserActionDialogs } from '@/features/admin/users/UserActionDialogs'
+import { UserActionDialogs } from '@/features/admin/users/UserActionDialogs'
 import { UserFormDialog } from '@/features/admin/users/UserFormDialog'
 
 const COLUMNS = [
@@ -25,6 +27,17 @@ const COLUMNS = [
 ]
 
 const STUDENT_ROLE_OPTIONS = [{ value: 'student', label: 'Student' }]
+
+const PROGRAM_OPTIONS = [
+  { value: 'regular', label: 'Regular' },
+  { value: 'weekend', label: 'Weekend' },
+  { value: 'extension', label: 'Extension' },
+]
+
+const STATUS_OPTIONS = [
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+]
 
 function UserRowActions({ user, onEdit, onAction }) {
   const active = user.status === 'active'
@@ -75,15 +88,48 @@ export function DeptAccountProvisionPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [action, setAction] = useState(null)
-  const [created, setCreated] = useState(null)
 
-  // Query student accounts for this department
+  const [search, setSearch] = useState('')
+  const [programFilter, setProgramFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+
+  // Query student accounts for this department (excluding seed/mock data)
   const { data, loading, error, refetch } = useQuery(
-    () => store.users.listUsers({ role: 'student', departmentId: headDept?.id, pageSize: null }),
+    () =>
+      store.users.listUsers({
+        role: 'student',
+        departmentId: headDept?.id,
+        pageSize: null,
+        excludeSeed: true,
+      }),
     [headDept?.id],
   )
 
-  const items = data?.items ?? []
+  const items = (data?.items ?? []).filter((u) => !u.isSeed && !u.is_seed && !/^usr_\d{4}$/.test(u.id))
+
+  const filteredItems = useMemo(() => {
+    return items.filter((u) => {
+      const name = (u.name || `${u.firstName || ''} ${u.lastName || ''}`).trim()
+      const username = u.username || ''
+      const identifier = u.identifier || u.student_number || ''
+      const programType = (u.programType || 'regular').toLowerCase()
+      const status = u.status || 'active'
+
+      if (statusFilter && status !== statusFilter) return false
+      if (programFilter && !programType.includes(programFilter.toLowerCase())) return false
+
+      if (search.trim()) {
+        const q = search.trim().toLowerCase()
+        const match =
+          name.toLowerCase().includes(q) ||
+          username.toLowerCase().includes(q) ||
+          identifier.toLowerCase().includes(q) ||
+          programType.includes(q)
+        if (!match) return false
+      }
+      return true
+    })
+  }, [items, search, programFilter, statusFilter])
 
   const openCreate = () => {
     setEditingId(null)
@@ -95,15 +141,8 @@ export function DeptAccountProvisionPage() {
     setFormOpen(true)
   }
 
-  const handleCreated = (res) => {
+  const handleCreated = () => {
     refetch()
-    setCreated({
-      name: res.user.name,
-      username: res.username,
-      password: res.temporaryPassword,
-      identifier: res.user.identifier,
-      roleId: res.user.roleId,
-    })
   }
 
   return (
@@ -120,6 +159,35 @@ export function DeptAccountProvisionPage() {
       />
 
       <div className="flex flex-col gap-4">
+        {/* Search Box Filter on left, Dropdown Filters on right */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="w-full sm:w-72 md:w-80">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search student by name, username, or ID…"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end sm:ml-auto">
+            <FilterSelect
+              value={programFilter}
+              onChange={setProgramFilter}
+              options={PROGRAM_OPTIONS}
+              allLabel="All program types"
+              label="Program Type"
+              className="w-full sm:w-44"
+            />
+            <FilterSelect
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={STATUS_OPTIONS}
+              allLabel="All statuses"
+              label="Status"
+              className="w-full sm:w-36"
+            />
+          </div>
+        </div>
+
         {/* Content Table */}
         {loading && !data ? (
           <TableSkeleton cols={7} />
@@ -149,16 +217,22 @@ export function DeptAccountProvisionPage() {
                         icon={Users}
                         title="No student accounts found"
                         description="No student accounts provisioned in this department yet."
-                        action={
-                          <Button size="sm" onClick={openCreate}>
-                            <Plus /> Provision student
-                          </Button>
-                        }
+                      />
+                    </TableCell>
+                  </TableRow>
+                ) : filteredItems.length === 0 ? (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={COLUMNS.length} className="whitespace-normal">
+                      <EmptyState
+                        compact
+                        icon={Users}
+                        title="No matching student accounts found"
+                        description="Try adjusting your search query or filter options."
                       />
                     </TableCell>
                   </TableRow>
                 ) : (
-                  items.map((u) => (
+                  filteredItems.map((u) => (
                     <TableRow key={u.id} className="hover:bg-muted/50">
                       <TableCell>
                         <span className="font-medium text-foreground">{u.name}</span>
@@ -217,7 +291,6 @@ export function DeptAccountProvisionPage() {
         onCreated={handleCreated}
       />
       <UserActionDialogs action={action} onClose={() => { setAction(null); refetch() }} />
-      <TempPasswordDialog result={created} onClose={() => setCreated(null)} />
     </>
   )
 }

@@ -479,9 +479,16 @@ a.list-item:hover {
   top: 50%;
   right: 0.5rem;
   padding: 0.25rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--radius-sm);
   translate: 0 -50%;
   color: var(--muted-foreground);
+  transition: color 0.15s ease;
 }
 
 .password-field__toggle:hover {

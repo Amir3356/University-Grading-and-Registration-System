@@ -1,15 +1,10 @@
 import { z } from 'zod';
 
 export const loginFormSchema = z.object({
-  role: z.enum(['admin', 'dept_head', 'teacher', 'student'], {
-    errorMap: () => ({ message: 'Please select a role.' }),
-  }).optional().default('admin'),
-  identifier: z.string().optional(),
-  username: z.string().optional(),
-  password: z.string().optional(),
-}).refine((data) => (data.identifier && data.identifier.trim()) || (data.username && data.username.trim()), {
-  message: 'Username or identifier is required.',
-  path: ['username'],
+  username: z.string().trim().min(1, 'Username is required.'),
+  password: z.string().min(1, 'Password is required.'),
+  role: z.string().optional().nullable(),
+  identifier: z.string().optional().nullable(),
 });
 
 export const profileFormSchema = z.object({

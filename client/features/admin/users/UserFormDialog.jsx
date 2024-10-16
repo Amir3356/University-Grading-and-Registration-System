@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { ErrorState } from '@/components/common/ErrorState'
 import { FormField } from '@/components/common/FormField'
 import { Spinner } from '@/components/common/Loading'
-import { useLookups } from '@/context/lookups-context'
 import { useQuery, useMutation } from '@/hooks/useStore'
 import { ROLE_LABELS } from '@/lib/format'
 import { store } from '@/store'
@@ -19,20 +19,51 @@ export const PROGRAM_TYPE_OPTIONS = [
   { value: 'extension', label: 'Extension' },
 ]
 
-/** Resolve a typed department name or code to a department record. */
-function findDepartment(departments, value) {
-  const typed = String(value ?? '').trim().toLowerCase()
-  if (!typed) return null
-  return (
-    departments.find(
-      (d) =>
-        d.id.toLowerCase() === typed ||
-        d.name.toLowerCase() === typed ||
-        d.code.toLowerCase() === typed ||
-        d.name.toLowerCase().includes(typed) ||
-        typed.includes(d.name.toLowerCase())
-    ) ?? null
+export const DEPARTMENT_OPTIONS = [
+  { value: 'dep_cs', label: 'Computer Science' },
+  { value: 'dep_it', label: 'IT' },
+  { value: 'dep_bio', label: 'Biology' },
+  { value: 'dep_chem', label: 'Chemistry' },
+  { value: 'dep_phys', label: 'Physics' },
+  { value: 'dep_math', label: 'Mathematics' },
+  { value: 'dep_sport', label: 'Sport' },
+  { value: 'dep_hist', label: 'History' },
+  { value: 'dep_geog', label: 'Geography' },
+  { value: 'dep_econ', label: 'Economics' },
+  { value: 'dep_edlead', label: 'Education Leadership' },
+  { value: 'dep_psyc', label: 'Psychology' },
+  { value: 'dep_spneed', label: 'Special Need' },
+  { value: 'dep_eng', label: 'English' },
+]
+
+export function getDepartmentId(value) {
+  if (!value) return ''
+  const str = String(value).trim().toLowerCase()
+  if (str === 'it' || str === 'dep_it' || str === 'information technology') return 'dep_it'
+  const found = DEPARTMENT_OPTIONS.find(
+    (d) =>
+      d.value.toLowerCase() === str ||
+      d.label.toLowerCase() === str ||
+      d.label.toLowerCase().replace(/\s+/g, '') === str.replace(/\s+/g, '') ||
+      d.label.toLowerCase().replace(/s$/, '') === str.replace(/s$/, '') ||
+      (str.startsWith('dep_') && d.value.toLowerCase().includes(str.replace('dep_', '')))
   )
+  return found ? found.value : value
+}
+
+export function getDepartmentName(value) {
+  if (!value) return ''
+  const str = String(value).trim().toLowerCase()
+  if (str === 'it' || str === 'dep_it' || str === 'information technology') return 'IT'
+  const found = DEPARTMENT_OPTIONS.find(
+    (d) =>
+      d.value.toLowerCase() === str ||
+      d.label.toLowerCase() === str ||
+      d.label.toLowerCase().replace(/\s+/g, '') === str.replace(/\s+/g, '') ||
+      d.label.toLowerCase().replace(/s$/, '') === str.replace(/s$/, '') ||
+      (str.startsWith('dep_') && d.value.toLowerCase().includes(str.replace('dep_', '')))
+  )
+  return found ? found.label : value
 }
 
 function initialForm(user) {
@@ -54,10 +85,8 @@ function initialForm(user) {
   }
 }
 
-/** Create form: full name, username, role and role-specific credential (Student ID / Teacher ID / password). */
+/** Create form: full name, username, role, department dropdown, identifier and password. */
 function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRoleOptions, onClose, onCreated }) {
-  const lookups = useLookups()
-  const allDepartments = lookups?.departments ?? []
   const roleOptions =
     customRoleOptions ??
     (defaultRole === 'student'
@@ -66,13 +95,15 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
         ? [{ value: defaultRole, label: ROLE_LABELS[defaultRole] || defaultRole }]
         : DEFAULT_ROLE_OPTIONS)
   const initialRole = defaultRole ?? roleOptions[0]?.value ?? 'dept_head'
+  const initialDeptId = getDepartmentId(defaultDepartment) || (defaultRole === 'admin' ? '' : 'dep_cs')
+
   const [form, setForm] = useState({
     fullName: '',
     username: '',
     roleId: initialRole,
     password: '',
     identifier: '',
-    department: defaultDepartment ?? '',
+    departmentId: initialDeptId,
     programType: 'regular',
   })
   const [nameError, setNameError] = useState(null)
@@ -82,7 +113,7 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e?.target ? e.target.value : e }))
 
   const [save, { loading, fieldErrors }] = useMutation((data) => store.users.createUser(data), {
-    success: 'User account created.',
+    success: 'User account created successfully.',
     onSuccess: (result) => {
       onClose()
       onCreated?.(result)
@@ -113,13 +144,13 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
     }
     setIdentifierError(null)
     const needsDepartment = !isAdmin
-    if (needsDepartment && !form.department.trim()) {
-      setDepartmentError('Enter or select a department.')
+    if (needsDepartment && !form.departmentId) {
+      setDepartmentError('Select a department.')
       return
     }
     setDepartmentError(null)
-    const department = findDepartment(allDepartments, form.department)
-    const departmentId = department ? department.id : form.department.trim()
+    const departmentId = needsDepartment ? form.departmentId : undefined
+    const departmentName = needsDepartment ? getDepartmentName(form.departmentId) : undefined
     const [firstName, ...rest] = parts
 
     const cleanUser = form.username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '')
@@ -130,9 +161,9 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
       lastName: rest.join(' '),
       username: form.username.trim(),
       roleId: form.roleId,
-      password: isAdmin && form.password?.trim() ? form.password.trim() : undefined,
-      departmentId: needsDepartment ? departmentId : undefined,
-      department: needsDepartment ? form.department.trim() : undefined,
+      password: form.password?.trim() ? form.password.trim() : undefined,
+      departmentId,
+      department: departmentName,
       email,
       identifier: isAdmin ? `ADM-${form.username.trim()}` : form.identifier.trim(),
       admissionYear: form.roleId === 'student' ? new Date().getFullYear() : undefined,
@@ -153,11 +184,7 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
         <Input value={form.username} onChange={set('username')} autoComplete="off" placeholder="e.g. jane.doe" />
       </FormField>
       <SelectField label="Role" required value={form.roleId} onChange={set('roleId')} options={roleOptions} error={fe.roleId} />
-      {isAdmin ? (
-        <FormField label="Password" error={fe.password} hint="Optional. Leave blank to generate a temporary password.">
-          <Input type="password" value={form.password} onChange={set('password')} autoComplete="new-password" />
-        </FormField>
-      ) : (
+      {!isAdmin && (
         <FormField label={form.roleId === 'dept_head' ? 'Department Head ID' : form.roleId === 'student' ? 'Student ID' : 'Teacher ID'} required error={identifierError ?? fe.identifier}>
           <Input
             value={form.identifier}
@@ -167,25 +194,28 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
           />
         </FormField>
       )}
-      <FormField label="Department" required={needsDepartment} error={departmentError ?? (needsDepartment ? fe.departmentId : undefined)}>
-        <Input
-          list="create-user-departments-list"
-          value={form.department}
-          onChange={(e) => {
-            set('department')(e)
+      <FormField label="Password" error={fe.password} hint="Optional. Leave blank to use default 'Password123!'">
+        <PasswordInput
+          value={form.password}
+          onChange={set('password')}
+          autoComplete="new-password"
+          placeholder="Enter password (default: Password123!)"
+        />
+      </FormField>
+      {needsDepartment && (
+        <SelectField
+          label="Department"
+          required
+          value={form.departmentId}
+          onChange={(val) => {
+            setForm((f) => ({ ...f, departmentId: val }))
             if (departmentError) setDepartmentError(null)
           }}
-          autoComplete="off"
-          placeholder="Select or enter department (e.g. Computer Science)"
+          options={DEPARTMENT_OPTIONS}
+          placeholder="Select department…"
+          error={departmentError ?? fe.departmentId}
         />
-        <datalist id="create-user-departments-list">
-          {allDepartments.map((d) => (
-            <option key={d.id} value={d.name}>
-              {d.code} — {d.name}
-            </option>
-          ))}
-        </datalist>
-      </FormField>
+      )}
       {form.roleId === 'student' && (
         <SelectField
           label="Program type"
@@ -208,19 +238,27 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
   )
 }
 
-/** Edit an existing account: only the fields shown as table columns (full name, username, role, department). */
+/** Edit an existing account: full name, username, role, department dropdown, and password. */
 function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
-  const lookups = useLookups()
-  const allDepartments = lookups?.departments ?? []
   const roleOptions =
     customRoleOptions ??
     (user.roleId === 'student'
       ? [{ value: 'student', label: 'Student' }]
       : DEFAULT_ROLE_OPTIONS)
+
+  const currentDeptId =
+    getDepartmentId(user.departmentId) ||
+    getDepartmentId(user.departmentName) ||
+    getDepartmentId(user.department) ||
+    getDepartmentId(user.profile?.departmentId) ||
+    getDepartmentId(user.profile?.department?.id) ||
+    getDepartmentId(user.profile?.department?.name) ||
+    ''
+
   const [form, setForm] = useState(() => ({
     ...initialForm(user),
     fullName: `${user.firstName} ${user.lastName}`.trim(),
-    department: user.departmentName && user.departmentName !== '—' ? user.departmentName : '',
+    departmentId: currentDeptId,
   }))
   const [nameError, setNameError] = useState(null)
   const [usernameError, setUsernameError] = useState(null)
@@ -246,13 +284,13 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
     }
     setUsernameError(null)
     const needsDepartment = form.roleId !== 'admin'
-    if (needsDepartment && !form.department.trim()) {
-      setDepartmentError('Enter or select a department.')
+    if (needsDepartment && !form.departmentId) {
+      setDepartmentError('Select a department.')
       return
     }
     setDepartmentError(null)
-    const department = findDepartment(allDepartments, form.department)
-    const departmentId = department ? department.id : form.department.trim()
+    const departmentId = needsDepartment ? form.departmentId : undefined
+    const departmentName = needsDepartment ? getDepartmentName(form.departmentId) : undefined
     const [firstName, ...rest] = parts
 
     const payload = {
@@ -260,8 +298,8 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
       lastName: rest.join(' '),
       username: form.username.trim(),
       roleId: form.roleId,
-      departmentId: needsDepartment ? departmentId : undefined,
-      department: needsDepartment ? form.department.trim() : undefined,
+      departmentId,
+      department: departmentName,
       email: form.email?.trim() || undefined,
       phone: form.phone?.trim() || null,
       identifier: form.identifier?.trim() || undefined,
@@ -273,6 +311,11 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
 
   const fe = fieldErrors ?? {}
   const needsDepartment = form.roleId !== 'admin'
+
+  const editOptions =
+    DEPARTMENT_OPTIONS.some((d) => d.value === form.departmentId) || !form.departmentId
+      ? DEPARTMENT_OPTIONS
+      : [...DEPARTMENT_OPTIONS, { value: form.departmentId, label: user.departmentName || form.departmentId }]
 
   return (
     <form onSubmit={submit} className="grid gap-4" noValidate>
@@ -291,31 +334,24 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
         error={fe.roleId}
         hint="Role changes are blocked if the user has academic records."
       />
-      <FormField label="Department" required={needsDepartment} error={departmentError ?? (needsDepartment ? fe.departmentId : undefined)}>
-        {needsDepartment ? (
-          <>
-            <Input
-              list="edit-user-departments-list"
-              value={form.department}
-              onChange={(e) => {
-                set('department')(e)
-                if (departmentError) setDepartmentError(null)
-              }}
-              autoComplete="off"
-              placeholder="Select or enter department (e.g. Computer Science)"
-            />
-            <datalist id="edit-user-departments-list">
-              {allDepartments.map((d) => (
-                <option key={d.id} value={d.name}>
-                  {d.code} — {d.name}
-                </option>
-              ))}
-            </datalist>
-          </>
-        ) : (
+      {needsDepartment ? (
+        <SelectField
+          label="Department"
+          required
+          value={form.departmentId}
+          onChange={(val) => {
+            setForm((f) => ({ ...f, departmentId: val }))
+            if (departmentError) setDepartmentError(null)
+          }}
+          options={editOptions}
+          placeholder="Select department…"
+          error={departmentError ?? fe.departmentId}
+        />
+      ) : (
+        <FormField label="Department">
           <Input value="—" disabled readOnly />
-        )}
-      </FormField>
+        </FormField>
+      )}
       {form.roleId === 'student' && (
         <SelectField
           label="Program type"
@@ -327,7 +363,7 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
         />
       )}
       <FormField label="Password" error={fe.password} hint="Leave blank to keep the current password.">
-        <Input type="password" value={form.password} onChange={set('password')} autoComplete="new-password" placeholder="New password" />
+        <PasswordInput value={form.password} onChange={set('password')} autoComplete="new-password" placeholder="New password" />
       </FormField>
 
       <DialogFooter>

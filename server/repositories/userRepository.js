@@ -80,20 +80,40 @@ export async function findByIdentifierOrUsername(role, identifier) {
     return res.rows[0] || null;
   }
 
-  // Admin (or role omitted / defaulted)
-  const targetRole = String(role || 'admin').trim().toLowerCase();
+  if (role === 'admin') {
+    const res = await query(
+      `SELECT u.*
+       FROM users u
+       WHERE u.role_id = 'admin'
+         AND (
+           lower(u.username) = $1
+           OR lower(u.email) = $1
+           OR ($1 IN ('admin', 'amir') AND u.id = 'usr_0001')
+         )
+       LIMIT 1`,
+      [lowerId]
+    );
+    return res.rows[0] || null;
+  }
+
+  // If role is omitted or general login: search across ALL users by username, email, student ID, or teacher employee number
   const res = await query(
     `SELECT u.*
      FROM users u
-     WHERE (u.role_id = $2 OR u.role_id = 'admin')
-       AND (
-         lower(u.username) = $1
-         OR lower(u.email) = $1
-         OR ($1 IN ('admin', 'amir') AND u.id = 'usr_0001')
-       )
-     ORDER BY CASE WHEN u.role_id = 'admin' THEN 1 ELSE 2 END
+     LEFT JOIN students s ON s.user_id = u.id
+     LEFT JOIN teachers t ON t.user_id = u.id
+     WHERE lower(u.username) = $1
+        OR lower(u.email) = $1
+        OR lower(s.student_number) = $1
+        OR lower(t.employee_number) = $1
+        OR ($1 IN ('admin', 'amir') AND u.id = 'usr_0001')
+     ORDER BY CASE
+       WHEN lower(u.username) = $1 THEN 1
+       WHEN lower(u.email) = $1 THEN 2
+       ELSE 3
+     END
      LIMIT 1`,
-    [lowerId, targetRole]
+    [lowerId]
   );
   return res.rows[0] || null;
 }
@@ -193,6 +213,7 @@ export async function listUsers({ search, role, status, departmentId, programTyp
   const dataQuery = `
     SELECT u.id, u.role_id, u.username, u.first_name, u.last_name, u.email, u.phone,
            u.status, u.must_change_password, u.is_seed, u.last_login_at, u.created_at, u.updated_at,
+           u.password_hash,
            r.name as role_name,
            s.id as student_profile_id, s.student_number, s.department_id as student_dept_id,
            s.program_id, s.program_type, s.admission_year, s.year_of_study, s.academic_status,
@@ -221,6 +242,7 @@ export async function listUsers({ search, role, status, departmentId, programTyp
     identifier: row.student_number || row.employee_number || '—',
     departmentName: row.department_name || '—',
     departmentId: row.department_id,
+    passwordHash: row.password_hash,
     isSeed: Boolean(row.is_seed),
   }));
 

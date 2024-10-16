@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { FormField } from '@/components/common/FormField'
 import { PageHeader } from '@/components/common/PageHeader'
 import { useAuth } from '@/context/auth-context'
@@ -133,13 +134,13 @@ export function ProfilePage() {
               }}
             >
               <FormField label="Current password" required error={pwState.fieldErrors?.currentPassword} className="span-all">
-                <Input type="password" autoComplete="current-password" value={pw.currentPassword} onChange={(e) => setPw({ ...pw, currentPassword: e.target.value })} />
+                <PasswordInput autoComplete="current-password" value={pw.currentPassword} onChange={(e) => setPw({ ...pw, currentPassword: e.target.value })} />
               </FormField>
               <FormField label="New password" required error={pwState.fieldErrors?.newPassword}>
-                <Input type="password" autoComplete="new-password" value={pw.newPassword} onChange={(e) => setPw({ ...pw, newPassword: e.target.value })} />
+                <PasswordInput autoComplete="new-password" value={pw.newPassword} onChange={(e) => setPw({ ...pw, newPassword: e.target.value })} />
               </FormField>
               <FormField label="Confirm new password" required error={pwState.fieldErrors?.confirmPassword}>
-                <Input type="password" autoComplete="new-password" value={pw.confirmPassword} onChange={(e) => setPw({ ...pw, confirmPassword: e.target.value })} />
+                <PasswordInput autoComplete="new-password" value={pw.confirmPassword} onChange={(e) => setPw({ ...pw, confirmPassword: e.target.value })} />
               </FormField>
               <div className="span-all">
                 <Button type="submit" variant="outline" loading={pwState.loading}>

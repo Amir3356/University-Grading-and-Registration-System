@@ -6,11 +6,11 @@ import { api } from './client';
 
 export async function login({ username, role, identifier, password }) {
   const payload = {
-    role,
-    identifier: (identifier || username || '').trim(),
     username: (username || '').trim(),
+    identifier: (identifier || username || '').trim(),
     password: password || undefined,
   };
+  if (role) payload.role = role;
   return await api.post('/auth/login', payload);
 }
 

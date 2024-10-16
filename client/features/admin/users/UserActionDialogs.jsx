@@ -109,10 +109,8 @@ export function UserActionDialogs({ action, onClose }) {
         description={`${name} will no longer be able to sign in. Their academic records are kept.`}
         confirmLabel="Deactivate"
         variant="destructive"
-        reasonLabel="Reason"
-        reasonPlaceholder="e.g. Left the university"
-        onConfirm={async (reason) => {
-          const res = await setStatus(user.id, 'inactive', reason)
+        onConfirm={async () => {
+          const res = await setStatus(user.id, 'inactive')
           return res.ok ? undefined : false
         }}
       />

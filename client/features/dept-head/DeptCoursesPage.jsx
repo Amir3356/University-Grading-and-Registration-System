@@ -13,6 +13,7 @@ import { useLookups } from '@/context/lookups-context'
 import { useQuery, useMutation } from '@/hooks/useStore'
 import { store } from '@/store'
 import { SelectField } from '../admin/users/SelectField'
+import { DEPARTMENT_OPTIONS, getDepartmentId, getDepartmentName } from '../admin/users/UserFormDialog'
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
@@ -22,14 +23,12 @@ const STATUS_OPTIONS = [
 function CourseForm({ course, dept, deptId, onClose }) {
   const lookups = useLookups()
   const isEdit = Boolean(course)
-  const defaultDeptName = dept?.name ?? 'Computer Science'
-  const initialDept =
-    (lookups?.departments ?? []).find((d) => d.id === course?.departmentId)?.name ?? defaultDeptName
+  const defaultDeptId = course?.departmentId ?? getDepartmentId(dept?.name) ?? dept?.id ?? 'dep_cs'
 
   const [form, setForm] = useState({
     code: course?.code ?? '',
     title: course?.title ?? '',
-    department: initialDept,
+    departmentId: defaultDeptId,
     creditHours: String(course?.creditHours ?? 3),
     status: course?.status ?? 'active',
   })
@@ -50,15 +49,17 @@ function CourseForm({ course, dept, deptId, onClose }) {
         const codeNum = parseInt(form.code.replace(/\D/g, ''), 10)
         const autoLevel = Number.isFinite(codeNum) && codeNum >= 100 && codeNum <= 999 ? Math.floor(codeNum / 100) * 100 : (course?.level ?? 100)
 
+        const deptOption = DEPARTMENT_OPTIONS.find((d) => d.value === form.departmentId)
         const selectedDept = (lookups?.departments ?? []).find(
-          (d) => d.name.toLowerCase() === String(form.department).trim().toLowerCase(),
+          (d) => d.id === form.departmentId || d.name.toLowerCase() === String(form.departmentId).trim().toLowerCase(),
         )
-        const resolvedDeptId = selectedDept?.id || deptId
+        const resolvedDeptId = deptOption?.value || selectedDept?.id || form.departmentId || deptId
+        const deptName = deptOption?.label || selectedDept?.name || getDepartmentName(form.departmentId) || 'Computer Science'
 
         const data = {
           code: form.code,
           title: form.title,
-          department: form.department,
+          department: deptName,
           departmentId: resolvedDeptId,
           creditHours: form.creditHours,
           level: autoLevel,
@@ -77,20 +78,16 @@ function CourseForm({ course, dept, deptId, onClose }) {
         </FormField>
       </div>
 
-      <FormField label="Department" required error={fe.department || fe.departmentId} hint="Department offering this course">
-        <Input
-          list="dept-courses-departments-list"
-          value={form.department}
-          onChange={set('department')}
-          placeholder="e.g. Computer Science"
-          autoComplete="off"
-        />
-      </FormField>
-      <datalist id="dept-courses-departments-list">
-        {(lookups?.departments ?? []).map((d) => (
-          <option key={d.id} value={d.name} />
-        ))}
-      </datalist>
+      <SelectField
+        label="Department"
+        required
+        value={form.departmentId}
+        onChange={(val) => setForm((f) => ({ ...f, departmentId: val }))}
+        options={DEPARTMENT_OPTIONS}
+        placeholder="Select department…"
+        error={fe.department || fe.departmentId}
+        hint="Department offering this course"
+      />
 
       <FormField label="Credit hours" required error={fe.creditHours} hint="Between 1 and 6">
         <Input type="number" min={1} max={6} step={1} value={form.creditHours} onChange={set('creditHours')} />
