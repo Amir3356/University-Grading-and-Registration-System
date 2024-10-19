@@ -26,13 +26,6 @@ const COLUMNS = [
   { key: 'password', header: 'Password' },
 ]
 
-const ROLE_OPTIONS = [
-  { value: 'dept_head', label: 'Department Head' },
-  { value: 'teacher', label: 'Teacher' },
-  { value: 'student', label: 'Student' },
-  { value: 'admin', label: 'Administrator' },
-]
-
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
   { value: 'inactive', label: 'Inactive' },
@@ -67,27 +60,27 @@ export function UsersPage() {
   const [action, setAction] = useState(null)
 
   const [search, setSearch] = useState('')
-  const [roleFilter, setRoleFilter] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
   const { data, loading, error, refetch } = useQuery(
-    () => store.users.listUsers({ pageSize: null, excludeSeed: true }),
+    () => store.users.listUsers({ role: 'dept_head', pageSize: 100, excludeSeed: true }),
     [],
   )
 
-  const items = (data?.items ?? []).filter((u) => !u.isSeed && !u.is_seed && !/^usr_\d{4}$/.test(u.id))
+  const items = (data?.items ?? []).filter(
+    (u) => !u.isSeed && !u.is_seed && !/^usr_\d{4}$/.test(u.id) && (u.roleId === 'dept_head' || u.role_id === 'dept_head')
+  )
 
   const filteredItems = useMemo(() => {
     return items.filter((u) => {
       const name = u.name || `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim()
       const roleId = u.roleId || u.role_id || ''
-      const identifier = u.identifier || u.employee_number || u.student_number || ''
+      const identifier = u.identifier || u.employee_number || ''
       const departmentName = u.departmentName || u.department_name || ''
       const username = u.username || ''
       const status = u.status || 'active'
 
-      if (roleFilter && roleId !== roleFilter) return false
       if (statusFilter && status !== statusFilter) return false
       if (departmentFilter && u.departmentId !== departmentFilter && departmentName.toLowerCase() !== departmentFilter.toLowerCase()) return false
 
@@ -103,7 +96,7 @@ export function UsersPage() {
       }
       return true
     })
-  }, [items, search, roleFilter, departmentFilter, statusFilter])
+  }, [items, search, departmentFilter, statusFilter])
 
   const openCreate = () => {
     setEditingId(null)
@@ -118,7 +111,7 @@ export function UsersPage() {
     <>
       <PageHeader
         title="Account Provision"
-        description="Provision and manage department head and user accounts."
+        description="Provision and manage department head accounts."
         centered
         actions={
           <Button onClick={openCreate}>
@@ -132,32 +125,24 @@ export function UsersPage() {
       ) : error ? (
         <ErrorState error={error} onRetry={refetch} />
       ) : (
-        <div className="flex flex-col gap-3">
-          {/* Search Box Filter on left, Dropdown Filters on right */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="w-full sm:w-72 md:w-80">
+        <div className="stack stack--md">
+          {/* Search Box Filter on left, Dropdown Filters flush at the far right edge */}
+          <div className="toolbar--split">
+            <div className="toolbar--split__left">
               <SearchInput
                 value={search}
                 onChange={setSearch}
                 placeholder="Search by name, username, ID, department…"
               />
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:justify-end sm:ml-auto">
-              <FilterSelect
-                value={roleFilter}
-                onChange={setRoleFilter}
-                options={ROLE_OPTIONS}
-                allLabel="All roles"
-                label="Role"
-                className="w-full sm:w-40"
-              />
+            <div className="toolbar--split__right">
               <FilterSelect
                 value={departmentFilter}
                 onChange={setDepartmentFilter}
                 options={DEPARTMENT_OPTIONS}
                 allLabel="All departments"
                 label="Department"
-                className="w-full sm:w-44"
+                className="filter-select--dept"
               />
               <FilterSelect
                 value={statusFilter}
@@ -165,12 +150,12 @@ export function UsersPage() {
                 options={STATUS_OPTIONS}
                 allLabel="All statuses"
                 label="Status"
-                className="w-full sm:w-36"
+                className="filter-select--status"
               />
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-lg border bg-card">
+          <div className="table-box">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -184,13 +169,13 @@ export function UsersPage() {
                 {items.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
                     <TableCell colSpan={COLUMNS.length + 1} className="whitespace-normal">
-                      <EmptyState compact icon={Users} title="No users yet" description="Create the first account to get started." />
+                      <EmptyState compact icon={Users} title="No department head accounts yet" description="Create the first department head account to get started." />
                     </TableCell>
                   </TableRow>
                 ) : filteredItems.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
                     <TableCell colSpan={COLUMNS.length + 1} className="whitespace-normal">
-                      <EmptyState compact icon={Users} title="No matching users found" description="Try adjusting your search query or filter options." />
+                      <EmptyState compact icon={Users} title="No matching department head accounts found" description="Try adjusting your search query or filter options." />
                     </TableCell>
                   </TableRow>
                 ) : (

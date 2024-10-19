@@ -279,6 +279,98 @@ a.stat-card:hover {
   }
 }
 
+/* Split toolbar: search on the left, dropfilters flush at the far right edge */
+.toolbar--split {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .toolbar--split {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+}
+
+.toolbar--split__left {
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .toolbar--split__left {
+    width: auto;
+    flex: 0 1 20rem;
+  }
+
+  .toolbar--split__left .search-input {
+    width: 20rem;
+    max-width: 100%;
+  }
+}
+
+.toolbar--split__right {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .toolbar--split__right {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    margin-left: auto;
+    width: auto;
+  }
+}
+
+.filter-select--role {
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .filter-select--role {
+    width: 10.5rem;
+  }
+}
+
+.filter-select--dept {
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .filter-select--dept {
+    width: 13rem;
+  }
+}
+
+.filter-select--program {
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .filter-select--program {
+    width: 12.5rem;
+  }
+}
+
+.filter-select--status {
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .filter-select--status {
+    width: 9.5rem;
+  }
+}
+
 /* ---------- Data table ---------- */
 .data-table {
   display: flex;

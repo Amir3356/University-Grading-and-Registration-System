@@ -21,9 +21,9 @@ userRouter.get('/', requireRoles('admin', 'dept_head'), userCtrl.listUsers);
 userRouter.post('/', requireRoles('admin', 'dept_head'), validateRequest(createUserSchema), userCtrl.createUser);
 userRouter.get('/:id', requireRoles('admin', 'dept_head'), userCtrl.getUserDetail);
 userRouter.put('/:id', requireRoles('admin', 'dept_head'), validateRequest(updateUserSchema), userCtrl.updateUser);
-userRouter.delete('/:id', requireRoles('admin'), userCtrl.deleteUser);
+userRouter.delete('/:id', requireRoles('admin', 'dept_head'), userCtrl.deleteUser);
 userRouter.post('/:id/reset-password', requireRoles('admin'), userCtrl.resetPassword);
-userRouter.post('/:id/toggle-status', requireRoles('admin'), validateRequest(toggleStatusSchema), userCtrl.setUserStatus);
+userRouter.post('/:id/toggle-status', requireRoles('admin', 'dept_head'), validateRequest(toggleStatusSchema), userCtrl.setUserStatus);
 
 // /students
 studentRouter.use(authenticate);

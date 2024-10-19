@@ -21,7 +21,7 @@ export function SidebarNav({ collapsed = false, badges = {}, onNavigate }) {
               const link = (
                 <NavLink to={item.to} end={item.end} onClick={onNavigate} className="sidebar__link">
                   <item.icon aria-hidden="true" />
-                  {!collapsed && <span className="truncate">{item.label}</span>}
+                  {!collapsed && <span className="sidebar__link-text">{item.label}</span>}
                   {badge > 0 && <span className="sidebar__badge">{badge > 99 ? '99+' : badge}</span>}
                   {collapsed && <span className="sr-only">{item.label}</span>}
                 </NavLink>

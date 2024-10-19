@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, UserCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,38 +17,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { FormField } from '@/components/common/FormField'
 import { PageHeader } from '@/components/common/PageHeader'
 import { StatusBadge } from '@/components/common/StatusBadge'
+import { EmptyState } from '@/components/common/EmptyState'
 import { useAuth } from '@/context/auth-context'
-
-const INITIAL_REGISTRATION_RECORDS = [
-  {
-    id: 'reg-001',
-    studentId: 'STU001',
-    academicYear: '2026',
-    semester: 'First',
-    type: 'Regular (Café)',
-    status: 'registered',
-  },
-  {
-    id: 'reg-002',
-    studentId: 'STU001',
-    academicYear: '2026',
-    semester: 'Second',
-    type: 'Non-Regular (Non-Café)',
-    status: 'registered',
-  },
-  {
-    id: 'reg-003',
-    studentId: 'STU001',
-    academicYear: '2027',
-    semester: 'First',
-    type: 'Regular (Café)',
-    status: 'pending',
-  },
-]
 
 export function RegistrationsPage() {
   const { user } = useAuth()
-  const [records, setRecords] = useState(INITIAL_REGISTRATION_RECORDS)
+  const [records, setRecords] = useState([])
   const [isRegisterOpen, setIsRegisterOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -103,43 +77,58 @@ export function RegistrationsPage() {
       {/* Registration Records Table */}
       <Card className="overflow-hidden">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[140px]">Student ID</TableHead>
-                <TableHead className="w-[140px]">Academic Year</TableHead>
-                <TableHead className="w-[140px]">Semester</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-center w-[140px]">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {records.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-semibold text-foreground">
-                    {r.studentId}
-                  </TableCell>
-                  <TableCell className="font-medium text-foreground">
-                    {r.academicYear}
-                  </TableCell>
-                  <TableCell className="font-medium text-foreground">
-                    {r.semester}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={r.type.startsWith('Regular') ? 'default' : 'secondary'}
-                      className="font-medium"
-                    >
-                      {r.type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <StatusBadge status={r.status} />
-                  </TableCell>
+          {records.length === 0 ? (
+            <div className="py-12 px-4 text-center">
+              <EmptyState
+                icon={UserCheck}
+                title="No registration records"
+                description="You have not registered for any semesters yet. Click 'Register for Semester' to submit a registration."
+                action={
+                  <Button onClick={() => setIsRegisterOpen(true)} className="mt-2">
+                    <Plus className="icon" /> Register for Semester
+                  </Button>
+                }
+              />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[140px]">Student ID</TableHead>
+                  <TableHead className="w-[140px]">Academic Year</TableHead>
+                  <TableHead className="w-[140px]">Semester</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-center w-[140px]">Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {records.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-semibold text-foreground">
+                      {r.studentId}
+                    </TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      {r.academicYear}
+                    </TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      {r.semester}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={r.type.startsWith('Regular') ? 'default' : 'secondary'}
+                        className="font-medium"
+                      >
+                        {r.type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <StatusBadge status={r.status} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 

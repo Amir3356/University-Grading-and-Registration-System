@@ -26,15 +26,18 @@ export async function createPeriod(data, user) {
   if (existing) throw new ConflictError('A registration period already exists for this semester.');
 
   const id = newId('per');
-  const period = await regRepo.createRegistrationPeriod({
+  const status = data.status || 'scheduled';
+  let period = await regRepo.createRegistrationPeriod({
     id,
     semesterId: data.semesterId,
     startDate: data.startDate,
     deadline: data.deadline,
-    status: data.status || 'scheduled',
+    status: status === 'open' ? 'scheduled' : status,
     registrationTypeIds: data.registrationTypeIds,
     createdBy: user.id,
   });
+  // Only one period may be open at a time, same as the open/close toggle.
+  if (status === 'open') period = await regRepo.openRegistrationPeriod(id);
 
   await logAudit(query, {
     userId: user.id,
@@ -51,14 +54,18 @@ export async function updatePeriod(id, data, user) {
   const existing = await regRepo.getRegistrationPeriodById(id);
   if (!existing) throw new NotFoundError('Registration period');
 
-  if (existing.status === 'closed') {
-    const regCount = await regRepo.countRegistrationsInPeriod(id);
-    if (regCount > 0 && data.status !== 'closed') {
-      // Re-opening closed with registrations
-    }
+  if (data.startDate && data.deadline && data.deadline < data.startDate) {
+    throw new ValidationError('Deadline cannot be before start date.');
+  }
+  if (Array.isArray(data.registrationTypeIds) && data.registrationTypeIds.length === 0) {
+    throw new ValidationError('At least one registration type must be selected.');
   }
 
-  const period = await regRepo.updateRegistrationPeriod(id, data);
+  let period = await regRepo.updateRegistrationPeriod(id, data);
+  // Only one period may be open at a time, same as the open/close toggle.
+  if (data.status === 'open' && existing.status !== 'open') {
+    period = await regRepo.openRegistrationPeriod(id);
+  }
   await logAudit(query, {
     userId: user.id,
     action: 'registration_period.updated',

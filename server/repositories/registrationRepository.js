@@ -256,13 +256,12 @@ export async function listStudentRegistrations({ semesterId, departmentId, progr
     conditions.push(`sr.registration_type_id = $${params.length}`);
   }
 
-  if (status) {
-    if (status === 'not_registered') {
-      conditions.push(`(sr.id IS NULL OR sr.status = 'cancelled')`);
-    } else {
-      params.push(status);
-      conditions.push(`sr.status = $${params.length}`);
-    }
+  // Only students with actual semester registrations belong in this list
+  conditions.push(`sr.id IS NOT NULL`);
+
+  if (status && status !== 'all' && status !== 'not_registered') {
+    params.push(status);
+    conditions.push(`sr.status = $${params.length}`);
   }
 
   if (search) {

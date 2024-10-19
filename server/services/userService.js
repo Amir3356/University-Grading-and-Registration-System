@@ -403,6 +403,23 @@ export async function setUserStatus(id, { status, reason }, caller) {
     if (userRes.rows.length === 0) throw new NotFoundError('User');
     const user = userRes.rows[0];
 
+    if (caller?.roleId === 'dept_head') {
+      if (!['student', 'teacher'].includes(user.role_id)) {
+        throw new ForbiddenError('Department heads can only activate or deactivate student and teacher accounts.');
+      }
+      if (user.role_id === 'student') {
+        const stu = await client.query(`SELECT department_id FROM students WHERE user_id = $1`, [id]);
+        if (stu.rows.length > 0 && caller.departmentId && stu.rows[0].department_id !== caller.departmentId) {
+          throw new ForbiddenError('You can only manage students in your department.');
+        }
+      } else if (user.role_id === 'teacher') {
+        const tch = await client.query(`SELECT department_id FROM teachers WHERE user_id = $1`, [id]);
+        if (tch.rows.length > 0 && caller.departmentId && tch.rows[0].department_id !== caller.departmentId) {
+          throw new ForbiddenError('You can only manage teachers in your department.');
+        }
+      }
+    }
+
     await client.query(
       `UPDATE users
        SET status = $2, deactivation_reason = $3, updated_at = now()
@@ -434,6 +451,25 @@ export async function setUserStatus(id, { status, reason }, caller) {
 export async function deleteUser(id, caller) {
   if (caller.id === id) {
     throw new ConflictError('You cannot delete your own account.');
+  }
+
+  if (caller?.roleId === 'dept_head') {
+    const userRes = await query(`SELECT role_id FROM users WHERE id = $1`, [id]);
+    if (userRes.rows.length === 0) throw new NotFoundError('User');
+    if (!['student', 'teacher'].includes(userRes.rows[0].role_id)) {
+      throw new ForbiddenError('Department heads can only delete student and teacher accounts.');
+    }
+    if (userRes.rows[0].role_id === 'student') {
+      const stu = await query(`SELECT department_id FROM students WHERE user_id = $1`, [id]);
+      if (stu.rows.length > 0 && caller.departmentId && stu.rows[0].department_id !== caller.departmentId) {
+        throw new ForbiddenError('You can only delete students in your department.');
+      }
+    } else if (userRes.rows[0].role_id === 'teacher') {
+      const tch = await query(`SELECT department_id FROM teachers WHERE user_id = $1`, [id]);
+      if (tch.rows.length > 0 && caller.departmentId && tch.rows[0].department_id !== caller.departmentId) {
+        throw new ForbiddenError('You can only delete teachers in your department.');
+      }
+    }
   }
 
   const enrRes = await query(

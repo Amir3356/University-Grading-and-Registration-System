@@ -158,24 +158,24 @@ export function DeptAccountProvisionPage() {
         }
       />
 
-      <div className="flex flex-col gap-4">
-        {/* Search Box Filter on left, Dropdown Filters on right */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="w-full sm:w-72 md:w-80">
+      <div className="stack stack--md">
+        {/* Search Box Filter on left, Dropdown Filters flush at the far right edge */}
+        <div className="toolbar--split">
+          <div className="toolbar--split__left">
             <SearchInput
               value={search}
               onChange={setSearch}
               placeholder="Search student by name, username, or ID…"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end sm:ml-auto">
+          <div className="toolbar--split__right">
             <FilterSelect
               value={programFilter}
               onChange={setProgramFilter}
               options={PROGRAM_OPTIONS}
               allLabel="All program types"
               label="Program Type"
-              className="w-full sm:w-44"
+              className="filter-select--program"
             />
             <FilterSelect
               value={statusFilter}
@@ -183,7 +183,7 @@ export function DeptAccountProvisionPage() {
               options={STATUS_OPTIONS}
               allLabel="All statuses"
               label="Status"
-              className="w-full sm:w-36"
+              className="filter-select--status"
             />
           </div>
         </div>
@@ -194,7 +194,7 @@ export function DeptAccountProvisionPage() {
         ) : error ? (
           <ErrorState error={error} onRetry={refetch} />
         ) : (
-          <div className="overflow-hidden rounded-lg border bg-card">
+          <div className="table-box">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">

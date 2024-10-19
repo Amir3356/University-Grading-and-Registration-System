@@ -39,7 +39,7 @@ export function defineAbilityFor(user) {
       can(['create', 'read', 'update'], 'Program');
       can(['create', 'read', 'update'], 'Course');
       can(['create', 'read', 'update'], 'CourseOffering');
-      can(['create', 'read', 'update'], 'User');
+      can(['create', 'read', 'update', 'delete'], 'User');
       can('read', 'Student');
       can('read', 'Teacher');
       can(['read', 'update'], 'Registration');

@@ -1,16 +1,18 @@
 import { useState, useMemo } from 'react'
-import {
-  CalendarDays,
-  CalendarCheck2,
-  Users,
-  UserX,
-  Search,
-  ChevronDown,
-  CheckCircle2,
-  FileSpreadsheet,
-  Trash2,
-} from 'lucide-react'
+import { Search, ChevronDown, CheckCircle2, XCircle, FileSpreadsheet, Trash2, UserCheck } from 'lucide-react'
 import { toast } from 'sonner'
+import { EmptyState } from '@/components/common/EmptyState'
+import {
+  listSemesterRegistrationsApi,
+  getRegistrationSummaryApi,
+  reviewSemesterRegistrationApi,
+  updateSemesterRegistrationTypeApi,
+  deleteSemesterRegistrationApi,
+} from '@/api/registration'
+import { useLookups } from '@/context/lookups-context'
+import { useDebounce } from '@/hooks/useDebounce'
+import { useQuery } from '@/hooks/useStore'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,387 +21,124 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { RegistrationStats } from './RegistrationStats'
+import { formatDate, TYPE_BADGE_CLASS, errorMessage } from './registration-utils'
 
-const INITIAL_STUDENTS = [
-  {
-    id: 'STU001',
-    name: 'Alice Johnson',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Café',
-    status: 'Registered',
-    registrationDate: 'Jan 10, 2026',
-    department: 'Computer Science',
-    program: 'BSc Computer Science',
-  },
-  {
-    id: 'STU002',
-    name: 'Michael Brown',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Non-Café',
-    status: 'Registered',
-    registrationDate: 'Jan 12, 2026',
-    department: 'Electrical Engineering',
-    program: 'BSc Electrical Engineering',
-  },
-  {
-    id: 'STU003',
-    name: 'Sarah Davis',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: '—',
-    status: 'Not Registered',
-    registrationDate: '—',
-    department: 'Mathematics',
-    program: 'BSc Mathematics',
-  },
-  {
-    id: 'STU004',
-    name: 'James Wilson',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Café',
-    status: 'Pending',
-    registrationDate: 'Jan 18, 2026',
-    department: 'Information Systems',
-    program: 'BSc Information Systems',
-  },
-  {
-    id: 'STU005',
-    name: 'Emma Taylor',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Non-Café',
-    status: 'Registered',
-    registrationDate: 'Jan 15, 2026',
-    department: 'Computer Science',
-    program: 'BSc Computer Science',
-  },
-  {
-    id: 'STU006',
-    name: 'David Miller',
-    academicYear: '2026',
-    semester: 'Second',
-    registrationType: 'Café',
-    status: 'Registered',
-    registrationDate: 'Jan 11, 2026',
-    department: 'Electrical Engineering',
-    program: 'BSc Electrical Engineering',
-  },
-  {
-    id: 'STU007',
-    name: 'Sophia Wilson',
-    academicYear: '2026',
-    semester: 'Second',
-    registrationType: 'Non-Café',
-    status: 'Registered',
-    registrationDate: 'Jan 14, 2026',
-    department: 'Mathematics',
-    program: 'BSc Mathematics',
-  },
-  {
-    id: 'STU008',
-    name: 'Daniel Anderson',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Café',
-    status: 'Pending',
-    registrationDate: 'Jan 19, 2026',
-    department: 'Computer Science',
-    program: 'BSc Computer Science',
-  },
-  {
-    id: 'STU009',
-    name: 'Olivia Martinez',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: '—',
-    status: 'Not Registered',
-    registrationDate: '—',
-    department: 'Mechanical Engineering',
-    program: 'BSc Mechanical Engineering',
-  },
-  {
-    id: 'STU010',
-    name: 'Lucas Thomas',
-    academicYear: '2026',
-    semester: 'Second',
-    registrationType: 'Non-Café',
-    status: 'Registered',
-    registrationDate: 'Jan 16, 2026',
-    department: 'Information Systems',
-    program: 'BSc Information Systems',
-  },
-  {
-    id: 'STU011',
-    name: 'Mia Jackson',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Café',
-    status: 'Registered',
-    registrationDate: 'Jan 09, 2026',
-    department: 'Computer Science',
-    program: 'BSc Computer Science',
-  },
-  {
-    id: 'STU012',
-    name: 'Benjamin White',
-    academicYear: '2026',
-    semester: 'Second',
-    registrationType: 'Non-Café',
-    status: 'Registered',
-    registrationDate: 'Jan 13, 2026',
-    department: 'Electrical Engineering',
-    program: 'BSc Electrical Engineering',
-  },
-  {
-    id: 'STU013',
-    name: 'Charlotte Harris',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Café',
-    status: 'Registered',
-    registrationDate: 'Jan 10, 2026',
-    department: 'Mathematics',
-    program: 'BSc Mathematics',
-  },
-  {
-    id: 'STU014',
-    name: 'Henry Martin',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: '—',
-    status: 'Not Registered',
-    registrationDate: '—',
-    department: 'Mechanical Engineering',
-    program: 'BSc Mechanical Engineering',
-  },
-  {
-    id: 'STU015',
-    name: 'Amelia Thompson',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Café',
-    status: 'Pending',
-    registrationDate: 'Jan 17, 2026',
-    department: 'Computer Science',
-    program: 'BSc Computer Science',
-  },
-  {
-    id: 'STU016',
-    name: 'Alexander Garcia',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Non-Café',
-    status: 'Registered',
-    registrationDate: 'Jan 12, 2026',
-    department: 'Information Systems',
-    program: 'BSc Information Systems',
-  },
-  {
-    id: 'STU017',
-    name: 'Harper Robinson',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Café',
-    status: 'Registered',
-    registrationDate: 'Jan 08, 2026',
-    department: 'Electrical Engineering',
-    program: 'BSc Electrical Engineering',
-  },
-  {
-    id: 'STU018',
-    name: 'Sebastian Clark',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Non-Café',
-    status: 'Registered',
-    registrationDate: 'Jan 15, 2026',
-    department: 'Computer Science',
-    program: 'BSc Computer Science',
-  },
-  {
-    id: 'STU019',
-    name: 'Evelyn Rodriguez',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: '—',
-    status: 'Not Registered',
-    registrationDate: '—',
-    department: 'Mathematics',
-    program: 'BSc Mathematics',
-  },
-  {
-    id: 'STU020',
-    name: 'Jack Lewis',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Café',
-    status: 'Registered',
-    registrationDate: 'Jan 14, 2026',
-    department: 'Computer Science',
-    program: 'BSc Computer Science',
-  },
-  {
-    id: 'STU021',
-    name: 'Ella Lee',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Non-Café',
-    status: 'Registered',
-    registrationDate: 'Jan 11, 2026',
-    department: 'Information Systems',
-    program: 'BSc Information Systems',
-  },
-  {
-    id: 'STU022',
-    name: 'Samuel Walker',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Café',
-    status: 'Pending',
-    registrationDate: 'Jan 18, 2026',
-    department: 'Electrical Engineering',
-    program: 'BSc Electrical Engineering',
-  },
-  {
-    id: 'STU023',
-    name: 'Grace Hall',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Non-Café',
-    status: 'Registered',
-    registrationDate: 'Jan 16, 2026',
-    department: 'Mechanical Engineering',
-    program: 'BSc Mechanical Engineering',
-  },
-  {
-    id: 'STU024',
-    name: 'Logan Allen',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: '—',
-    status: 'Not Registered',
-    registrationDate: '—',
-    department: 'Mathematics',
-    program: 'BSc Mathematics',
-  },
-  {
-    id: 'STU025',
-    name: 'Chloe Young',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Café',
-    status: 'Registered',
-    registrationDate: 'Jan 13, 2026',
-    department: 'Computer Science',
-    program: 'BSc Computer Science',
-  },
-  {
-    id: 'STU026',
-    name: 'Wyatt King',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Non-Café',
-    status: 'Registered',
-    registrationDate: 'Jan 15, 2026',
-    department: 'Information Systems',
-    program: 'BSc Information Systems',
-  },
-  {
-    id: 'STU027',
-    name: 'Lily Wright',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Café',
-    status: 'Registered',
-    registrationDate: 'Jan 10, 2026',
-    department: 'Electrical Engineering',
-    program: 'BSc Electrical Engineering',
-  },
-  {
-    id: 'STU028',
-    name: 'Owen Scott',
-    academicYear: '2026',
-    semester: 'First',
-    registrationType: 'Café',
-    status: 'Pending',
-    registrationDate: 'Jan 19, 2026',
-    department: 'Mechanical Engineering',
-    program: 'BSc Mechanical Engineering',
-  },
+const STUDENTS_PER_PAGE = 10
+
+const STATUS_OPTIONS = [
+  { value: 'registered', label: 'Registered' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'rejected', label: 'Rejected' },
 ]
 
 export function StudentRegistrationsPage() {
-  const [students, setStudents] = useState(INITIAL_STUDENTS)
+  const lookups = useLookups()
+  const semesters = useMemo(() => lookups?.semesters ?? [], [lookups])
+  const departments = useMemo(() => lookups?.departments ?? [], [lookups])
+  const programs = useMemo(() => lookups?.programs ?? [], [lookups])
+  const registrationTypes = useMemo(() => lookups?.registrationTypes ?? [], [lookups])
+  const typeLabels = useMemo(
+    () => Object.fromEntries(registrationTypes.map((t) => [t.id, t.label])),
+    [registrationTypes]
+  )
+
   const [studentSearch, setStudentSearch] = useState('')
-  const [studentSemFilter, setStudentSemFilter] = useState('All')
-  const [studentDeptFilter, setStudentDeptFilter] = useState('All')
-  const [studentProgFilter, setStudentProgFilter] = useState('All')
-  const [studentTypeFilter, setStudentTypeFilter] = useState('All')
-  const [studentStatusFilter, setStudentStatusFilter] = useState('All')
+  const debouncedSearch = useDebounce(studentSearch)
+  const [studentSemFilter, setStudentSemFilter] = useState('')
+  const [studentDeptFilter, setStudentDeptFilter] = useState('')
+  const [studentProgFilter, setStudentProgFilter] = useState('')
+  const [studentTypeFilter, setStudentTypeFilter] = useState('')
+  const [studentStatusFilter, setStudentStatusFilter] = useState('')
   const [studentPage, setStudentPage] = useState(1)
-  const studentsPerPage = 5
+  const [deleting, setDeleting] = useState(null)
+  const [rejecting, setRejecting] = useState(null)
 
-  // Metrics
-  const totalSemestersCount = 4
-  const openPeriodsCount = 1
-  const registeredCount = 320
-  const notRegisteredCount = 24
+  // Without an explicit semester the API reports on the current one.
+  const currentSemesterId = semesters.find((s) => s.is_current)?.id ?? ''
+  const selectedSemesterId = studentSemFilter || currentSemesterId
+  const selectedSemester = semesters.find((s) => s.id === selectedSemesterId)
 
-  // Filtered Students
-  const filteredStudents = useMemo(() => {
-    return students.filter((s) => {
-      const q = studentSearch.toLowerCase().trim()
-      const matchSearch =
-        !q ||
-        s.name.toLowerCase().includes(q) ||
-        s.id.toLowerCase().includes(q) ||
-        s.department.toLowerCase().includes(q)
+  const visiblePrograms = useMemo(
+    () => (studentDeptFilter ? programs.filter((p) => p.department_id === studentDeptFilter) : programs),
+    [programs, studentDeptFilter]
+  )
 
-      const matchSem =
-        studentSemFilter === 'All' ||
-        (studentSemFilter === 'First' && (s.semester === 'First' || s.semester === 'First Semester')) ||
-        (studentSemFilter === 'Second' && (s.semester === 'Second' || s.semester === 'Second Semester'))
+  const listQuery = useQuery(
+    () =>
+      listSemesterRegistrationsApi({
+        semesterId: studentSemFilter,
+        departmentId: studentDeptFilter,
+        programId: studentProgFilter,
+        registrationTypeId: studentTypeFilter,
+        status: studentStatusFilter,
+        search: debouncedSearch.trim(),
+        page: studentPage,
+        pageSize: STUDENTS_PER_PAGE,
+      }),
+    [studentSemFilter, studentDeptFilter, studentProgFilter, studentTypeFilter, studentStatusFilter, debouncedSearch, studentPage],
+    { live: false }
+  )
+  const summaryQuery = useQuery(() => getRegistrationSummaryApi({ semesterId: studentSemFilter }), [studentSemFilter], {
+    live: false,
+  })
+  const rawItems = listQuery.data?.items || []
+  const students = useMemo(
+    () => rawItems.filter((s) => s.registration && s.status !== 'not_registered'),
+    [rawItems]
+  )
+  const total = students.length === 0 && rawItems.length > 0 ? 0 : listQuery.data?.total || 0
+  const loading = listQuery.loading
+  const summary = summaryQuery.data
 
-      const matchDept = studentDeptFilter === 'All' || s.department === studentDeptFilter
-      const matchProg = studentProgFilter === 'All' || s.program === studentProgFilter
-      const matchType =
-        studentTypeFilter === 'All' ||
-        (studentTypeFilter === 'Café' && s.registrationType === 'Café') ||
-        (studentTypeFilter === 'Non-Café' && s.registrationType === 'Non-Café')
-      const matchStatus = studentStatusFilter === 'All' || s.status === studentStatusFilter
+  const totalStudentPages = Math.ceil(total / STUDENTS_PER_PAGE) || 1
+  const studentStartCount = total === 0 ? 0 : (studentPage - 1) * STUDENTS_PER_PAGE + 1
+  const studentEndCount = Math.min(studentPage * STUDENTS_PER_PAGE, total)
 
-      return matchSearch && matchSem && matchDept && matchProg && matchType && matchStatus
-    })
-  }, [students, studentSearch, studentSemFilter, studentDeptFilter, studentProgFilter, studentTypeFilter, studentStatusFilter])
-
-  // Pagination
-  const totalStudentPages = Math.ceil(filteredStudents.length / studentsPerPage) || 1
-  const paginatedStudents = useMemo(() => {
-    const start = (studentPage - 1) * studentsPerPage
-    return filteredStudents.slice(start, start + studentsPerPage)
-  }, [filteredStudents, studentPage])
-
-  const studentStartCount = filteredStudents.length === 0 ? 0 : (studentPage - 1) * studentsPerPage + 1
-  const studentEndCount = Math.min(studentPage * studentsPerPage, filteredStudents.length)
-
-  const handleDeleteStudent = (studentId, studentName) => {
-    setStudents((prev) => prev.filter((s) => s.id !== studentId))
-    toast.success(`Registration record for ${studentName} deleted.`)
+  const setFilter = (setter) => (e) => {
+    setter(e.target.value)
+    setStudentPage(1)
   }
+
+  const runAction = async (action, successMessage, fallbackError) => {
+    try {
+      await action()
+      toast.success(successMessage)
+      listQuery.refetch()
+      summaryQuery.refetch()
+      return true
+    } catch (err) {
+      toast.error(errorMessage(err, fallbackError))
+      return false
+    }
+  }
+
+  const handleApprove = (student) =>
+    runAction(
+      () => reviewSemesterRegistrationApi(student.registration.id, { status: 'approved' }),
+      `Registration approved for ${student.name}.`,
+      'Failed to approve registration.'
+    )
+
+  const handleChangeType = (student, typeId) =>
+    runAction(
+      () => updateSemesterRegistrationTypeApi(student.registration.id, typeId),
+      `Changed registration type to ${typeLabels[typeId] || typeId}.`,
+      'Failed to change registration type.'
+    )
 
   const renderStatusBadge = (status) => {
     switch (status) {
-      case 'Registered':
+      case 'registered':
         return <span className="reg-badge reg-badge--registered">Registered</span>
-      case 'Pending':
+      case 'pending':
         return <span className="reg-badge reg-badge--pending">Pending</span>
-      case 'Not Registered':
-        return <span className="reg-badge reg-badge--not-registered">Not Registered</span>
+      case 'rejected':
+        return <span className="reg-badge reg-badge--not-registered">Rejected</span>
+      case 'cancelled':
+        return <span className="reg-badge reg-badge--not-registered">Cancelled</span>
       default:
-        return <span className="reg-badge">{status}</span>
+        return <span className="reg-badge reg-badge--not-registered">Not Registered</span>
     }
   }
 
@@ -413,48 +152,7 @@ export function StudentRegistrationsPage() {
         </p>
       </div>
 
-      {/* 4 Summary Stat Cards */}
-      <div className="semester-reg-stats">
-        <div className="reg-stat-card">
-          <div className="reg-stat-card__icon reg-stat-card__icon--blue">
-            <CalendarDays aria-hidden="true" />
-          </div>
-          <div className="reg-stat-card__content">
-            <p className="reg-stat-card__label">Total Semesters</p>
-            <p className="reg-stat-card__value reg-stat-card__value--blue">{totalSemestersCount}</p>
-          </div>
-        </div>
-
-        <div className="reg-stat-card">
-          <div className="reg-stat-card__icon reg-stat-card__icon--green">
-            <CalendarCheck2 aria-hidden="true" />
-          </div>
-          <div className="reg-stat-card__content">
-            <p className="reg-stat-card__label">Open Registration Periods</p>
-            <p className="reg-stat-card__value reg-stat-card__value--green">{openPeriodsCount}</p>
-          </div>
-        </div>
-
-        <div className="reg-stat-card">
-          <div className="reg-stat-card__icon reg-stat-card__icon--purple">
-            <Users aria-hidden="true" />
-          </div>
-          <div className="reg-stat-card__content">
-            <p className="reg-stat-card__label">Registered Students</p>
-            <p className="reg-stat-card__value reg-stat-card__value--purple">{registeredCount}</p>
-          </div>
-        </div>
-
-        <div className="reg-stat-card">
-          <div className="reg-stat-card__icon reg-stat-card__icon--orange">
-            <UserX aria-hidden="true" />
-          </div>
-          <div className="reg-stat-card__content">
-            <p className="reg-stat-card__label">Not Registered Students</p>
-            <p className="reg-stat-card__value reg-stat-card__value--orange">{notRegisteredCount}</p>
-          </div>
-        </div>
-      </div>
+      <RegistrationStats summary={summary} />
 
       {/* Student Registrations Card */}
       <section className="reg-card" style={{ marginTop: '0.25rem' }}>
@@ -480,17 +178,11 @@ export function StudentRegistrationsPage() {
 
           <div className="reg-filter-select-box">
             <label className="reg-filter-select-label">Semester</label>
-            <select
-              value={studentSemFilter}
-              onChange={(e) => {
-                setStudentSemFilter(e.target.value)
-                setStudentPage(1)
-              }}
-              className="reg-filter-select"
-            >
-              <option value="All">All Semesters</option>
-              <option value="First">First Semester</option>
-              <option value="Second">Second Semester</option>
+            <select value={studentSemFilter} onChange={setFilter(setStudentSemFilter)} className="reg-filter-select">
+              <option value="">Current Semester</option>
+              {semesters.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
             </select>
           </div>
 
@@ -500,219 +192,260 @@ export function StudentRegistrationsPage() {
               value={studentDeptFilter}
               onChange={(e) => {
                 setStudentDeptFilter(e.target.value)
+                setStudentProgFilter('')
                 setStudentPage(1)
               }}
               className="reg-filter-select"
             >
-              <option value="All">All Departments</option>
-              <option value="Computer Science">Computer Science</option>
-              <option value="Electrical Engineering">Electrical Engineering</option>
-              <option value="Mathematics">Mathematics</option>
-              <option value="Information Systems">Information Systems</option>
-              <option value="Mechanical Engineering">Mechanical Engineering</option>
+              <option value="">All Departments</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
             </select>
           </div>
 
           <div className="reg-filter-select-box">
             <label className="reg-filter-select-label">Program</label>
-            <select
-              value={studentProgFilter}
-              onChange={(e) => {
-                setStudentProgFilter(e.target.value)
-                setStudentPage(1)
-              }}
-              className="reg-filter-select"
-            >
-              <option value="All">All Programs</option>
-              <option value="BSc Computer Science">BSc Computer Science</option>
-              <option value="BSc Electrical Engineering">BSc Electrical Engineering</option>
-              <option value="BSc Mathematics">BSc Mathematics</option>
-              <option value="BSc Information Systems">BSc Information Systems</option>
-              <option value="BSc Mechanical Engineering">BSc Mechanical Engineering</option>
+            <select value={studentProgFilter} onChange={setFilter(setStudentProgFilter)} className="reg-filter-select">
+              <option value="">All Programs</option>
+              {visiblePrograms.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
             </select>
           </div>
 
           <div className="reg-filter-select-box">
             <label className="reg-filter-select-label">Registration Type</label>
-            <select
-              value={studentTypeFilter}
-              onChange={(e) => {
-                setStudentTypeFilter(e.target.value)
-                setStudentPage(1)
-              }}
-              className="reg-filter-select"
-            >
-              <option value="All">All Types</option>
-              <option value="Café">Café</option>
-              <option value="Non-Café">Non-Café</option>
+            <select value={studentTypeFilter} onChange={setFilter(setStudentTypeFilter)} className="reg-filter-select">
+              <option value="">All Types</option>
+              {registrationTypes.map((t) => (
+                <option key={t.id} value={t.id}>{t.label}</option>
+              ))}
             </select>
           </div>
 
           <div className="reg-filter-select-box">
             <label className="reg-filter-select-label">Status</label>
-            <select
-              value={studentStatusFilter}
-              onChange={(e) => {
-                setStudentStatusFilter(e.target.value)
-                setStudentPage(1)
-              }}
-              className="reg-filter-select"
-            >
-              <option value="All">All Statuses</option>
-              <option value="Registered">Registered</option>
-              <option value="Pending">Pending</option>
-              <option value="Not Registered">Not Registered</option>
+            <select value={studentStatusFilter} onChange={setFilter(setStudentStatusFilter)} className="reg-filter-select">
+              <option value="">All Registrations</option>
+              {STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
             </select>
           </div>
         </div>
 
-        {/* Students Table */}
-        <div className="reg-table-container">
-          <table className="reg-table">
-            <thead>
-              <tr>
-                <th>Student ID</th>
-                <th>Student Name</th>
-                <th>Academic Year</th>
-                <th>Semester</th>
-                <th>Registration Type</th>
-                <th>Status</th>
-                <th>Registration Date</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedStudents.map((student) => (
-                <tr key={student.id}>
-                  <td style={{ fontWeight: 500, color: 'var(--foreground)' }}>{student.id}</td>
-                  <td>{student.name}</td>
-                  <td>{student.academicYear}</td>
-                  <td>{student.semester}</td>
-                  <td>
-                    {student.registrationType === 'Café' ? (
-                      <span className="reg-badge reg-badge--cafe">Café</span>
-                    ) : student.registrationType === 'Non-Café' ? (
-                      <span className="reg-badge reg-badge--non-cafe">Non-Café</span>
-                    ) : (
-                      <span>—</span>
-                    )}
-                  </td>
-                  <td>{renderStatusBadge(student.status)}</td>
-                  <td>{student.registrationDate}</td>
-                  <td>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button type="button" className="reg-action-trigger">
-                            <span>{student.status === 'Pending' ? 'Review' : 'View'}</span>
-                            <ChevronDown size={14} aria-hidden="true" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuLabel>
-                            {student.name} ({student.id})
-                          </DropdownMenuLabel>
-
-                          {student.status === 'Pending' && (
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setStudents((prev) =>
-                                  prev.map((s) => (s.id === student.id ? { ...s, status: 'Registered' } : s))
-                                )
-                                toast.success(`Registration approved for ${student.name}`)
-                              }}
-                            >
-                              <CheckCircle2 size={14} className="mr-2 text-emerald-600" />
-                              Approve Registration
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem
-                            onClick={() => {
-                              const newType = student.registrationType === 'Café' ? 'Non-Café' : 'Café'
-                              setStudents((prev) =>
-                                prev.map((s) => (s.id === student.id ? { ...s, registrationType: newType } : s))
-                              )
-                              toast.success(`Changed registration type to ${newType}`)
-                            }}
-                          >
-                            <FileSpreadsheet size={14} className="mr-2" />
-                            Switch Café / Non-Café
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/40"
-                            onClick={() => handleDeleteStudent(student.id, student.name)}
-                          >
-                            <Trash2 size={14} className="mr-2 text-rose-600" />
-                            Delete Registration
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-
-                      <button
-                        type="button"
-                        className="reg-action-delete"
-                        title="Delete registration"
-                        aria-label={`Delete registration record for ${student.name}`}
-                        onClick={() => handleDeleteStudent(student.id, student.name)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {paginatedStudents.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={8}
-                    style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted-foreground)' }}
-                  >
-                    No student registrations found matching your filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Students Pagination */}
-        <div className="reg-pagination">
-          <span className="reg-pagination__info">
-            Showing {studentStartCount}–{studentEndCount} of {filteredStudents.length} records
-          </span>
-          <div className="reg-pagination__controls">
-            <button
-              type="button"
-              className="reg-page-btn"
-              disabled={studentPage <= 1}
-              onClick={() => setStudentPage((p) => Math.max(p - 1, 1))}
-              aria-label="Previous page"
-            >
-              ‹
-            </button>
-            {Array.from({ length: totalStudentPages }, (_, i) => i + 1).map((pageNum) => (
-              <button
-                key={pageNum}
-                type="button"
-                className={`reg-page-btn ${studentPage === pageNum ? 'reg-page-btn--active' : ''}`}
-                onClick={() => setStudentPage(pageNum)}
-              >
-                {pageNum}
-              </button>
-            ))}
-            <button
-              type="button"
-              className="reg-page-btn"
-              disabled={studentPage >= totalStudentPages}
-              onClick={() => setStudentPage((p) => Math.min(p + 1, totalStudentPages))}
-              aria-label="Next page"
-            >
-              ›
-            </button>
+        {loading ? (
+          <div style={{ padding: '3.5rem 1.5rem', textAlign: 'center', color: 'var(--muted-foreground)' }}>
+            Loading student registrations...
           </div>
-        </div>
+        ) : listQuery.error ? (
+          <div style={{ padding: '3.5rem 1.5rem', textAlign: 'center', color: 'var(--destructive, #ef4444)' }}>
+            {errorMessage(listQuery.error, 'Failed to load student registrations.')}
+          </div>
+        ) : total === 0 ? (
+          <div style={{ padding: '3.5rem 1.5rem', textAlign: 'center' }}>
+            <EmptyState
+              icon={UserCheck}
+              title="No student registrations found"
+              description={
+                studentStatusFilter === 'not_registered'
+                  ? 'All active students have registered for this semester.'
+                  : 'No student registrations have been submitted for this semester yet.'
+              }
+            />
+          </div>
+        ) : (
+          <>
+            {/* Students Table */}
+            <div className="reg-table-container">
+              <table className="reg-table">
+                <thead>
+                  <tr>
+                    <th>Student ID</th>
+                    <th>Student Name</th>
+                    <th>Academic Year</th>
+                    <th>Semester</th>
+                    <th>Registration Type</th>
+                    <th>Status</th>
+                    <th>Registration Date</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {students.map((student) => {
+                    const reg = student.registration
+                    const typeId = reg?.registrationTypeId
+                    return (
+                      <tr key={student.student_id}>
+                        <td style={{ fontWeight: 500, color: 'var(--foreground)' }}>{student.student_number}</td>
+                        <td>{student.name}</td>
+                        <td>{selectedSemester?.academic_year?.name || '—'}</td>
+                        <td>{selectedSemester?.name || '—'}</td>
+                        <td>
+                          {typeId ? (
+                            <span className={`reg-badge ${TYPE_BADGE_CLASS[typeId] || 'reg-badge--non-cafe'}`}>
+                              {typeLabels[typeId] || typeId}
+                            </span>
+                          ) : (
+                            <span>—</span>
+                          )}
+                        </td>
+                        <td>{renderStatusBadge(student.status)}</td>
+                        <td>{formatDate(reg?.submittedAt)}</td>
+                        <td>
+                          {reg ? (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button type="button" className="reg-action-trigger">
+                                    <span>{student.status === 'pending' ? 'Review' : 'Manage'}</span>
+                                    <ChevronDown size={14} aria-hidden="true" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56">
+                                  <DropdownMenuLabel>
+                                    {student.name} ({student.student_number})
+                                  </DropdownMenuLabel>
+
+                                  {student.status === 'pending' && (
+                                    <>
+                                      <DropdownMenuItem onClick={() => handleApprove(student)}>
+                                        <CheckCircle2 size={14} className="mr-2 text-emerald-600" />
+                                        Approve Registration
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => setRejecting(student)}>
+                                        <XCircle size={14} className="mr-2 text-rose-600" />
+                                        Reject Registration
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                    </>
+                                  )}
+                                  {registrationTypes
+                                    .filter((t) => t.id !== typeId)
+                                    .map((t) => (
+                                      <DropdownMenuItem key={t.id} onClick={() => handleChangeType(student, t.id)}>
+                                        <FileSpreadsheet size={14} className="mr-2" />
+                                        Change to {t.label}
+                                      </DropdownMenuItem>
+                                    ))}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/40"
+                                    onClick={() => setDeleting(student)}
+                                  >
+                                    <Trash2 size={14} className="mr-2 text-rose-600" />
+                                    Delete Registration
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+
+                              <button
+                                type="button"
+                                className="reg-action-delete"
+                                title="Delete registration"
+                                aria-label={`Delete registration record for ${student.name}`}
+                                onClick={() => setDeleting(student)}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--muted-foreground)' }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {students.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={8}
+                        style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted-foreground)' }}
+                      >
+                        No student registrations found matching your filters.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Students Pagination */}
+            <div className="reg-pagination">
+              <span className="reg-pagination__info">
+                Showing {studentStartCount}–{studentEndCount} of {total} records
+              </span>
+              <div className="reg-pagination__controls">
+                <button
+                  type="button"
+                  className="reg-page-btn"
+                  disabled={studentPage <= 1}
+                  onClick={() => setStudentPage((p) => Math.max(p - 1, 1))}
+                  aria-label="Previous page"
+                >
+                  ‹
+                </button>
+                {Array.from({ length: totalStudentPages }, (_, i) => i + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    className={`reg-page-btn ${studentPage === pageNum ? 'reg-page-btn--active' : ''}`}
+                    onClick={() => setStudentPage(pageNum)}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="reg-page-btn"
+                  disabled={studentPage >= totalStudentPages}
+                  onClick={() => setStudentPage((p) => Math.min(p + 1, totalStudentPages))}
+                  aria-label="Next page"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </section>
+
+      <ConfirmDialog
+        open={Boolean(rejecting)}
+        onOpenChange={(v) => !v && setRejecting(null)}
+        title={`Reject registration for ${rejecting?.name ?? 'student'}?`}
+        description="The student will be notified with the remarks you provide."
+        confirmLabel="Reject registration"
+        variant="destructive"
+        reasonLabel="Remarks"
+        reasonPlaceholder="Explain why the registration is rejected"
+        onConfirm={async (remarks) => {
+          const ok = await runAction(
+            () => reviewSemesterRegistrationApi(rejecting.registration.id, { status: 'rejected', remarks }),
+            `Registration rejected for ${rejecting.name}.`,
+            'Failed to reject registration.'
+          )
+          return ok ? undefined : false
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        onOpenChange={(v) => !v && setDeleting(null)}
+        title={`Delete registration for ${deleting?.name ?? 'student'}?`}
+        description="This permanently removes the student's registration record for this semester."
+        confirmLabel="Delete registration"
+        variant="destructive"
+        onConfirm={async () => {
+          const ok = await runAction(
+            () => deleteSemesterRegistrationApi(deleting.registration.id),
+            `Registration record for ${deleting.name} deleted.`,
+            'Failed to delete registration.'
+          )
+          return ok ? undefined : false
+        }}
+      />
     </div>
   )
 }

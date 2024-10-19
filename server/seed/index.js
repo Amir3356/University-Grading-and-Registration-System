@@ -311,57 +311,8 @@ export async function seedDatabase() {
       );
     }
 
-    // Periods
-    const periods = [
-      { id: 'per_2026_fall', semesterId: 'sem_2026_fall', startDate: '2026-08-01', deadline: '2026-11-30', status: 'open', types: ['cafe', 'non_cafe', 'extension', 'weekend'] },
-      { id: 'per_2026_spring', semesterId: 'sem_2026_spring', startDate: '2026-01-15', deadline: '2026-02-15', status: 'closed', types: ['cafe', 'non_cafe', 'extension'] },
-      { id: 'per_2027_spring', semesterId: 'sem_2027_spring', startDate: '2027-01-15', deadline: '2027-02-15', status: 'scheduled', types: ['cafe', 'non_cafe'] },
-    ];
-    for (const p of periods) {
-      await client.query(
-        `INSERT INTO registration_periods (id, semester_id, start_date, deadline, status, created_by)
-         VALUES ($1, $2, $3, $4, $5, 'usr_0001')
-         ON CONFLICT (id) DO UPDATE SET
-           status = EXCLUDED.status,
-           start_date = EXCLUDED.start_date,
-           deadline = EXCLUDED.deadline`,
-        [p.id, p.semesterId, p.startDate, p.deadline, p.status]
-      );
-      for (const t of p.types) {
-        await client.query(
-          `INSERT INTO registration_period_types (period_id, registration_type_id)
-           VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-          [p.id, t]
-        );
-      }
-    }
-
-    // Semester registrations for current semester
-    console.log('Seeding student semester registrations...');
-    for (let i = 0; i < studentsData.length; i++) {
-      const s = studentsData[i];
-      const isRegistered = i < 35;
-      const isPending = i >= 35 && i < 45;
-      if (isRegistered || isPending) {
-        const regId = `reg_${s.id}_2026_fall`;
-        const status = isRegistered ? 'registered' : 'pending';
-        const type = i % 2 === 0 ? 'cafe' : 'non_cafe';
-        await client.query(
-          `INSERT INTO semester_registrations (
-             id, student_id, semester_id, period_id, registration_type_id, status, submitted_at, reviewed_by, reviewed_at
-           ) VALUES ($1, $2, 'sem_2026_fall', 'per_2026_fall', $3, $4, '2026-08-20T09:00:00Z', $5, $6)
-           ON CONFLICT (student_id, semester_id) DO NOTHING`,
-          [
-            regId,
-            s.id,
-            type,
-            status,
-            isRegistered ? 'usr_0001' : null,
-            isRegistered ? '2026-08-21T10:00:00Z' : null,
-          ]
-        );
-      }
-    }
+    // Registration periods and semester registrations:
+    // Left unseeded so administrators configure real registration periods from the UI.
 
     // 10. Course Offerings
     console.log('Seeding course offerings...');
