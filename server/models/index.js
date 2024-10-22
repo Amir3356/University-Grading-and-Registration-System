@@ -11,5 +11,4 @@ export * from './Grade.js';
 export * from './GradeSubmission.js';
 export * from './WithdrawalRequest.js';
 export * from './Notification.js';
-export * from './AuditLog.js';
 export * from './UniversitySetting.js';

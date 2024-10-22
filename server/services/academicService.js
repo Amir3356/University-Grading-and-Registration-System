@@ -4,7 +4,6 @@ import * as courseRepo from '../repositories/courseRepository.js';
 import * as calRepo from '../repositories/calendarRepository.js';
 import { newId } from '../utils/idGenerator.js';
 import { ConflictError, NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
-import { logAudit } from '../middleware/audit.js';
 import { query } from '../config/database.js';
 
 // ----------------- Departments -----------------
@@ -39,14 +38,6 @@ export async function createDepartment(data, user) {
     headTeacherId: data.headTeacherId,
   });
 
-  await logAudit(query, {
-    userId: user.id,
-    action: 'department.created',
-    entityType: 'department',
-    entityId: id,
-    details: `Created department ${data.name} (${code})`,
-  });
-
   return dept;
 }
 
@@ -59,14 +50,6 @@ export async function updateDepartment(id, data, user) {
     name: data.name?.trim(),
     description: data.description,
     headTeacherId: data.headTeacherId,
-  });
-
-  await logAudit(query, {
-    userId: user.id,
-    action: 'department.updated',
-    entityType: 'department',
-    entityId: id,
-    details: `Updated department ${id}`,
   });
 
   return dept;
@@ -82,13 +65,6 @@ export async function deleteDepartment(id, user) {
   }
 
   await deptRepo.deleteDepartment(id);
-  await logAudit(query, {
-    userId: user.id,
-    action: 'department.deleted',
-    entityType: 'department',
-    entityId: id,
-    details: `Deleted department ${id}`,
-  });
   return { ok: true };
 }
 
@@ -123,28 +99,12 @@ export async function createProgram(data, user) {
     requiredCredits: data.requiredCredits || 140,
   });
 
-  await logAudit(query, {
-    userId: user.id,
-    action: 'program.created',
-    entityType: 'program',
-    entityId: id,
-    details: `Created program ${data.name}`,
-  });
-
   return prog;
 }
 
 export async function updateProgram(id, data, user) {
   const prog = await progRepo.updateProgram(id, data);
   if (!prog) throw new NotFoundError('Program');
-
-  await logAudit(query, {
-    userId: user.id,
-    action: 'program.updated',
-    entityType: 'program',
-    entityId: id,
-    details: `Updated program ${id}`,
-  });
 
   return prog;
 }
@@ -155,13 +115,6 @@ export async function deleteProgram(id, user) {
     throw new ConflictError('Cannot delete program with registered students.');
   }
   await progRepo.deleteProgram(id);
-  await logAudit(query, {
-    userId: user.id,
-    action: 'program.deleted',
-    entityType: 'program',
-    entityId: id,
-    details: `Deleted program ${id}`,
-  });
   return { ok: true };
 }
 
@@ -171,13 +124,6 @@ export async function getProgramCurriculum(programId) {
 
 export async function updateProgramCurriculum(programId, coursesList, user) {
   await progRepo.updateCurriculum(programId, coursesList);
-  await logAudit(query, {
-    userId: user.id,
-    action: 'curriculum.updated',
-    entityType: 'program',
-    entityId: programId,
-    details: `Updated curriculum for program ${programId}`,
-  });
   return await progRepo.getCurriculum(programId);
 }
 
@@ -230,14 +176,6 @@ export async function createCourse(data, user) {
     description: data.description,
   });
 
-  await logAudit(query, {
-    userId: user.id,
-    action: 'course.created',
-    entityType: 'course',
-    entityId: id,
-    details: `Created course ${data.code} (${data.title})`,
-  });
-
   return course;
 }
 
@@ -267,14 +205,6 @@ export async function updateCourse(id, data, user) {
     status: data.status,
   });
 
-  await logAudit(query, {
-    userId: user.id,
-    action: 'course.updated',
-    entityType: 'course',
-    entityId: id,
-    details: `Updated course ${existing.code}`,
-  });
-
   return course;
 }
 
@@ -292,13 +222,6 @@ export async function deleteCourse(id, user) {
   }
 
   await courseRepo.deleteCourse(id);
-  await logAudit(query, {
-    userId: user.id,
-    action: 'course.deleted',
-    entityType: 'course',
-    entityId: id,
-    details: `Deleted course ${existing.code}`,
-  });
   return { ok: true };
 }
 
@@ -321,28 +244,12 @@ export async function createAcademicYear(data, user) {
     endDate: data.endDate,
   });
 
-  await logAudit(query, {
-    userId: user.id,
-    action: 'academic_year.created',
-    entityType: 'academic_year',
-    entityId: id,
-    details: `Created academic year ${data.name}`,
-  });
-
   return year;
 }
 
 export async function updateAcademicYear(id, data, user) {
   const year = await calRepo.updateAcademicYear(id, data);
   if (!year) throw new NotFoundError('Academic year');
-
-  await logAudit(query, {
-    userId: user.id,
-    action: 'academic_year.updated',
-    entityType: 'academic_year',
-    entityId: id,
-    details: `Updated academic year ${id}`,
-  });
 
   return year;
 }
@@ -367,14 +274,6 @@ export async function createSemester(data, user) {
     withdrawalDeadline: data.withdrawalDeadline || null,
   });
 
-  await logAudit(query, {
-    userId: user.id,
-    action: 'semester.created',
-    entityType: 'semester',
-    entityId: id,
-    details: `Created semester ${name}`,
-  });
-
   return sem;
 }
 
@@ -382,28 +281,12 @@ export async function updateSemester(id, data, user) {
   const sem = await calRepo.updateSemester(id, data);
   if (!sem) throw new NotFoundError('Semester');
 
-  await logAudit(query, {
-    userId: user.id,
-    action: 'semester.updated',
-    entityType: 'semester',
-    entityId: id,
-    details: `Updated semester ${id}`,
-  });
-
   return sem;
 }
 
 export async function setCurrentSemester(id, user) {
   const target = await calRepo.setCurrentSemester(id);
   if (!target) throw new NotFoundError('Semester');
-
-  await logAudit(query, {
-    userId: user.id,
-    action: 'semester.set_current',
-    entityType: 'semester',
-    entityId: id,
-    details: `Set ${target.name} as current semester`,
-  });
 
   return target;
 }
@@ -417,12 +300,5 @@ export async function deleteSemester(id, user) {
   if (hasOff) throw new ConflictError('Cannot delete semester that has course offerings assigned.');
 
   await calRepo.deleteSemester(id);
-  await logAudit(query, {
-    userId: user.id,
-    action: 'semester.deleted',
-    entityType: 'semester',
-    entityId: id,
-    details: `Deleted semester ${sem.name}`,
-  });
   return { ok: true };
 }

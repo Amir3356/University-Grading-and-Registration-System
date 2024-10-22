@@ -1,6 +1,5 @@
 import { query, withTransaction } from '../config/database.js';
 import { newId } from '../utils/idGenerator.js';
-import { logAudit } from '../middleware/audit.js';
 import { getOfferingById, updateOfferingGradeStatus } from './offeringRepository.js';
 import { getActiveGradeScale, getAcademicPolicy } from './gradebookRepository.js';
 import { computeEnrollmentScore } from '../utils/gpaCalculator.js';
@@ -145,19 +144,6 @@ export async function submitGrades(offeringId, note, user) {
       `UPDATE course_offerings SET grade_status = $2, updated_at = now() WHERE id = $1`,
       [offeringId, initialStatus]
     );
-
-    // Audit log
-    await logAudit(client, {
-      userId: user.id,
-      action: publishImmediately ? 'grades.published' : 'grades.submitted',
-      entityType: 'course_offering',
-      entityId: offeringId,
-      offeringId,
-      details: publishImmediately ? 'Published final grades directly' : 'Submitted final grades for approval',
-      reason: note || null,
-      before: { gradeStatus: offering.grade_status },
-      after: { gradeStatus: initialStatus },
-    });
 
     // Notify department head if workflow enabled
     if (!publishImmediately) {
@@ -393,16 +379,6 @@ export async function approveSubmission(submissionId, comment, user) {
       [sub.offering_id]
     );
 
-    await logAudit(client, {
-      userId: user.id,
-      action: 'grades.approved',
-      entityType: 'course_offering',
-      entityId: sub.offering_id,
-      offeringId: sub.offering_id,
-      details: 'Department head approved submitted grades',
-      reason: comment || null,
-    });
-
     // Notify teacher
     const notifId = newId('ntf');
     await client.query(
@@ -453,16 +429,6 @@ export async function rejectSubmission(submissionId, comment, user) {
        WHERE ce.id = fg.enrollment_id AND ce.offering_id = $1`,
       [sub.offering_id]
     );
-
-    await logAudit(client, {
-      userId: user.id,
-      action: 'grades.rejected',
-      entityType: 'course_offering',
-      entityId: sub.offering_id,
-      offeringId: sub.offering_id,
-      details: `Grades returned/rejected at ${stage} stage: ${comment}`,
-      reason: comment,
-    });
 
     // Notify teacher
     const notifId = newId('ntf');
@@ -515,15 +481,6 @@ export async function publishSubmission(submissionId, user) {
        WHERE ce.id = fg.enrollment_id AND ce.offering_id = $1`,
       [sub.offering_id]
     );
-
-    await logAudit(client, {
-      userId: user.id,
-      action: 'grades.published',
-      entityType: 'course_offering',
-      entityId: sub.offering_id,
-      offeringId: sub.offering_id,
-      details: 'Registrar published official final grades',
-    });
 
     // Notify all enrolled students
     const enrRes = await client.query(

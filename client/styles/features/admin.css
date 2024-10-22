@@ -539,6 +539,7 @@
   line-height: 1.25;
 }
 
+.reg-badge--regular,
 .reg-badge--cafe {
   background: #e0f2fe;
   color: #0369a1;
@@ -605,6 +606,7 @@
   border: 1px solid #fecaca;
 }
 
+.dark .reg-badge--regular,
 .dark .reg-badge--cafe {
   background: rgba(2, 132, 199, 0.2);
   color: #7dd3fc;

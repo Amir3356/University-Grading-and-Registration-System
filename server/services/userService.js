@@ -4,21 +4,49 @@ import * as deptRepo from '../repositories/departmentRepository.js';
 import { newId, generateTemporaryPassword } from '../utils/idGenerator.js';
 import { hashPassword } from '../utils/password.js';
 import { ValidationError, ConflictError, NotFoundError, ForbiddenError } from '../utils/errors.js';
-import { logAudit } from '../middleware/audit.js';
+
+/**
+ * A department head manages accounts in their department, plus accounts they
+ * provisioned themselves (which may since have been placed in another department).
+ */
+function deptHeadCanManage(caller, { departmentId, createdBy }) {
+  return createdBy === caller.id || !departmentId || departmentId === caller.departmentId;
+}
+
+async function assertDeptHeadCanManage(caller, userId, message) {
+  const res = await query(
+    `SELECT u.created_by, COALESCE(s.department_id, t.department_id) AS department_id
+     FROM users u
+     LEFT JOIN students s ON s.user_id = u.id
+     LEFT JOIN teachers t ON t.user_id = u.id
+     WHERE u.id = $1`,
+    [userId]
+  );
+  const row = res.rows[0];
+  if (!row) throw new NotFoundError('User');
+  if (!deptHeadCanManage(caller, { departmentId: row.department_id, createdBy: row.created_by })) {
+    throw new ForbiddenError(message);
+  }
+}
 
 export async function listUsers(filters, caller) {
   if (caller.roleId === 'dept_head') {
-    filters.departmentId = caller.departmentId;
+    delete filters.departmentId;
+    filters.managedBy = { departmentId: caller.departmentId, userId: caller.id };
   }
   return await userRepo.listUsers(filters);
 }
 
-export async function getUserDetail(id, caller) {
+export async function getUserDetail(id, caller, { skipScopeCheck = false } = {}) {
   const user = await userRepo.findById(id);
   if (!user) throw new NotFoundError('User');
 
   const profile = await userRepo.getUserProfile(user.id, user.role_id);
-  if (caller.roleId === 'dept_head' && profile?.department_id && profile.department_id !== caller.departmentId) {
+  if (
+    !skipScopeCheck &&
+    caller.roleId === 'dept_head' &&
+    !deptHeadCanManage(caller, { departmentId: profile?.department_id, createdBy: user.created_by })
+  ) {
     throw new ForbiddenError('You can only view users in your department.');
   }
 
@@ -40,31 +68,36 @@ export async function getUserDetail(id, caller) {
     offerings = offRes.items;
   }
 
-  // Recent activity
-  const actRes = await query(
-    `SELECT * FROM audit_logs WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10`,
-    [id]
-  );
+  // Recent activity (audit logs removed)
+  const recentActivity = [];
+
+  const userObj = {
+    id: user.id,
+    roleId: user.role_id,
+    username: user.username,
+    firstName: user.first_name,
+    lastName: user.last_name,
+    name: `${user.first_name} ${user.last_name}`.trim(),
+    email: user.email,
+    phone: user.phone,
+    status: user.status,
+    identifier: profile?.student_number || profile?.employee_number || null,
+    departmentId: profile?.department_id || null,
+    departmentName: profile?.department?.name || null,
+    programType: profile?.program_type || null,
+    mustChangePassword: user.must_change_password,
+    lastLoginAt: user.last_login_at,
+    createdAt: user.created_at,
+    updatedAt: user.updated_at,
+  };
 
   return {
-    user: {
-      id: user.id,
-      roleId: user.role_id,
-      username: user.username,
-      firstName: user.first_name,
-      lastName: user.last_name,
-      email: user.email,
-      phone: user.phone,
-      status: user.status,
-      mustChangePassword: user.must_change_password,
-      lastLoginAt: user.last_login_at,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at,
-    },
+    ...userObj,
+    user: userObj,
     profile,
     summary,
     offerings,
-    recentActivity: actRes.rows,
+    recentActivity,
   };
 }
 
@@ -74,7 +107,8 @@ export async function createUser(data, caller) {
     if (!['student', 'teacher'].includes(data.roleId)) {
       throw new ForbiddenError('Department heads can only create student and teacher accounts.');
     }
-    data.departmentId = caller.departmentId;
+    // Department heads may place accounts in any department; default to their own.
+    if (!data.departmentId && !data.department) data.departmentId = caller.departmentId;
   }
 
   // Validation
@@ -160,6 +194,17 @@ export async function createUser(data, caller) {
   }
 
   // Uniqueness
+  const table = profileTable(data.roleId);
+  if (table) {
+    const column = table === 'students' ? 'student_number' : 'employee_number';
+    const dup = await query(`SELECT 1 FROM ${table} WHERE lower(${column}) = lower($1) LIMIT 1`, [data.identifier.trim()]);
+    if (dup.rows.length > 0) {
+      throw new ValidationError('This ID is already assigned to another user.', {
+        identifier: 'This ID is already assigned to another user.',
+      });
+    }
+  }
+
   const existingUsername = await userRepo.findByUsername(data.username);
   if (existingUsername) {
     throw new ValidationError('This username is already in use.', { username: 'This username is already in use.' });
@@ -183,8 +228,8 @@ export async function createUser(data, caller) {
     const userRes = await client.query(
       `INSERT INTO users (
          id, role_id, username, first_name, last_name, email, phone,
-         password_hash, must_change_password, status
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, 'active')
+         password_hash, must_change_password, status, created_by
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, 'active', $9)
        RETURNING *`,
       [
         userId,
@@ -195,6 +240,7 @@ export async function createUser(data, caller) {
         data.email.trim(),
         data.phone?.trim() || null,
         passwordHash,
+        caller?.id || null,
       ]
     );
     const user = userRes.rows[0];
@@ -262,15 +308,6 @@ export async function createUser(data, caller) {
       }
     }
 
-    await logAudit(client, {
-      userId: caller.id,
-      action: 'user.created',
-      entityType: 'user',
-      entityId: userId,
-      details: `Created new ${data.roleId} account for ${data.firstName} ${data.lastName} (${data.username})`,
-      after: { username: data.username, roleId: data.roleId, email: data.email },
-    });
-
     return {
       user: {
         id: user.id,
@@ -291,19 +328,41 @@ export async function createUser(data, caller) {
   });
 }
 
+const MANAGED_BY_DEPT_HEAD = ['student', 'teacher'];
+
+/** Profile table that holds a role's academic record (null for admins). */
+function profileTable(roleId) {
+  if (roleId === 'student') return 'students';
+  if (roleId === 'teacher' || roleId === 'dept_head') return 'teachers';
+  return null;
+}
+
+async function resolveProgramId(client, departmentId) {
+  const progRes = await client.query('SELECT id FROM programs WHERE department_id = $1 LIMIT 1', [departmentId]);
+  if (progRes.rows.length > 0) return progRes.rows[0].id;
+  const anyProg = await client.query('SELECT id FROM programs LIMIT 1');
+  return anyProg.rows[0]?.id || 'prg_bsc_cs';
+}
+
 export async function updateUser(id, data, caller) {
   const user = await userRepo.findById(id);
   if (!user) throw new NotFoundError('User');
 
+  const profile = await userRepo.getUserProfile(user.id, user.role_id);
+  const newRole = data.roleId || user.role_id;
+  const roleChanged = newRole !== user.role_id;
+
   if (caller.roleId === 'dept_head') {
-    const profile = await userRepo.getUserProfile(user.id, user.role_id);
-    if (profile?.department_id && profile.department_id !== caller.departmentId) {
-      throw new ForbiddenError('You can only update users in your department.');
+    if (!MANAGED_BY_DEPT_HEAD.includes(user.role_id) || !MANAGED_BY_DEPT_HEAD.includes(newRole)) {
+      throw new ForbiddenError('Department heads can only manage student and teacher accounts.');
+    }
+    if (!deptHeadCanManage(caller, { departmentId: profile?.department_id, createdBy: user.created_by })) {
+      throw new ForbiddenError('You can only update users in your department or accounts you created.');
     }
   }
 
   // Prevent role change if academic records exist
-  if (data.roleId && data.roleId !== user.role_id) {
+  if (roleChanged) {
     if (caller.id === id) throw new ConflictError('You cannot change your own role.');
     const enrRes = await query(`SELECT count(*) as count FROM course_enrollments ce JOIN students s ON s.id = ce.student_id WHERE s.user_id = $1`, [id]);
     const offRes = await query(`SELECT count(*) as count FROM course_offerings co JOIN teachers t ON t.id = co.teacher_id WHERE t.user_id = $1`, [id]);
@@ -321,6 +380,7 @@ export async function updateUser(id, data, caller) {
           OR lower(code) = lower($1)
           OR lower(name) = lower($1)
           OR lower(name) ILIKE lower($2)
+       ORDER BY CASE WHEN id = $1 THEN 1 WHEN lower(code) = lower($1) THEN 2 ELSE 3 END
        LIMIT 1`,
       [deptInput, `%${deptInput}%`]
     );
@@ -329,17 +389,54 @@ export async function updateUser(id, data, caller) {
     }
   }
 
-  return await withTransaction(async (client) => {
+  const oldTable = profileTable(user.role_id);
+  const newTable = profileTable(newRole);
+  const identifier = data.identifier?.trim() || profile?.student_number || profile?.employee_number || null;
+  const departmentId = data.departmentId || profile?.department_id || null;
+  const username = data.username?.trim() || null;
+
+  // Validation & uniqueness (excluding this user)
+  const errors = {};
+  if (username && username.toLowerCase() !== user.username.toLowerCase()) {
+    const existing = await userRepo.findByUsername(username);
+    if (existing && existing.id !== id) errors.username = 'This username is already in use.';
+  }
+  if (data.email && data.email.toLowerCase() !== user.email.toLowerCase()) {
+    const existing = await userRepo.findByEmail(data.email);
+    if (existing && existing.id !== id) errors.email = 'This email is already in use.';
+  }
+  const currentIdentifier = profile?.student_number || profile?.employee_number || '';
+  const identifierChanged = oldTable !== newTable || identifier?.toLowerCase() !== currentIdentifier.toLowerCase();
+  if (newTable) {
+    if (!identifier) {
+      errors.identifier = newRole === 'student' ? 'Student ID is required.' : 'Teacher ID is required.';
+    } else if (identifierChanged) {
+      // Only check when the ID changes, so pre-existing duplicates don't block unrelated edits.
+      const column = newTable === 'students' ? 'student_number' : 'employee_number';
+      const dup = await query(
+        `SELECT 1 FROM ${newTable} WHERE lower(${column}) = lower($1) AND user_id <> $2 LIMIT 1`,
+        [identifier, id]
+      );
+      if (dup.rows.length > 0) errors.identifier = 'This ID is already assigned to another user.';
+    }
+    if (!departmentId) errors.departmentId = 'Department is required.';
+  }
+  if (Object.keys(errors).length > 0) {
+    throw new ValidationError('Please correct the highlighted fields.', errors);
+  }
+
+  await withTransaction(async (client) => {
     await client.query(
       `UPDATE users
        SET first_name = COALESCE($2, first_name),
            last_name = COALESCE($3, last_name),
            email = COALESCE($4, email),
            phone = $5,
-           role_id = COALESCE($6, role_id),
+           role_id = $6,
+           username = COALESCE($7, username),
            updated_at = now()
        WHERE id = $1`,
-      [id, data.firstName, data.lastName, data.email, data.phone || null, data.roleId]
+      [id, data.firstName, data.lastName, data.email, data.phone || null, newRole, username]
     );
 
     if (data.password && String(data.password).trim() !== '') {
@@ -350,45 +447,103 @@ export async function updateUser(id, data, caller) {
       );
     }
 
-    // Update profile
-    if (user.role_id === 'student') {
+    // A department head stepping down no longer heads the department.
+    if (user.role_id === 'dept_head' && newRole !== 'dept_head') {
+      await client.query(
+        `UPDATE departments SET head_teacher_id = NULL
+         WHERE head_teacher_id IN (SELECT id FROM teachers WHERE user_id = $1)`,
+        [id]
+      );
+    }
+
+    if (oldTable !== newTable) {
+      // Role moved to a different profile table: replace the old profile row.
+      if (oldTable) await client.query(`DELETE FROM ${oldTable} WHERE user_id = $1`, [id]);
+
+      if (newTable === 'students') {
+        await client.query(
+          `INSERT INTO students (
+             id, user_id, student_number, department_id, program_id, program_type,
+             admission_year, year_of_study, academic_status
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active')`,
+          [
+            newId('stu'),
+            id,
+            identifier,
+            departmentId,
+            data.programId || (await resolveProgramId(client, departmentId)),
+            data.programType || 'regular',
+            data.admissionYear || new Date().getFullYear(),
+            data.yearOfStudy || 1,
+          ]
+        );
+      } else if (newTable === 'teachers') {
+        await client.query(
+          `INSERT INTO teachers (
+             id, user_id, employee_number, department_id, title, specialization, office_room, hire_date
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            newId('tch'),
+            id,
+            identifier,
+            departmentId,
+            data.title || 'Dr.',
+            data.specialization || null,
+            data.officeRoom || null,
+            new Date().toISOString().split('T')[0],
+          ]
+        );
+      }
+    } else if (newTable === 'students') {
+      // Keep the program consistent with the department when the department changes.
+      const programId =
+        data.programId ||
+        (departmentId !== profile?.department_id ? await resolveProgramId(client, departmentId) : null);
       await client.query(
         `UPDATE students
-         SET student_number = COALESCE($2, student_number),
-             department_id = COALESCE($3, department_id),
+         SET student_number = $2,
+             department_id = $3,
              program_id = COALESCE($4, program_id),
              program_type = COALESCE($5, program_type),
              year_of_study = COALESCE($6, year_of_study),
              updated_at = now()
          WHERE user_id = $1`,
-        [id, data.identifier, data.departmentId, data.programId, data.programType, data.yearOfStudy]
+        [id, identifier, departmentId, programId, data.programType, data.yearOfStudy]
       );
-    } else if (user.role_id === 'teacher' || user.role_id === 'dept_head') {
+    } else if (newTable === 'teachers') {
       await client.query(
         `UPDATE teachers
-         SET employee_number = COALESCE($2, employee_number),
-             department_id = COALESCE($3, department_id),
+         SET employee_number = $2,
+             department_id = $3,
              title = COALESCE($4, title),
-             specialization = $5,
-             office_room = $6,
+             specialization = COALESCE($5, specialization),
+             office_room = COALESCE($6, office_room),
              updated_at = now()
          WHERE user_id = $1`,
-        [id, data.identifier, data.departmentId, data.title, data.specialization || null, data.officeRoom || null]
+        [id, identifier, departmentId, data.title, data.specialization, data.officeRoom]
       );
     }
 
-    await logAudit(client, {
-      userId: caller.id,
-      action: 'user.updated',
-      entityType: 'user',
-      entityId: id,
-      details: `Updated account details for user ${user.username}`,
-      before: { firstName: user.first_name, lastName: user.last_name, email: user.email },
-      after: { firstName: data.firstName, lastName: data.lastName, email: data.email },
-    });
-
-    return await getUserDetail(id, caller);
+    // Promotion to department head: demote the previous head and take over the department.
+    if (newRole === 'dept_head' && user.role_id !== 'dept_head') {
+      const prevHeadRes = await client.query(
+        `SELECT t.user_id FROM departments d JOIN teachers t ON t.id = d.head_teacher_id WHERE d.id = $1`,
+        [departmentId]
+      );
+      const prevHeadUserId = prevHeadRes.rows[0]?.user_id;
+      if (prevHeadUserId && prevHeadUserId !== id) {
+        await client.query(`UPDATE users SET role_id = 'teacher', updated_at = now() WHERE id = $1`, [prevHeadUserId]);
+      }
+      await client.query(
+        `UPDATE departments SET head_teacher_id = (SELECT id FROM teachers WHERE user_id = $1) WHERE id = $2`,
+        [id, departmentId]
+      );
+    }
   });
+
+  // Read back after commit so the response reflects the saved state. The caller was authorised
+  // above, so skip the scope check: the account may have just moved to another department.
+  return await getUserDetail(id, caller, { skipScopeCheck: true });
 }
 
 export async function setUserStatus(id, { status, reason }, caller) {
@@ -407,17 +562,7 @@ export async function setUserStatus(id, { status, reason }, caller) {
       if (!['student', 'teacher'].includes(user.role_id)) {
         throw new ForbiddenError('Department heads can only activate or deactivate student and teacher accounts.');
       }
-      if (user.role_id === 'student') {
-        const stu = await client.query(`SELECT department_id FROM students WHERE user_id = $1`, [id]);
-        if (stu.rows.length > 0 && caller.departmentId && stu.rows[0].department_id !== caller.departmentId) {
-          throw new ForbiddenError('You can only manage students in your department.');
-        }
-      } else if (user.role_id === 'teacher') {
-        const tch = await client.query(`SELECT department_id FROM teachers WHERE user_id = $1`, [id]);
-        if (tch.rows.length > 0 && caller.departmentId && tch.rows[0].department_id !== caller.departmentId) {
-          throw new ForbiddenError('You can only manage teachers in your department.');
-        }
-      }
+      await assertDeptHeadCanManage(caller, id, 'You can only manage users in your department or accounts you created.');
     }
 
     await client.query(
@@ -432,17 +577,6 @@ export async function setUserStatus(id, { status, reason }, caller) {
       const stuStatus = status === 'inactive' ? 'suspended' : 'active';
       await client.query(`UPDATE students SET academic_status = $2, updated_at = now() WHERE user_id = $1`, [id, stuStatus]);
     }
-
-    await logAudit(client, {
-      userId: caller.id,
-      action: 'user.status_changed',
-      entityType: 'user',
-      entityId: id,
-      details: `Changed account status to ${status}`,
-      reason: cleanReason,
-      before: { status: user.status },
-      after: { status },
-    });
 
     return { id, status, reason: cleanReason };
   });
@@ -459,17 +593,7 @@ export async function deleteUser(id, caller) {
     if (!['student', 'teacher'].includes(userRes.rows[0].role_id)) {
       throw new ForbiddenError('Department heads can only delete student and teacher accounts.');
     }
-    if (userRes.rows[0].role_id === 'student') {
-      const stu = await query(`SELECT department_id FROM students WHERE user_id = $1`, [id]);
-      if (stu.rows.length > 0 && caller.departmentId && stu.rows[0].department_id !== caller.departmentId) {
-        throw new ForbiddenError('You can only delete students in your department.');
-      }
-    } else if (userRes.rows[0].role_id === 'teacher') {
-      const tch = await query(`SELECT department_id FROM teachers WHERE user_id = $1`, [id]);
-      if (tch.rows.length > 0 && caller.departmentId && tch.rows[0].department_id !== caller.departmentId) {
-        throw new ForbiddenError('You can only delete teachers in your department.');
-      }
-    }
+    await assertDeptHeadCanManage(caller, id, 'You can only delete users in your department or accounts you created.');
   }
 
   const enrRes = await query(
@@ -493,14 +617,6 @@ export async function deleteUser(id, caller) {
     await client.query(`DELETE FROM teachers WHERE user_id = $1`, [id]);
     await client.query(`DELETE FROM users WHERE id = $1`, [id]);
 
-    await logAudit(client, {
-      userId: caller.id,
-      action: 'user.deleted',
-      entityType: 'user',
-      entityId: id,
-      details: `Deleted user account ${id}`,
-    });
-
     return { ok: true };
   });
 }
@@ -522,14 +638,6 @@ export async function resetPassword(id, caller) {
      VALUES ($1, $2, 'Password Reset', 'An administrator has reset your password. Please sign in with your temporary password and choose a new one.', 'system')`,
     [notifId, id]
   );
-
-  await logAudit(query, {
-    userId: caller.id,
-    action: 'auth.password_reset',
-    entityType: 'user',
-    entityId: id,
-    details: 'Administrator reset user password',
-  });
 
   return { temporaryPassword: tempPassword };
 }

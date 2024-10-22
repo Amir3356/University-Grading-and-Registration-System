@@ -1,6 +1,5 @@
 import { query, withTransaction } from '../config/database.js';
 import { newId } from '../utils/idGenerator.js';
-import { logAudit } from '../middleware/audit.js';
 import { computeEnrollmentScore, roundTo2 } from '../utils/gpaCalculator.js';
 import { getOfferingById } from './offeringRepository.js';
 
@@ -323,17 +322,6 @@ export async function saveScoreChanges(offeringId, changes, reason, user) {
         if (existing) {
           await client.query(`DELETE FROM assessment_scores WHERE id = $1`, [existing.id]);
           cleared++;
-          await logAudit(client, {
-            userId: user.id,
-            action: 'score.deleted',
-            entityType: 'assessment_score',
-            entityId: existing.id,
-            offeringId,
-            details: `Cleared marks for enrollment ${enrollmentId}`,
-            reason,
-            before: { marks: existing.marks },
-            after: null,
-          });
         }
       } else {
         const numericMarks = parseFloat(marks);
@@ -343,17 +331,6 @@ export async function saveScoreChanges(offeringId, changes, reason, user) {
             [existing.id, numericMarks, user.id]
           );
           updated++;
-          await logAudit(client, {
-            userId: user.id,
-            action: 'score.updated',
-            entityType: 'assessment_score',
-            entityId: existing.id,
-            offeringId,
-            details: `Updated marks from ${existing.marks} to ${numericMarks}`,
-            reason,
-            before: { marks: existing.marks },
-            after: { marks: numericMarks },
-          });
         } else {
           const id = newId('scr');
           await client.query(
@@ -362,17 +339,6 @@ export async function saveScoreChanges(offeringId, changes, reason, user) {
             [id, assessmentId, enrollmentId, numericMarks, user.id]
           );
           created++;
-          await logAudit(client, {
-            userId: user.id,
-            action: 'score.created',
-            entityType: 'assessment_score',
-            entityId: id,
-            offeringId,
-            details: `Entered marks: ${numericMarks}`,
-            reason,
-            before: null,
-            after: { marks: numericMarks },
-          });
         }
       }
     }
@@ -399,17 +365,8 @@ export async function saveScoreChanges(offeringId, changes, reason, user) {
 }
 
 export async function getGradeHistory(offeringId) {
-  const sql = `
-    SELECT al.created_at, al.action, al.details, al.reason, al.before, al.after,
-           (u.first_name || ' ' || u.last_name) as user_name
-    FROM audit_logs al
-    LEFT JOIN users u ON u.id = al.user_id
-    WHERE al.offering_id = $1
-       OR (al.entity_type = 'course_offering' AND al.entity_id = $1)
-    ORDER BY al.created_at DESC
-  `;
-  const res = await query(sql, [offeringId]);
-  return res.rows;
+  // Audit log query removed; return empty history list
+  return [];
 }
 
 export async function getActiveEnrollmentIds(offeringId) {

@@ -323,8 +323,8 @@ This models the Readme flow: each semester the admin opens a period, and every s
 #### `registration_types`
 | Attribute | Type | Constraints | Description |
 |---|---|---|---|
-| id | VARCHAR(20) | PK | `cafe`, `non_cafe`, `extension`, `weekend` |
-| label | VARCHAR(60) | NN | "Regular (Café)", "Non-Regular (Non-Café)", "Extension", "Weekend" |
+| id | VARCHAR(20) | PK | `regular`, `extension`, `weekend` |
+| label | VARCHAR(60) | NN | "Regular (Café & Non-Café)", "Extension", "Weekend" |
 | description | TEXT | Null | |
 | is_active | BOOLEAN | NN, default true | |
 

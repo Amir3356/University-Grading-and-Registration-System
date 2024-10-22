@@ -129,14 +129,8 @@ export async function getAdminDashboard() {
     });
   }
 
-  // Recent activity
-  const actRes = await query(`
-    SELECT al.*, (u.first_name || ' ' || u.last_name) as user_name
-    FROM audit_logs al
-    LEFT JOIN users u ON u.id = al.user_id
-    ORDER BY al.created_at DESC
-    LIMIT 10
-  `);
+  // Recent activity (audit logs removed)
+  const recentActivity = [];
 
   return {
     currentSemester,
@@ -173,7 +167,7 @@ export async function getAdminDashboard() {
       gpa: r.gpa ? roundTo2(r.gpa) : 0,
     })),
     attention,
-    recentActivity: actRes.rows,
+    recentActivity,
   };
 }
 

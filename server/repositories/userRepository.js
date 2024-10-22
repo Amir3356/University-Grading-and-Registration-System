@@ -150,7 +150,7 @@ export async function getUserProfile(userId, roleId) {
   return null;
 }
 
-export async function listUsers({ search, role, status, departmentId, programType, page = 1, pageSize = 10, sort, excludeSeed }) {
+export async function listUsers({ search, role, status, departmentId, managedBy, programType, page = 1, pageSize = 10, sort, excludeSeed }) {
   const conditions = [];
   const params = [];
 
@@ -183,6 +183,16 @@ export async function listUsers({ search, role, status, departmentId, programTyp
   if (departmentId) {
     params.push(departmentId);
     conditions.push(`(s.department_id = $${params.length} OR t.department_id = $${params.length})`);
+  }
+
+  // Department-head scope: their department's accounts plus accounts they provisioned.
+  if (managedBy) {
+    params.push(managedBy.departmentId);
+    const deptIdx = params.length;
+    params.push(managedBy.userId);
+    conditions.push(
+      `(s.department_id = $${deptIdx} OR t.department_id = $${deptIdx} OR u.created_by = $${params.length})`
+    );
   }
 
   if (programType) {

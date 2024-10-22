@@ -7,11 +7,17 @@ import { ErrorState } from '@/components/common/ErrorState'
 import { FormField } from '@/components/common/FormField'
 import { Spinner } from '@/components/common/Loading'
 import { useQuery, useMutation } from '@/hooks/useStore'
+import { useLookups } from '@/context/lookups-context'
 import { ROLE_LABELS } from '@/lib/format'
 import { store } from '@/store'
 import { SelectField } from './SelectField'
 
-const DEFAULT_ROLE_OPTIONS = [{ value: 'dept_head', label: 'Department Head' }]
+export const ADMIN_ROLE_OPTIONS = [
+  { value: 'student', label: 'Fresh Student' },
+  { value: 'dept_head', label: 'Department Head' },
+]
+
+export const DEFAULT_ROLE_OPTIONS = ADMIN_ROLE_OPTIONS
 
 export const PROGRAM_TYPE_OPTIONS = [
   { value: 'regular', label: 'Regular' },
@@ -20,6 +26,7 @@ export const PROGRAM_TYPE_OPTIONS = [
 ]
 
 export const DEPARTMENT_OPTIONS = [
+  { value: 'dep_fresh', label: 'Fresh' },
   { value: 'dep_cs', label: 'Computer Science' },
   { value: 'dep_it', label: 'IT' },
   { value: 'dep_bio', label: 'Biology' },
@@ -39,6 +46,7 @@ export const DEPARTMENT_OPTIONS = [
 export function getDepartmentId(value) {
   if (!value) return ''
   const str = String(value).trim().toLowerCase()
+  if (str === 'fresh' || str === 'dep_fresh' || str === 'freshman') return 'dep_fresh'
   if (str === 'it' || str === 'dep_it' || str === 'information technology') return 'dep_it'
   const found = DEPARTMENT_OPTIONS.find(
     (d) =>
@@ -54,6 +62,7 @@ export function getDepartmentId(value) {
 export function getDepartmentName(value) {
   if (!value) return ''
   const str = String(value).trim().toLowerCase()
+  if (str === 'fresh' || str === 'dep_fresh' || str === 'freshman') return 'Fresh'
   if (str === 'it' || str === 'dep_it' || str === 'information technology') return 'IT'
   const found = DEPARTMENT_OPTIONS.find(
     (d) =>
@@ -66,6 +75,27 @@ export function getDepartmentName(value) {
   return found ? found.label : value
 }
 
+/** Server errors for fields the form has no input for (e.g. email), so a 422 is never silent. */
+function OtherFieldErrors({ fieldErrors, shown }) {
+  const extra = Object.entries(fieldErrors ?? {}).filter(([key, msg]) => msg && !shown.includes(key))
+  if (extra.length === 0) return null
+  return (
+    <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+      {extra.map(([key, msg]) => (
+        <p key={key}>{msg}</p>
+      ))}
+    </div>
+  )
+}
+
+const SHOWN_FIELDS = ['firstName', 'lastName', 'username', 'roleId', 'identifier', 'password', 'departmentId', 'programType']
+
+/** Departments from the database, falling back to the static list until lookups load. */
+function useDepartmentOptions() {
+  const departments = useLookups()?.departments
+  return departments?.length ? departments.map((d) => ({ value: d.id, label: d.name })) : DEPARTMENT_OPTIONS
+}
+
 function initialForm(user) {
   const p = user?.profile
   return {
@@ -73,11 +103,14 @@ function initialForm(user) {
     username: user?.username ?? '',
     email: user?.email ?? '',
     phone: user?.phone ?? '',
-    identifier: user && user.identifier !== '—' ? (user.identifier ?? '') : '',
-    departmentId: user?.departmentId ?? '',
+    identifier:
+      user && user.identifier && user.identifier !== '—'
+        ? user.identifier
+        : (p?.student_number || p?.employee_number || ''),
+    departmentId: user?.departmentId ?? p?.department_id ?? '',
     program: p?.program ?? user?.program ?? '',
-    programType: (p?.programType ?? user?.programType ?? 'regular').toLowerCase().replace('extensions', 'extension'),
-    admissionYear: String(p?.admissionYear ?? new Date().getFullYear()),
+    programType: (p?.programType ?? p?.program_type ?? user?.programType ?? user?.program_type ?? 'regular').toLowerCase().replace('extensions', 'extension'),
+    admissionYear: String(p?.admissionYear ?? p?.admission_year ?? new Date().getFullYear()),
     title: p?.title ?? user?.title ?? 'Prof.',
     specialization: p?.specialization ?? '',
     officeRoom: p?.officeRoom ?? '',
@@ -86,7 +119,7 @@ function initialForm(user) {
 }
 
 /** Create form: full name, username, role, department dropdown, identifier and password. */
-function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRoleOptions, onClose, onCreated }) {
+function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRoleOptions, lockDepartment, onClose, onCreated }) {
   const roleOptions =
     customRoleOptions ??
     (defaultRole === 'student'
@@ -95,7 +128,7 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
         ? [{ value: defaultRole, label: ROLE_LABELS[defaultRole] || defaultRole }]
         : DEFAULT_ROLE_OPTIONS)
   const initialRole = defaultRole ?? roleOptions[0]?.value ?? 'dept_head'
-  const initialDeptId = getDepartmentId(defaultDepartment) || (defaultRole === 'admin' ? '' : 'dep_cs')
+  const initialDeptId = getDepartmentId(defaultDepartment) || (defaultRole === 'admin' ? '' : initialRole === 'student' ? 'dep_fresh' : 'dep_cs')
 
   const [form, setForm] = useState({
     fullName: '',
@@ -106,6 +139,7 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
     departmentId: initialDeptId,
     programType: 'regular',
   })
+  const departmentOptions = useDepartmentOptions()
   const [nameError, setNameError] = useState(null)
   const [usernameError, setUsernameError] = useState(null)
   const [identifierError, setIdentifierError] = useState(null)
@@ -167,6 +201,7 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
       email,
       identifier: isAdmin ? `ADM-${form.username.trim()}` : form.identifier.trim(),
       admissionYear: form.roleId === 'student' ? new Date().getFullYear() : undefined,
+      yearOfStudy: form.roleId === 'student' ? 1 : undefined,
       programType: form.roleId === 'student' ? (form.programType || 'regular').toLowerCase().replace('extensions', 'extension') : undefined,
     })
   }
@@ -183,7 +218,26 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
       <FormField label="Username" required error={usernameError ?? fe.username}>
         <Input value={form.username} onChange={set('username')} autoComplete="off" placeholder="e.g. jane.doe" />
       </FormField>
-      <SelectField label="Role" required value={form.roleId} onChange={set('roleId')} options={roleOptions} error={fe.roleId} />
+      <SelectField
+        label="Role"
+        required
+        value={form.roleId}
+        onChange={(val) => {
+          setForm((f) => ({
+            ...f,
+            roleId: val,
+            departmentId: lockDepartment
+              ? f.departmentId
+              : val === 'student' && (!f.departmentId || f.departmentId === 'dep_cs')
+                ? 'dep_fresh'
+                : val === 'dept_head' && f.departmentId === 'dep_fresh'
+                  ? 'dep_cs'
+                  : f.departmentId,
+          }))
+        }}
+        options={roleOptions}
+        error={fe.roleId}
+      />
       {!isAdmin && (
         <FormField label={form.roleId === 'dept_head' ? 'Department Head ID' : form.roleId === 'student' ? 'Student ID' : 'Teacher ID'} required error={identifierError ?? fe.identifier}>
           <Input
@@ -211,9 +265,10 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
             setForm((f) => ({ ...f, departmentId: val }))
             if (departmentError) setDepartmentError(null)
           }}
-          options={DEPARTMENT_OPTIONS}
+          options={departmentOptions}
           placeholder="Select department…"
           error={departmentError ?? fe.departmentId}
+          disabled={lockDepartment}
         />
       )}
       {form.roleId === 'student' && (
@@ -226,6 +281,7 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
           error={fe.programType}
         />
       )}
+      <OtherFieldErrors fieldErrors={fe} shown={SHOWN_FIELDS} />
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
           Cancel
@@ -239,7 +295,7 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
 }
 
 /** Edit an existing account: full name, username, role, department dropdown, and password. */
-function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
+function UserForm({ user, roleOptions: customRoleOptions, lockDepartment, onClose }) {
   const roleOptions =
     customRoleOptions ??
     (user.roleId === 'student'
@@ -260,6 +316,7 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
     fullName: `${user.firstName} ${user.lastName}`.trim(),
     departmentId: currentDeptId,
   }))
+  const departmentOptions = useDepartmentOptions()
   const [nameError, setNameError] = useState(null)
   const [usernameError, setUsernameError] = useState(null)
   const [departmentError, setDepartmentError] = useState(null)
@@ -283,7 +340,8 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
       return
     }
     setUsernameError(null)
-    const needsDepartment = form.roleId !== 'admin'
+    const isAdmin = form.roleId === 'admin'
+    const needsDepartment = !isAdmin
     if (needsDepartment && !form.departmentId) {
       setDepartmentError('Select a department.')
       return
@@ -302,7 +360,7 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
       department: departmentName,
       email: form.email?.trim() || undefined,
       phone: form.phone?.trim() || null,
-      identifier: form.identifier?.trim() || undefined,
+      identifier: isAdmin ? form.identifier?.trim() || `ADM-${form.username.trim()}` : form.identifier?.trim() || undefined,
       programType: form.roleId === 'student' ? (form.programType || 'regular').toLowerCase().replace('extensions', 'extension') : undefined,
       password: form.password?.trim() ? form.password.trim() : undefined,
     }
@@ -310,12 +368,13 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
   }
 
   const fe = fieldErrors ?? {}
-  const needsDepartment = form.roleId !== 'admin'
+  const isAdmin = form.roleId === 'admin'
+  const needsDepartment = !isAdmin
 
   const editOptions =
-    DEPARTMENT_OPTIONS.some((d) => d.value === form.departmentId) || !form.departmentId
-      ? DEPARTMENT_OPTIONS
-      : [...DEPARTMENT_OPTIONS, { value: form.departmentId, label: user.departmentName || form.departmentId }]
+    departmentOptions.some((d) => d.value === form.departmentId) || !form.departmentId
+      ? departmentOptions
+      : [...departmentOptions, { value: form.departmentId, label: user.departmentName || form.departmentId }]
 
   return (
     <form onSubmit={submit} className="grid gap-4" noValidate>
@@ -334,6 +393,19 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
         error={fe.roleId}
         hint="Role changes are blocked if the user has academic records."
       />
+      {!isAdmin && (
+        <FormField
+          label={form.roleId === 'dept_head' ? 'Department Head ID' : form.roleId === 'student' ? 'Student ID' : 'Teacher ID'}
+          error={fe.identifier}
+        >
+          <Input
+            value={form.identifier}
+            onChange={set('identifier')}
+            autoComplete="off"
+            placeholder={form.roleId === 'dept_head' ? 'e.g. EMP-CS-02 or CS' : form.roleId === 'student' ? 'e.g. UGR/26/0001' : 'e.g. EMP-CS-01'}
+          />
+        </FormField>
+      )}
       {needsDepartment ? (
         <SelectField
           label="Department"
@@ -346,6 +418,7 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
           options={editOptions}
           placeholder="Select department…"
           error={departmentError ?? fe.departmentId}
+          disabled={lockDepartment}
         />
       ) : (
         <FormField label="Department">
@@ -366,6 +439,7 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
         <PasswordInput value={form.password} onChange={set('password')} autoComplete="new-password" placeholder="New password" />
       </FormField>
 
+      <OtherFieldErrors fieldErrors={fe} shown={SHOWN_FIELDS} />
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
           Cancel
@@ -379,20 +453,21 @@ function UserForm({ user, roleOptions: customRoleOptions, onClose }) {
 }
 
 /** Loads the full user record (profile fields) before showing the edit form. */
-function EditUserForm({ userId, roleOptions, onClose }) {
+function EditUserForm({ userId, roleOptions, lockDepartment, onClose }) {
   const { data, loading, error, refetch } = useQuery(() => store.users.getUser(userId), [userId], { live: false })
   if (loading && !data) return <Spinner label="Loading user…" />
   if (error) return <ErrorState error={error} onRetry={refetch} />
-  return <UserForm user={data} roleOptions={roleOptions} onClose={onClose} />
+  const userObj = data?.user ? { ...data, ...data.user, profile: data.profile } : data
+  return <UserForm user={userObj} roleOptions={roleOptions} lockDepartment={lockDepartment} onClose={onClose} />
 }
 
 /**
  * Create / edit a user account.
  * userId: edit that user; omitted = create. onCreated({ user, temporaryPassword }) after create.
  */
-export function UserFormDialog({ open, onOpenChange, userId, defaultRole, defaultDepartment, roleOptions, onCreated }) {
+export function UserFormDialog({ open, onOpenChange, userId, defaultRole, defaultDepartment, roleOptions, lockDepartment = false, onCreated }) {
   const close = () => onOpenChange(false)
-  const isStudentOnly = defaultRole === 'student' || roleOptions?.every((r) => r.value === 'student')
+  const isStudentOnly = roleOptions ? roleOptions.every((r) => r.value === 'student') : defaultRole === 'student'
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
@@ -407,12 +482,13 @@ export function UserFormDialog({ open, onOpenChange, userId, defaultRole, defaul
           </DialogDescription>
         </DialogHeader>
         {userId ? (
-          <EditUserForm userId={userId} roleOptions={roleOptions} onClose={close} />
+          <EditUserForm userId={userId} roleOptions={roleOptions} lockDepartment={lockDepartment} onClose={close} />
         ) : (
           <CreateUserForm
             defaultRole={defaultRole}
             defaultDepartment={defaultDepartment}
             roleOptions={roleOptions}
+            lockDepartment={lockDepartment}
             onClose={close}
             onCreated={onCreated}
           />

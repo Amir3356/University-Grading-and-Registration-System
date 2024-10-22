@@ -1,6 +1,5 @@
 import { query, withTransaction } from '../config/database.js';
 import { newId } from '../utils/idGenerator.js';
-import { logAudit } from '../middleware/audit.js';
 import { ConflictError, ValidationError } from '../utils/errors.js';
 
 export async function listReasonCategories() {
@@ -84,15 +83,6 @@ export async function createWithdrawalRequest({
       }
     }
 
-    await logAudit(client, {
-      userId: user.id,
-      action: 'withdrawal.submitted',
-      entityType: 'withdrawal_request',
-      entityId: id,
-      details: `Submitted ${scope} withdrawal request (${refNo})`,
-      reason,
-    });
-
     return {
       id: request.id,
       referenceNo: request.reference_no,
@@ -115,14 +105,6 @@ export async function cancelWithdrawalRequest(id, studentId, user) {
     if (res.rows.length === 0) {
       throw new ConflictError('Withdrawal request cannot be cancelled (not found or not pending).');
     }
-
-    await logAudit(client, {
-      userId: user.id,
-      action: 'withdrawal.cancelled',
-      entityType: 'withdrawal_request',
-      entityId: id,
-      details: `Student cancelled withdrawal request (${res.rows[0].reference_no})`,
-    });
 
     return res.rows[0];
   });
@@ -406,15 +388,6 @@ export async function approveWithdrawal(id, adminNotes, user) {
       );
     }
 
-    await logAudit(client, {
-      userId: user.id,
-      action: 'withdrawal.approved',
-      entityType: 'withdrawal_request',
-      entityId: id,
-      details: `Approved ${wr.scope} withdrawal request (${wr.reference_no})`,
-      reason: adminNotes || null,
-    });
-
     // Notify student
     const stuRes = await client.query(`SELECT user_id FROM students WHERE id = $1`, [wr.student_id]);
     if (stuRes.rows.length > 0) {
@@ -456,15 +429,6 @@ export async function rejectWithdrawal(id, adminNotes, user) {
        WHERE id = $1`,
       [id, user.id, adminNotes.trim()]
     );
-
-    await logAudit(client, {
-      userId: user.id,
-      action: 'withdrawal.rejected',
-      entityType: 'withdrawal_request',
-      entityId: id,
-      details: `Rejected ${wr.scope} withdrawal request (${wr.reference_no}): ${adminNotes}`,
-      reason: adminNotes,
-    });
 
     // Notify student
     const stuRes = await client.query(`SELECT user_id FROM students WHERE id = $1`, [wr.student_id]);

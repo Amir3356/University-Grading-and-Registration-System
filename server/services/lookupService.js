@@ -25,8 +25,19 @@ export async function getLookups(user) {
 
   const university = await getUniversitySettings();
   const rolesRes = await query(`SELECT id, name, description FROM roles ORDER BY id ASC`);
-  const regTypesRes = await query(`SELECT id, label, description FROM registration_types WHERE is_active = true`);
   const categories = await listReasonCategories();
+  const regTypesRes = await query(
+    `SELECT id, label, description
+     FROM registration_types
+     WHERE is_active = true
+     ORDER BY CASE id
+       WHEN 'regular' THEN 1
+       WHEN 'cafe' THEN 1
+       WHEN 'extension' THEN 2
+       WHEN 'weekend' THEN 3
+       ELSE 4
+     END ASC`
+  );
 
   const assessmentTypes = [
     { value: 'assignment', label: 'Assignment' },

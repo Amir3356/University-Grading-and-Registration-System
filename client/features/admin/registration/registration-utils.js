@@ -19,6 +19,7 @@ export function formatDate(value) {
 export const TERM_LABELS = { first: 'First Semester', second: 'Second Semester', summer: 'Summer' }
 
 export const TYPE_BADGE_CLASS = {
+  regular: 'reg-badge--regular',
   cafe: 'reg-badge--cafe',
   non_cafe: 'reg-badge--non-cafe',
   extension: 'reg-badge--extension',

@@ -81,11 +81,8 @@ export async function getTeacherDashboard(teacherId, userId) {
     count: distMap[e.letter] || 0,
   }));
 
-  // Recent activity
-  const actRes = await query(
-    `SELECT * FROM audit_logs WHERE user_id = $1 ORDER BY created_at DESC LIMIT 6`,
-    [userId]
-  );
+  // Recent activity (audit logs removed)
+  const recentActivity = [];
 
   // Upcoming assessments
   const upRes = await query(
@@ -113,7 +110,7 @@ export async function getTeacherDashboard(teacherId, userId) {
     coursePerformance,
     distribution,
     distributionSemester: currentSemester?.name || 'Current Semester',
-    recentActivity: actRes.rows,
+    recentActivity,
     upcoming: upRes.rows.map((r) => ({
       ...r,
       maxMarks: parseFloat(r.max_marks),

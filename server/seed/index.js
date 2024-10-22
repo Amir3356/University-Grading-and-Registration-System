@@ -297,8 +297,7 @@ export async function seedDatabase() {
     // 9. Registration Types & Periods
     console.log('Seeding registration types & periods...');
     const regTypes = [
-      { id: 'cafe', label: 'Regular (Café)', description: 'Full board cafeteria registration' },
-      { id: 'non_cafe', label: 'Non-Regular (Non-Café)', description: 'Off-campus non-cafeteria registration' },
+      { id: 'regular', label: 'Regular (Café & Non-Café)', description: 'Regular program (Café & Non-Café) registration' },
       { id: 'extension', label: 'Extension', description: 'Evening extension program registration' },
       { id: 'weekend', label: 'Weekend', description: 'Weekend program registration' },
     ];
@@ -306,7 +305,7 @@ export async function seedDatabase() {
       await client.query(
         `INSERT INTO registration_types (id, label, description, is_active)
          VALUES ($1, $2, $3, true)
-         ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label`,
+         ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label, description = EXCLUDED.description`,
         [rt.id, rt.label, rt.description]
       );
     }
@@ -654,32 +653,7 @@ export async function seedDatabase() {
       );
     }
 
-    // 19. Audit Logs
-    console.log('Seeding audit logs...');
-    const auditData = readJson('auditLogs.json');
-    for (const aud of auditData) {
-      await client.query(
-        `INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, offering_id, details, reason, before, after, ip_address, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-         ON CONFLICT (id) DO NOTHING`,
-        [
-          aud.id,
-          aud.userId || null,
-          aud.action,
-          aud.entityType || 'system',
-          aud.entityId || '0',
-          aud.offeringId || null,
-          aud.details || '',
-          aud.reason || null,
-          aud.before ? JSON.stringify(aud.before) : null,
-          aud.after ? JSON.stringify(aud.after) : null,
-          aud.ipAddress || null,
-          aud.createdAt || new Date(),
-        ]
-      );
-    }
-
-    // 20. Settings
+    // 19. Settings
     console.log('Seeding university settings & academic policies...');
     const settingsData = readJson('settings.json');
     const uSettings = settingsData.university || {

@@ -20,6 +20,8 @@ export function useQuery(fn, deps = [], { enabled = true, live = true } = {}) {
     try {
       const res = fn()
       if (res && typeof res.then === 'function') {
+        // The effect below performs the real load; don't leave this probe's rejection unhandled.
+        res.catch(() => {})
         return { data: undefined, error: null, loading: true }
       }
       return { data: res, error: null, loading: false }

@@ -2,7 +2,6 @@ import * as asmRepo from '../repositories/assessmentRepository.js';
 import { getOfferingById } from '../repositories/offeringRepository.js';
 import { newId } from '../utils/idGenerator.js';
 import { ConflictError, NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
-import { logAudit } from '../middleware/audit.js';
 import { query } from '../config/database.js';
 
 export async function listAssessments(offeringId, caller) {
@@ -75,15 +74,6 @@ export async function createAssessment(offeringId, data, caller) {
     description: data.description,
   });
 
-  await logAudit(query, {
-    userId: caller.id,
-    action: 'assessment.created',
-    entityType: 'assessment',
-    entityId: id,
-    offeringId,
-    details: `Created assessment ${data.name} (${weight}%)`,
-  });
-
   return asm;
 }
 
@@ -118,15 +108,6 @@ export async function updateAssessment(id, data, caller) {
   }
 
   const asm = await asmRepo.updateAssessment(id, data);
-  await logAudit(query, {
-    userId: caller.id,
-    action: 'assessment.updated',
-    entityType: 'assessment',
-    entityId: id,
-    offeringId: existing.offering_id,
-    details: `Updated assessment ${existing.name}`,
-  });
-
   return asm;
 }
 
@@ -145,14 +126,6 @@ export async function deleteAssessment(id, caller) {
   }
 
   await asmRepo.deleteAssessment(id);
-  await logAudit(query, {
-    userId: caller.id,
-    action: 'assessment.deleted',
-    entityType: 'assessment',
-    entityId: id,
-    offeringId: existing.offering_id,
-    details: `Deleted assessment ${existing.name}`,
-  });
   return { ok: true };
 }
 
@@ -188,15 +161,6 @@ export async function releaseAssessment(id, isReleased, caller) {
     }
   }
 
-  await logAudit(query, {
-    userId: caller.id,
-    action: isReleased ? 'assessment.released' : 'assessment.unreleased',
-    entityType: 'assessment',
-    entityId: id,
-    offeringId: existing.offering_id,
-    details: `${isReleased ? 'Released' : 'Unreleased'} marks for assessment ${existing.name}`,
-  });
-
   return updated;
 }
 
@@ -205,13 +169,5 @@ export async function applyTemplate(offeringId, caller) {
   if (!offering) throw new NotFoundError('Course offering');
 
   const count = await asmRepo.applyTemplate(offeringId, offering.course.department.id);
-  await logAudit(query, {
-    userId: caller.id,
-    action: 'assessment.template_applied',
-    entityType: 'course_offering',
-    entityId: offeringId,
-    offeringId,
-    details: `Applied department assessment template (${count} assessments created)`,
-  });
   return { applied: count };
 }

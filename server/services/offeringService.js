@@ -1,7 +1,6 @@
 import * as offRepo from '../repositories/offeringRepository.js';
 import { newId } from '../utils/idGenerator.js';
 import { ConflictError, NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
-import { logAudit } from '../middleware/audit.js';
 import { query } from '../config/database.js';
 
 export async function listOfferings(filters, caller) {
@@ -59,15 +58,6 @@ export async function createOffering(data, caller) {
     );
   }
 
-  await logAudit(query, {
-    userId: caller.id,
-    action: 'offering.created',
-    entityType: 'course_offering',
-    entityId: id,
-    offeringId: id,
-    details: `Created course offering Section ${data.section}`,
-  });
-
   return await offRepo.getOfferingById(id);
 }
 
@@ -97,16 +87,6 @@ export async function updateOffering(id, data, caller) {
   }
 
   await offRepo.updateOffering(id, data);
-
-  await logAudit(query, {
-    userId: caller.id,
-    action: 'offering.updated',
-    entityType: 'course_offering',
-    entityId: id,
-    offeringId: id,
-    details: `Updated course offering ${id}`,
-  });
-
   return await offRepo.getOfferingById(id);
 }
 
@@ -119,13 +99,6 @@ export async function deleteOffering(id, caller) {
   }
 
   await offRepo.deleteOffering(id);
-  await logAudit(query, {
-    userId: caller.id,
-    action: 'offering.deleted',
-    entityType: 'course_offering',
-    entityId: id,
-    details: `Deleted course offering ${id}`,
-  });
   return { ok: true };
 }
 
@@ -172,15 +145,6 @@ export async function enrollStudents(offeringId, studentIds, caller) {
     }
   }
 
-  await logAudit(query, {
-    userId: caller.id,
-    action: 'enrollment.created',
-    entityType: 'course_offering',
-    entityId: offeringId,
-    offeringId,
-    details: `Enrolled ${enrolled} student(s) into Section ${offering.section}`,
-  });
-
   return { enrolled };
 }
 
@@ -220,16 +184,6 @@ export async function withdrawEnrollment(enrollmentId, reason, caller) {
     ]
   );
 
-  await logAudit(query, {
-    userId: caller.id,
-    action: 'enrollment.withdrawn',
-    entityType: 'course_enrollment',
-    entityId: enrollmentId,
-    offeringId: enr.offering_id,
-    details: `Withdrew student enrollment ${enrollmentId}`,
-    reason,
-  });
-
   return withdrawn;
 }
 
@@ -240,12 +194,5 @@ export async function deleteEnrollment(enrollmentId, caller) {
   }
 
   await offRepo.deleteEnrollment(enrollmentId);
-  await logAudit(query, {
-    userId: caller.id,
-    action: 'enrollment.deleted',
-    entityType: 'course_enrollment',
-    entityId: enrollmentId,
-    details: `Deleted student enrollment ${enrollmentId}`,
-  });
   return { ok: true };
 }

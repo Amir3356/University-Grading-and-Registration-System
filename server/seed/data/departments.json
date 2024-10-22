@@ -1,5 +1,14 @@
 [
   {
+    "id": "dep_fresh",
+    "code": "FRESH",
+    "name": "Fresh",
+    "description": "Freshman Division / First Year Students.",
+    "headTeacherId": null,
+    "createdAt": "2024-06-01T00:00:00.000Z",
+    "updatedAt": "2024-06-01T00:00:00.000Z"
+  },
+  {
     "id": "dep_cs",
     "code": "CS",
     "name": "Computer Science",

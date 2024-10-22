@@ -137,7 +137,7 @@ Response:
   "university": { "name": "…", "shortName": "NBU", … }, "roles": [ … ],
   "assessmentTypes": [ { "value": "quiz", "label": "Quiz" } ],
   "programTypes": [ "regular", "extension", "weekend" ],
-  "registrationTypes": [ { "id": "cafe", "label": "Regular (Café)" } ],
+  "registrationTypes": [ { "id": "regular", "label": "Regular (Café & Non-Café)" } ],
   "withdrawalReasonCategories": [ { "id": "medical", "label": "Medical / Health" } ],
   "courses": [ … ], "teachers": [ … ], "students": [ … ]
 }
@@ -258,7 +258,7 @@ These endpoints replace the page-local mock data in `RegistrationPeriodsPage`, `
 |---|---|---|---|
 | GET | `/registration-periods` | A | Filters: `academicYearId`, `term`, `status`, `search`. Paged. Rows: `{ id, semester{ id, name, term, academicYear }, startDate, deadline, status, registrationTypes[], registeredCount, pendingCount }` |
 | GET | `/registration-periods/:id` | A | |
-| POST | `/registration-periods` | A | `{ semesterId, startDate, deadline, registrationTypeIds: ["cafe","non_cafe"], status: "scheduled" }` |
+| POST | `/registration-periods` | A | `{ semesterId, startDate, deadline, registrationTypeIds: ["regular"], status: "scheduled" }` |
 | PUT | `/registration-periods/:id` | A | Same body. 409 if the period is closed and has registrations |
 | POST | `/registration-periods/:id/open` | A | 409 if dates are missing or another period is already open |
 | POST | `/registration-periods/:id/close` | A | |

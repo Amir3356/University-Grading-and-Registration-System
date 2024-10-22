@@ -18,15 +18,21 @@ import { UserFormDialog } from '@/features/admin/users/UserFormDialog'
 
 const COLUMNS = [
   { key: 'name', header: 'Fullname' },
-  { key: 'username', header: 'username' },
+  { key: 'username', header: 'Username' },
   { key: 'role', header: 'Role' },
-  { key: 'identifier', header: 'StudentID' },
-  { key: 'department', header: 'DEpartment' },
-  { key: 'programType', header: 'Program TYpe' },
+  { key: 'identifier', header: 'ID' },
+  { key: 'department', header: 'Department' },
+  { key: 'programType', header: 'Program Type' },
   { key: 'actions', header: 'Action' },
 ]
 
-const STUDENT_ROLE_OPTIONS = [{ value: 'student', label: 'Student' }]
+// Department heads may provision and manage student and teacher accounts.
+const DEPT_ROLE_OPTIONS = [
+  { value: 'student', label: 'Student' },
+  { value: 'teacher', label: 'Teacher' },
+]
+const MANAGED_ROLES = DEPT_ROLE_OPTIONS.map((r) => r.value)
+const ROLE_BADGE_LABELS = Object.fromEntries(DEPT_ROLE_OPTIONS.map((r) => [r.value, r.label]))
 
 const PROGRAM_OPTIONS = [
   { value: 'regular', label: 'Regular' },
@@ -38,6 +44,21 @@ const STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
   { value: 'inactive', label: 'Inactive' },
 ]
+
+const PROGRAM_BADGE_CLASS = {
+  regular: 'border-blue-200 text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/20',
+  extension: 'border-purple-200 text-purple-700 dark:text-purple-400 bg-purple-50/50 dark:bg-purple-950/20',
+  weekend: 'border-amber-200 text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20',
+}
+
+function ProgramTypeBadge({ programType }) {
+  const key = programType.toLowerCase()
+  return (
+    <Badge variant="outline" className={`text-[11px] font-medium whitespace-nowrap ${PROGRAM_BADGE_CLASS[key] ?? PROGRAM_BADGE_CLASS.weekend}`}>
+      {PROGRAM_OPTIONS.find((o) => o.value === key)?.label ?? programType}
+    </Badge>
+  )
+}
 
 function UserRowActions({ user, onEdit, onAction }) {
   const active = user.status === 'active'
@@ -76,14 +97,21 @@ function UserRowActions({ user, onEdit, onAction }) {
 }
 
 export function DeptAccountProvisionPage() {
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
   const lookups = useLookups()
   const departments = lookups?.departments ?? []
 
   // Resolve department head's department
+  // The cached login profile can be missing or stale, so fall back to the head's own record from the API.
+  const { data: self } = useQuery(() => store.users.getUser(user.id), [user?.id], {
+    enabled: Boolean(user?.id),
+    live: false,
+  })
+  const headDeptId = profile?.department_id ?? profile?.departmentId ?? self?.departmentId
   const headDept =
-    departments.find((d) => d.headTeacherId === profile?.id || d.id === profile?.departmentId) ||
-    departments[0]
+    departments.find(
+      (d) => d.id === headDeptId || (profile?.id && (d.head_teacher_id ?? d.headTeacherId) === profile.id),
+    ) || null
 
   const [formOpen, setFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
@@ -93,11 +121,11 @@ export function DeptAccountProvisionPage() {
   const [programFilter, setProgramFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
-  // Query student accounts for this department (excluding seed/mock data)
+  // Query student and teacher accounts for this department (excluding seed/mock data).
+  // Both roles are loaded so an account stays visible after its role is changed.
   const { data, loading, error, refetch } = useQuery(
     () =>
       store.users.listUsers({
-        role: 'student',
         departmentId: headDept?.id,
         pageSize: null,
         excludeSeed: true,
@@ -105,18 +133,20 @@ export function DeptAccountProvisionPage() {
     [headDept?.id],
   )
 
-  const items = (data?.items ?? []).filter((u) => !u.isSeed && !u.is_seed && !/^usr_\d{4}$/.test(u.id))
+  const items = (data?.items ?? []).filter(
+    (u) => MANAGED_ROLES.includes(u.roleId) && !u.isSeed && !u.is_seed && !/^usr_\d{4}$/.test(u.id),
+  )
 
   const filteredItems = useMemo(() => {
     return items.filter((u) => {
       const name = (u.name || `${u.firstName || ''} ${u.lastName || ''}`).trim()
       const username = u.username || ''
       const identifier = u.identifier || u.student_number || ''
-      const programType = (u.programType || 'regular').toLowerCase()
+      const programType = u.roleId === 'student' ? (u.program_type || u.programType || 'regular').toLowerCase() : ''
       const status = u.status || 'active'
 
       if (statusFilter && status !== statusFilter) return false
-      if (programFilter && !programType.includes(programFilter.toLowerCase())) return false
+      if (programFilter && programType !== programFilter.toLowerCase()) return false
 
       if (search.trim()) {
         const q = search.trim().toLowerCase()
@@ -149,7 +179,7 @@ export function DeptAccountProvisionPage() {
     <>
       <PageHeader
         title="Account Provision"
-        description="Provision and manage student accounts for your department."
+        description="Provision and manage student and teacher accounts for your department."
         centered
         actions={
           <Button onClick={openCreate}>
@@ -165,7 +195,7 @@ export function DeptAccountProvisionPage() {
             <SearchInput
               value={search}
               onChange={setSearch}
-              placeholder="Search student by name, username, or ID…"
+              placeholder="Search by name, username, or ID…"
             />
           </div>
           <div className="toolbar--split__right">
@@ -215,8 +245,8 @@ export function DeptAccountProvisionPage() {
                       <EmptyState
                         compact
                         icon={Users}
-                        title="No student accounts found"
-                        description="No student accounts provisioned in this department yet."
+                        title="No accounts found"
+                        description="No student or teacher accounts provisioned in this department yet."
                       />
                     </TableCell>
                   </TableRow>
@@ -226,7 +256,7 @@ export function DeptAccountProvisionPage() {
                       <EmptyState
                         compact
                         icon={Users}
-                        title="No matching student accounts found"
+                        title="No matching accounts found"
                         description="Try adjusting your search query or filter options."
                       />
                     </TableCell>
@@ -241,7 +271,7 @@ export function DeptAccountProvisionPage() {
                         <span className="font-mono text-xs text-muted-foreground">{u.username || '—'}</span>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">Student</Badge>
+                        <Badge variant="secondary">{ROLE_BADGE_LABELS[u.roleId] ?? u.roleId}</Badge>
                       </TableCell>
                       <TableCell>
                         <span className="font-mono text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded">
@@ -252,18 +282,11 @@ export function DeptAccountProvisionPage() {
                         <span className="text-foreground">{u.departmentName || headDept?.name || '—'}</span>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={`text-[11px] font-medium whitespace-nowrap ${
-                            (u.programType || 'Regular').toLowerCase() === 'regular'
-                              ? 'border-blue-200 text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/20'
-                              : (u.programType || '').toLowerCase().includes('ext')
-                              ? 'border-purple-200 text-purple-700 dark:text-purple-400 bg-purple-50/50 dark:bg-purple-950/20'
-                              : 'border-amber-200 text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20'
-                          }`}
-                        >
-                          {u.programType || 'Regular'}
-                        </Badge>
+                        {u.roleId === 'student' ? (
+                          <ProgramTypeBadge programType={u.program_type || u.programType || 'regular'} />
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <UserRowActions
@@ -286,8 +309,8 @@ export function DeptAccountProvisionPage() {
         onOpenChange={setFormOpen}
         userId={editingId}
         defaultRole="student"
-        defaultDepartment={headDept?.name}
-        roleOptions={STUDENT_ROLE_OPTIONS}
+        defaultDepartment={headDept?.id}
+        roleOptions={DEPT_ROLE_OPTIONS}
         onCreated={handleCreated}
       />
       <UserActionDialogs action={action} onClose={() => { setAction(null); refetch() }} />

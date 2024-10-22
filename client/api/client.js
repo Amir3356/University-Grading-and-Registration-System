@@ -69,8 +69,10 @@ async function doRefreshToken() {
   );
 
   const data = res.data;
-  setCookie(TOKEN_KEY, data.token, { expires: 1 });
-  return data.token;
+  const token = data.token || data.accessToken;
+  if (!token) throw new Error('No token returned from refresh');
+  setStoredSession(token, refreshToken, getStoredUser(), getStoredProfile());
+  return token;
 }
 
 // Request Interceptor: Attach bearer token and ensure proper Content-Type
@@ -100,6 +102,7 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+    if (!originalRequest) return Promise.reject(error);
 
     // Automatic token refresh on 401 Unauthorized
     if (
@@ -114,7 +117,13 @@ apiClient.interceptors.response.use(
           failedQueue.push({ resolve, reject });
         })
           .then((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
+            originalRequest._retry = true;
+            if (originalRequest.headers?.set) {
+              originalRequest.headers.set('Authorization', `Bearer ${token}`);
+            } else {
+              originalRequest.headers = originalRequest.headers || {};
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+            }
             return apiClient(originalRequest);
           })
           .catch((err) => Promise.reject(err));
@@ -127,16 +136,31 @@ apiClient.interceptors.response.use(
         const newToken = await doRefreshToken();
         isRefreshing = false;
         processQueue(null, newToken);
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        if (originalRequest.headers?.set) {
+          originalRequest.headers.set('Authorization', `Bearer ${newToken}`);
+        } else {
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        }
         return apiClient(originalRequest);
       } catch (refreshErr) {
         isRefreshing = false;
         processQueue(refreshErr, null);
         clearStoredSession();
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
           window.location.href = '/login';
         }
         throw new StoreError('unauthenticated', 'Session expired. Please log in again.');
+      }
+    } else if (
+      error.response?.status === 401 &&
+      !originalRequest.url?.includes(ENDPOINTS.AUTH.LOGIN) &&
+      !originalRequest.url?.includes(ENDPOINTS.AUTH.REFRESH) &&
+      !originalRequest.url?.includes('/lookups')
+    ) {
+      clearStoredSession();
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
       }
     }
 

@@ -1,7 +1,6 @@
 import * as regRepo from '../repositories/registrationRepository.js';
 import { newId } from '../utils/idGenerator.js';
 import { ConflictError, NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
-import { logAudit } from '../middleware/audit.js';
 import { query } from '../config/database.js';
 
 export async function listPeriods(filters) {
@@ -39,14 +38,6 @@ export async function createPeriod(data, user) {
   // Only one period may be open at a time, same as the open/close toggle.
   if (status === 'open') period = await regRepo.openRegistrationPeriod(id);
 
-  await logAudit(query, {
-    userId: user.id,
-    action: 'registration_period.created',
-    entityType: 'registration_period',
-    entityId: id,
-    details: `Created registration period for semester ${data.semesterId}`,
-  });
-
   return period;
 }
 
@@ -66,13 +57,6 @@ export async function updatePeriod(id, data, user) {
   if (data.status === 'open' && existing.status !== 'open') {
     period = await regRepo.openRegistrationPeriod(id);
   }
-  await logAudit(query, {
-    userId: user.id,
-    action: 'registration_period.updated',
-    entityType: 'registration_period',
-    entityId: id,
-    details: `Updated registration period ${id}`,
-  });
   return period;
 }
 
@@ -81,13 +65,6 @@ export async function openPeriod(id, user) {
   if (!period) throw new NotFoundError('Registration period');
 
   const opened = await regRepo.openRegistrationPeriod(id);
-  await logAudit(query, {
-    userId: user.id,
-    action: 'registration_period.opened',
-    entityType: 'registration_period',
-    entityId: id,
-    details: `Opened registration period for ${period.semester?.name}`,
-  });
   return opened;
 }
 
@@ -96,13 +73,6 @@ export async function closePeriod(id, user) {
   if (!period) throw new NotFoundError('Registration period');
 
   const closed = await regRepo.closeRegistrationPeriod(id);
-  await logAudit(query, {
-    userId: user.id,
-    action: 'registration_period.closed',
-    entityType: 'registration_period',
-    entityId: id,
-    details: `Closed registration period for ${period.semester?.name}`,
-  });
   return closed;
 }
 
@@ -112,13 +82,6 @@ export async function deletePeriod(id, user) {
     throw new ConflictError('Cannot delete registration period that already has student registrations.');
   }
   await regRepo.deleteRegistrationPeriod(id);
-  await logAudit(query, {
-    userId: user.id,
-    action: 'registration_period.deleted',
-    entityType: 'registration_period',
-    entityId: id,
-    details: `Deleted registration period ${id}`,
-  });
   return { ok: true };
 }
 
@@ -135,13 +98,6 @@ export async function updateRegistrationType(id, registrationTypeId, user) {
   if (!reg) throw new NotFoundError('Registration record');
 
   const updated = await regRepo.updateRegistrationType(id, registrationTypeId);
-  await logAudit(query, {
-    userId: user.id,
-    action: 'registration.type_changed',
-    entityType: 'semester_registration',
-    entityId: id,
-    details: `Updated registration type to ${registrationTypeId}`,
-  });
   return updated;
 }
 
@@ -159,14 +115,6 @@ export async function approveRegistration(id, user) {
      VALUES ($1, $2, 'Semester Registration Approved', 'Your semester registration has been approved officially.', 'registration', '/student/registrations')`,
     [notifId, reg.student_user_id]
   );
-
-  await logAudit(query, {
-    userId: user.id,
-    action: 'registration.approved',
-    entityType: 'semester_registration',
-    entityId: id,
-    details: `Approved semester registration for student ${reg.student_number}`,
-  });
 
   return approved;
 }
@@ -192,15 +140,6 @@ export async function rejectRegistration(id, remarks, user) {
     [notifId, reg.student_user_id, `Your semester registration was rejected: "${remarks}".`]
   );
 
-  await logAudit(query, {
-    userId: user.id,
-    action: 'registration.rejected',
-    entityType: 'semester_registration',
-    entityId: id,
-    details: `Rejected semester registration for student ${reg.student_number}: ${remarks}`,
-    reason: remarks,
-  });
-
   return rejected;
 }
 
@@ -218,26 +157,11 @@ export async function bulkApproveRegistrations(ids, user) {
     }
   }
 
-  await logAudit(query, {
-    userId: user.id,
-    action: 'registration.bulk_approved',
-    entityType: 'semester_registration',
-    entityId: 'bulk',
-    details: `Bulk approved ${approved} registration(s)`,
-  });
-
   return { approved, skipped };
 }
 
 export async function deleteRegistration(id, user) {
   await regRepo.deleteRegistration(id);
-  await logAudit(query, {
-    userId: user.id,
-    action: 'registration.deleted',
-    entityType: 'semester_registration',
-    entityId: id,
-    details: `Deleted semester registration ${id}`,
-  });
   return { ok: true };
 }
 
@@ -284,14 +208,6 @@ export async function submitStudentRegistration({ semesterId, registrationTypeId
     registrationTypeId,
   });
 
-  await logAudit(query, {
-    userId: user.id,
-    action: 'registration.submitted',
-    entityType: 'semester_registration',
-    entityId: id,
-    details: `Student registered for ${currentPeriod.semester_name} (${registrationTypeId})`,
-  });
-
   return reg;
 }
 
@@ -300,14 +216,6 @@ export async function cancelStudentRegistration(id, studentId, user) {
   if (!cancelled) {
     throw new ConflictError('Registration cannot be cancelled (not found or not pending).');
   }
-
-  await logAudit(query, {
-    userId: user.id,
-    action: 'registration.cancelled',
-    entityType: 'semester_registration',
-    entityId: id,
-    details: `Student cancelled pending registration`,
-  });
 
   return cancelled;
 }

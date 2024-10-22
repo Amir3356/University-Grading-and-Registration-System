@@ -4,7 +4,6 @@ import academicYears from '@/data/academicYears.json'
 import announcements from '@/data/announcements.json'
 import assessmentScores from '@/data/assessmentScores.json'
 import assessments from '@/data/assessments.json'
-import auditLogs from '@/data/auditLogs.json'
 import courseEnrollments from '@/data/courseEnrollments.json'
 import courseOfferings from '@/data/courseOfferings.json'
 import courses from '@/data/courses.json'
@@ -39,7 +38,6 @@ const SEED = {
   finalGrades,
   gradeApprovalRequests,
   notifications,
-  auditLogs,
   announcements,
   settings,
 }

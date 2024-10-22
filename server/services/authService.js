@@ -3,7 +3,6 @@ import * as userRepo from '../repositories/userRepository.js';
 import { comparePassword, hashPassword, validatePasswordStrength } from '../utils/password.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
 import { UnauthorizedError, ValidationError, NotFoundError, ConflictError } from '../utils/errors.js';
-import { logAudit } from '../middleware/audit.js';
 import { query } from '../config/database.js';
 
 export async function login({ role, identifier, username, password, userAgent, ipAddress }) {
@@ -14,8 +13,12 @@ export async function login({ role, identifier, username, password, userAgent, i
 
   // Find user by role and identifier or username
   const user = await userRepo.findByIdentifierOrUsername(role, cred);
-  if (!user || user.status !== 'active') {
-    throw new UnauthorizedError('Invalid credentials or inactive account.');
+  if (!user) {
+    throw new UnauthorizedError('Invalid username or password');
+  }
+
+  if (user.status !== 'active') {
+    throw new UnauthorizedError('Deactivated your account');
   }
 
   // Verify password
@@ -32,7 +35,7 @@ export async function login({ role, identifier, username, password, userAgent, i
   }
 
   if (!passwordValid) {
-    throw new UnauthorizedError('Invalid credentials or inactive account.');
+    throw new UnauthorizedError('Invalid username or password');
   }
 
   // Generate tokens
@@ -47,14 +50,6 @@ export async function login({ role, identifier, username, password, userAgent, i
 
   // Update last_login_at
   await query(`UPDATE users SET last_login_at = now() WHERE id = $1`, [user.id]);
-  await logAudit(query, {
-    userId: user.id,
-    action: 'auth.login',
-    entityType: 'user',
-    entityId: user.id,
-    details: 'Signed in successfully',
-    ipAddress,
-  });
 
   const profile = await userRepo.getUserProfile(user.id, user.role_id);
 
@@ -96,8 +91,11 @@ export async function refreshAccessToken(refreshToken, userAgent, ipAddress) {
   }
 
   const user = await userRepo.findById(decoded.userId);
-  if (!user || user.status !== 'active') {
-    throw new UnauthorizedError('User account inactive or not found.');
+  if (!user) {
+    throw new UnauthorizedError('User account not found.');
+  }
+  if (user.status !== 'active') {
+    throw new UnauthorizedError('Deactivated your account');
   }
 
   const newAccessToken = signAccessToken({ userId: user.id, roleId: user.role_id });
@@ -112,22 +110,16 @@ export async function logout(user, refreshToken) {
     const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
     await userRepo.revokeRefreshToken(tokenHash);
   }
-  if (user?.id) {
-    await logAudit(query, {
-      userId: user.id,
-      action: 'auth.logout',
-      entityType: 'user',
-      entityId: user.id,
-      details: 'Signed out',
-    });
-  }
   return { ok: true };
 }
 
 export async function getMe(userId) {
   const user = await userRepo.findById(userId);
-  if (!user || user.status !== 'active') {
-    throw new UnauthorizedError('User account not found or inactive.');
+  if (!user) {
+    throw new UnauthorizedError('User account not found.');
+  }
+  if (user.status !== 'active') {
+    throw new UnauthorizedError('Deactivated your account');
   }
   const profile = await userRepo.getUserProfile(user.id, user.role_id);
   return {
@@ -164,14 +156,6 @@ export async function updateOwnProfile(userId, { firstName, lastName, phone }) {
     [userId, firstName.trim(), lastName.trim(), phone?.trim() || null]
   );
   const user = res.rows[0];
-
-  await logAudit(query, {
-    userId,
-    action: 'user.profile_updated',
-    entityType: 'user',
-    entityId: userId,
-    details: 'Updated own profile details',
-  });
 
   const profile = await userRepo.getUserProfile(user.id, user.role_id);
   return {
@@ -219,14 +203,6 @@ export async function changeOwnPassword(userId, { currentPassword, newPassword, 
   );
 
   await userRepo.revokeAllUserRefreshTokens(userId);
-
-  await logAudit(query, {
-    userId,
-    action: 'auth.password_changed',
-    entityType: 'user',
-    entityId: userId,
-    details: 'Changed own password',
-  });
 
   return { ok: true };
 }

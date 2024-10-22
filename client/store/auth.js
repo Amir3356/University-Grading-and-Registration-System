@@ -1,4 +1,5 @@
 import {
+  getStoredToken,
   getStoredUser,
   getStoredProfile,
   setStoredSession,
@@ -37,9 +38,16 @@ export async function logout() {
 }
 
 export function me() {
+  const token = getStoredToken();
+  const refreshToken = getStoredRefreshToken();
   const user = getStoredUser();
   const profile = getStoredProfile();
-  if (!user) throw new Error('Unauthenticated');
+  if (!user || (!token && !refreshToken)) {
+    if (!token && !refreshToken && user) {
+      clearStoredSession();
+    }
+    throw new Error('Unauthenticated');
+  }
   return { user, profile };
 }
 

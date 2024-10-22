@@ -13,7 +13,7 @@ export const APP_CONFIG = {
   dateFormat: 'YYYY-MM-DD',
   timeFormat: 'HH:mm:ss',
   dateTimeFormat: 'YYYY-MM-DD HH:mm',
-  toastDuration: 4000,
+  toastDuration: 3000,
   defaultPageSize: 20,
 };
 

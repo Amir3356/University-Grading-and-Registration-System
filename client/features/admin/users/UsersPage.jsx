@@ -13,7 +13,7 @@ import { useQuery } from '@/hooks/useStore'
 import { ROLE_LABELS } from '@/lib/format'
 import { store } from '@/store'
 import { UserActionDialogs } from './UserActionDialogs'
-import { UserFormDialog, DEPARTMENT_OPTIONS } from './UserFormDialog'
+import { UserFormDialog, DEPARTMENT_OPTIONS, ADMIN_ROLE_OPTIONS } from './UserFormDialog'
 
 const ROLE_BADGE = { admin: 'default', dept_head: 'primary', teacher: 'info', student: 'secondary' }
 
@@ -21,10 +21,13 @@ const COLUMNS = [
   { key: 'no', header: 'No' },
   { key: 'name', header: 'Full name' },
   { key: 'roleId', header: 'Role' },
-  { key: 'identifier', header: 'Department head ID' },
+  { key: 'identifier', header: 'ID / Identifier' },
   { key: 'departmentName', header: 'Department' },
+  { key: 'programType', header: 'Program type' },
   { key: 'password', header: 'Password' },
 ]
+
+export const ROLE_OPTIONS = ADMIN_ROLE_OPTIONS
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
@@ -60,27 +63,34 @@ export function UsersPage() {
   const [action, setAction] = useState(null)
 
   const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
   const { data, loading, error, refetch } = useQuery(
-    () => store.users.listUsers({ role: 'dept_head', pageSize: 100, excludeSeed: true }),
+    () => store.users.listUsers({ pageSize: 100, excludeSeed: true }),
     [],
   )
 
   const items = (data?.items ?? []).filter(
-    (u) => !u.isSeed && !u.is_seed && !/^usr_\d{4}$/.test(u.id) && (u.roleId === 'dept_head' || u.role_id === 'dept_head')
+    (u) =>
+      !u.isSeed &&
+      !u.is_seed &&
+      !/^usr_\d{4}$/.test(u.id) &&
+      !/^stu_\d{4}$/.test(u.id) &&
+      (u.roleId === 'dept_head' || u.role_id === 'dept_head' || u.roleId === 'student' || u.role_id === 'student')
   )
 
   const filteredItems = useMemo(() => {
     return items.filter((u) => {
       const name = u.name || `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim()
       const roleId = u.roleId || u.role_id || ''
-      const identifier = u.identifier || u.employee_number || ''
+      const identifier = u.identifier || u.employee_number || u.student_number || ''
       const departmentName = u.departmentName || u.department_name || ''
       const username = u.username || ''
       const status = u.status || 'active'
 
+      if (roleFilter && roleId !== roleFilter) return false
       if (statusFilter && status !== statusFilter) return false
       if (departmentFilter && u.departmentId !== departmentFilter && departmentName.toLowerCase() !== departmentFilter.toLowerCase()) return false
 
@@ -91,12 +101,13 @@ export function UsersPage() {
           username.toLowerCase().includes(q) ||
           identifier.toLowerCase().includes(q) ||
           departmentName.toLowerCase().includes(q) ||
+          (roleId === 'student' && 'fresh student'.includes(q)) ||
           (ROLE_LABELS[roleId] || '').toLowerCase().includes(q)
         if (!match) return false
       }
       return true
     })
-  }, [items, search, departmentFilter, statusFilter])
+  }, [items, search, roleFilter, departmentFilter, statusFilter])
 
   const openCreate = () => {
     setEditingId(null)
@@ -111,7 +122,7 @@ export function UsersPage() {
     <>
       <PageHeader
         title="Account Provision"
-        description="Provision and manage department head accounts."
+        description="Provision and manage fresh student and department head accounts."
         centered
         actions={
           <Button onClick={openCreate}>
@@ -136,6 +147,14 @@ export function UsersPage() {
               />
             </div>
             <div className="toolbar--split__right">
+              <FilterSelect
+                value={roleFilter}
+                onChange={setRoleFilter}
+                options={ROLE_OPTIONS}
+                allLabel="All roles"
+                label="Role"
+                className="filter-select--role"
+              />
               <FilterSelect
                 value={departmentFilter}
                 onChange={setDepartmentFilter}
@@ -169,13 +188,13 @@ export function UsersPage() {
                 {items.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
                     <TableCell colSpan={COLUMNS.length + 1} className="whitespace-normal">
-                      <EmptyState compact icon={Users} title="No department head accounts yet" description="Create the first department head account to get started." />
+                      <EmptyState compact icon={Users} title="No provisioned accounts yet" description="Create a fresh student or department head account to get started." />
                     </TableCell>
                   </TableRow>
                 ) : filteredItems.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
                     <TableCell colSpan={COLUMNS.length + 1} className="whitespace-normal">
-                      <EmptyState compact icon={Users} title="No matching department head accounts found" description="Try adjusting your search query or filter options." />
+                      <EmptyState compact icon={Users} title="No matching accounts found" description="Try adjusting your search query or filter options." />
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -184,16 +203,21 @@ export function UsersPage() {
                     const roleId = u.roleId || u.role_id
                     const identifier = u.identifier || u.employee_number || u.student_number || '—'
                     const departmentName = u.departmentName || u.department_name || '—'
+                    const rawProg = u.programType || u.program_type
+                    const programType = rawProg ? rawProg.charAt(0).toUpperCase() + rawProg.slice(1) : '—'
                     const passwordHash = u.passwordHash || u.password_hash || '—'
                     return (
                       <TableRow key={u.id} className="hover:bg-muted/50">
                         <TableCell className="tabular text-muted">{i + 1}</TableCell>
                         <TableCell className="font-medium">{name}</TableCell>
                         <TableCell>
-                          <Badge variant={ROLE_BADGE[roleId]}>{ROLE_LABELS[roleId] || roleId}</Badge>
+                          <Badge variant={ROLE_BADGE[roleId] || 'secondary'}>
+                            {roleId === 'student' ? 'Fresh Student' : ROLE_LABELS[roleId] || roleId}
+                          </Badge>
                         </TableCell>
-                        <TableCell className="tabular">{identifier}</TableCell>
+                        <TableCell className="tabular font-medium">{identifier}</TableCell>
                         <TableCell>{departmentName}</TableCell>
+                        <TableCell>{programType}</TableCell>
                         <TableCell className="tabular font-mono text-xs max-w-[150px]" title={passwordHash}>
                           <span className="rounded bg-muted px-1.5 py-0.5 select-all truncate block" title={passwordHash}>
                             {passwordHash}
@@ -220,6 +244,8 @@ export function UsersPage() {
         open={formOpen}
         onOpenChange={setFormOpen}
         userId={editingId}
+        roleOptions={ROLE_OPTIONS}
+        defaultRole={roleFilter || 'student'}
         onCreated={() => refetch()}
       />
       <UserActionDialogs action={action} onClose={() => setAction(null)} />

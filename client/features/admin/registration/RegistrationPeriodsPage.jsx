@@ -18,7 +18,6 @@ import {
   Plus,
   Search,
   ChevronDown,
-  Info,
   Save,
   X,
   Calendar,
@@ -285,18 +284,7 @@ export function RegistrationPeriodsPage() {
                 <EmptyState
                   icon={CalendarClock}
                   title="No registration periods configured"
-                  description="There are currently no registration periods configured. Click 'Configure Registration' to set up a registration period for a semester."
-                  action={
-                    <button
-                      type="button"
-                      className="reg-btn-primary"
-                      onClick={handleOpenNewConfig}
-                      style={{ marginTop: '0.5rem' }}
-                    >
-                      <Plus size={16} aria-hidden="true" />
-                      Configure Registration
-                    </button>
-                  }
+                  description="There are currently no registration periods configured."
                 />
               </div>
             ) : (
@@ -589,36 +577,8 @@ export function RegistrationPeriodsPage() {
                   </div>
                 </div>
 
-                {/* Registration Status */}
-                <div className="reg-form-group">
-                  <label className="reg-form-label">
-                    Registration Status <span className="reg-required">*</span>
-                  </label>
-                  <div className="reg-radio-options">
-                    {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                      <label key={value} className="reg-control-label">
-                        <input
-                          type="radio"
-                          name="status"
-                          value={value}
-                          checked={formState.status === value}
-                          onChange={(e) => setFormState((f) => ({ ...f, status: e.target.value }))}
-                          className="reg-control-input"
-                        />
-                        <span>{label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
 
-                {/* Informative Callout */}
-                <div className="reg-info-callout">
-                  <Info className="reg-info-callout__icon" aria-hidden="true" />
-                  <p className="reg-info-callout__text">
-                    Students will be able to register for the selected semester within the specified period. The system
-                    will automatically allow or block registration based on the status and dates.
-                  </p>
-                </div>
+
 
                 {/* Action Buttons */}
                 <div className="reg-drawer-actions">

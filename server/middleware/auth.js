@@ -34,7 +34,7 @@ export async function authenticate(req, res, next) {
 
     const user = userRes.rows[0];
     if (user.status !== 'active') {
-      throw new UnauthorizedError('Account is inactive.');
+      throw new UnauthorizedError('Deactivated your account');
     }
 
     req.user = {
@@ -95,7 +95,15 @@ export async function optionalAuthenticate(req, res, next) {
     (req.headers.authorization && req.headers.authorization.startsWith('Bearer '));
 
   if (hasToken) {
-    return authenticate(req, res, next);
+    return authenticate(req, res, (err) => {
+      if (err) {
+        // Optional auth: gracefully fall back to unauthenticated guest mode
+        req.user = null;
+        req.ability = defineAbilityFor(null);
+        return next();
+      }
+      next();
+    });
   }
   req.user = null;
   req.ability = defineAbilityFor(null);

@@ -65,6 +65,10 @@ export const createUserSchema = z.object({
 });
 
 export const updateUserSchema = z.object({
+  username: z.preprocess(
+    (val) => (typeof val === 'string' && val.trim() ? val.trim() : undefined),
+    z.string().min(3, 'Username must be at least 3 characters.').max(32, 'Username cannot exceed 32 characters.').optional()
+  ),
   firstName: z.string().trim().min(1, 'First name is required.').max(80).optional(),
   lastName: z.string().trim().min(1, 'Last name is required.').max(80).optional(),
   email: z.preprocess(

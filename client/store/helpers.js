@@ -152,23 +152,6 @@ export function sortBy(items, sort) {
 }
 
 // ---------------- Side effects (inside transactions) ----------------
-export function audit(tx, user, { action, entityType, entityId, offeringId = null, details, reason = null, before = null, after = null }) {
-  // Newest first, matching the seed order, so readers can slice without sorting.
-  tx.table('auditLogs').unshift({
-    id: newId('aud'),
-    userId: user?.id ?? null,
-    action,
-    entityType,
-    entityId,
-    offeringId,
-    details,
-    reason,
-    before,
-    after,
-    ipAddress: '127.0.0.1',
-    createdAt: now(),
-  })
-}
 
 export function notify(tx, userId, { title, message, type = 'system', link = null }) {
   tx.insert('notifications', { id: newId('ntf'), userId, title, message, type, link, isRead: false, createdAt: now() })

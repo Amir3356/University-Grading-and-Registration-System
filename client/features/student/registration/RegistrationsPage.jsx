@@ -29,7 +29,7 @@ export function RegistrationsPage() {
   const [formData, setFormData] = useState({
     academicYear: '2027',
     semester: 'Second',
-    type: 'Regular (Café)',
+    type: 'Regular (Café & Non-Café)',
   })
 
   const handleRegisterSubmit = (e) => {
@@ -82,12 +82,7 @@ export function RegistrationsPage() {
               <EmptyState
                 icon={UserCheck}
                 title="No registration records"
-                description="You have not registered for any semesters yet. Click 'Register for Semester' to submit a registration."
-                action={
-                  <Button onClick={() => setIsRegisterOpen(true)} className="mt-2">
-                    <Plus className="icon" /> Register for Semester
-                  </Button>
-                }
+                description="You have not registered for any semesters yet."
               />
             </div>
           ) : (
@@ -192,8 +187,7 @@ export function RegistrationsPage() {
                   <SelectValue placeholder="Select Registration Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Regular (Café)">Regular (Café)</SelectItem>
-                  <SelectItem value="Non-Regular (Non-Café)">Non-Regular (Non-Café)</SelectItem>
+                  <SelectItem value="Regular (Café & Non-Café)">Regular (Café & Non-Café)</SelectItem>
                   <SelectItem value="Extension">Extension</SelectItem>
                   <SelectItem value="Weekend">Weekend</SelectItem>
                 </SelectContent>
