@@ -1,12 +1,13 @@
 import { query } from '../config/database.js';
 import * as lookupRepo from '../repositories/lookupRepository.js';
-import { getCurrentSemester } from '../repositories/calendarRepository.js';
+import { getCurrentSemester, ensureAcademicCalendarYears } from '../repositories/calendarRepository.js';
 import { getAcademicPolicy, getActiveGradeScale } from '../repositories/gradebookRepository.js';
 import { getUniversitySettings } from '../repositories/settingsRepository.js';
 import { listReasonCategories } from '../repositories/withdrawalRepository.js';
 
 
 export async function getLookups(user) {
+  await ensureAcademicCalendarYears();
   const deptsRes = await query(`SELECT * FROM departments ORDER BY name ASC`);
   const progsRes = await query(`SELECT * FROM programs WHERE status = 'active' ORDER BY name ASC`);
   const yearsRes = await query(`SELECT * FROM academic_years ORDER BY start_date DESC`);
@@ -32,7 +33,6 @@ export async function getLookups(user) {
      WHERE is_active = true
      ORDER BY CASE id
        WHEN 'regular' THEN 1
-       WHEN 'cafe' THEN 1
        WHEN 'extension' THEN 2
        WHEN 'weekend' THEN 3
        ELSE 4

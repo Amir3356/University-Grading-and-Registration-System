@@ -13,7 +13,7 @@
     "code": "CS",
     "name": "Computer Science",
     "description": "Computing theory, software engineering and information systems.",
-    "headTeacherId": "tch_0002",
+    "headTeacherId": null,
     "createdAt": "2024-06-01T00:00:00.000Z",
     "updatedAt": "2024-06-01T00:00:00.000Z"
   },
@@ -22,7 +22,7 @@
     "code": "BIO",
     "name": "Biology",
     "description": "Life sciences from molecules to ecosystems.",
-    "headTeacherId": "tch_0014",
+    "headTeacherId": null,
     "createdAt": "2024-06-01T00:00:00.000Z",
     "updatedAt": "2024-06-01T00:00:00.000Z"
   },
@@ -49,7 +49,7 @@
     "code": "MATH",
     "name": "Mathematics",
     "description": "Pure and applied mathematics, statistics and modelling.",
-    "headTeacherId": "tch_0005",
+    "headTeacherId": null,
     "createdAt": "2024-06-01T00:00:00.000Z",
     "updatedAt": "2024-06-01T00:00:00.000Z"
   },
@@ -130,7 +130,7 @@
     "code": "BUS",
     "name": "Business Administration",
     "description": "Management, accounting, finance and marketing.",
-    "headTeacherId": "tch_0008",
+    "headTeacherId": null,
     "createdAt": "2024-06-01T00:00:00.000Z",
     "updatedAt": "2024-06-01T00:00:00.000Z"
   },
@@ -139,7 +139,7 @@
     "code": "EE",
     "name": "Electrical Engineering",
     "description": "Circuits, electronics, signals and power systems.",
-    "headTeacherId": "tch_0011",
+    "headTeacherId": null,
     "createdAt": "2024-06-01T00:00:00.000Z",
     "updatedAt": "2024-06-01T00:00:00.000Z"
   },

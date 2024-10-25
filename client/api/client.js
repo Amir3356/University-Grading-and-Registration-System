@@ -5,6 +5,7 @@ import {
   REFRESH_TOKEN_KEY,
   USER_KEY,
   PROFILE_KEY,
+  isJwtExpired,
   getStoredToken,
   getStoredRefreshToken,
   getStoredUser,
@@ -19,6 +20,7 @@ export {
   REFRESH_TOKEN_KEY,
   USER_KEY,
   PROFILE_KEY,
+  isJwtExpired,
   getStoredToken,
   getStoredRefreshToken,
   getStoredUser,
@@ -28,7 +30,6 @@ export {
 };
 
 import { API_BASE_URL, API_TIMEOUT, DEFAULT_HEADERS, ENDPOINTS } from '@/config/api.config';
-import { setCookie } from '@/lib/cookies.js';
 
 export const API_BASE = API_BASE_URL;
 
@@ -41,18 +42,17 @@ export const apiClient = axios.create({
   },
 });
 
-let isRefreshing = false;
-let failedQueue = [];
+let refreshPromise = null;
 
-function processQueue(error, token = null) {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token);
-    }
-  });
-  failedQueue = [];
+function isPublicEndpoint(url) {
+  if (!url || typeof url !== 'string') return false;
+  return (
+    url.includes(ENDPOINTS.AUTH.LOGIN) ||
+    url.includes(ENDPOINTS.AUTH.REFRESH) ||
+    url.includes(ENDPOINTS.AUTH.LOGOUT) ||
+    url.includes('/lookups') ||
+    url.includes('/grading/config')
+  );
 }
 
 async function doRefreshToken() {
@@ -69,22 +69,78 @@ async function doRefreshToken() {
   );
 
   const data = res.data;
-  const token = data.token || data.accessToken;
+  const token = data?.token || data?.accessToken;
   if (!token) throw new Error('No token returned from refresh');
-  setStoredSession(token, refreshToken, getStoredUser(), getStoredProfile());
+  const newRefreshToken = data?.refreshToken || refreshToken;
+  setStoredSession(token, newRefreshToken, getStoredUser(), getStoredProfile());
   return token;
 }
 
-// Request Interceptor: Attach bearer token and ensure proper Content-Type
+function getOrRefreshToken() {
+  const token = getStoredToken();
+  const refreshToken = getStoredRefreshToken();
+
+  // If we already have a valid unexpired access token, use it directly
+  if (token && !isJwtExpired(token)) {
+    return Promise.resolve(token);
+  }
+
+  // If token is missing/expired but refresh token is available, proactively refresh
+  if (refreshToken) {
+    if (!refreshPromise) {
+      refreshPromise = doRefreshToken()
+        .then((newToken) => {
+          refreshPromise = null;
+          return newToken;
+        })
+        .catch(() => {
+          refreshPromise = null;
+          clearStoredSession();
+          return null;
+        });
+    }
+    return refreshPromise;
+  }
+
+  // Neither valid token nor refresh token available
+  return Promise.resolve(null);
+}
+
+// Request Interceptor: Proactively refresh token if expired, attach bearer token & abort unauthenticated requests
 apiClient.interceptors.request.use(
-  (config) => {
-    const token = getStoredToken();
-    if (token && !config.headers.Authorization) {
-      config.headers.Authorization = `Bearer ${token}`;
+  async (config) => {
+    // Skip token injection for login and refresh endpoints
+    if (config.url?.includes(ENDPOINTS.AUTH.LOGIN) || config.url?.includes(ENDPOINTS.AUTH.REFRESH)) {
+      return config;
+    }
+
+    const token = await getOrRefreshToken();
+
+    if (token) {
+      if (config.headers?.set) {
+        config.headers.set('Authorization', `Bearer ${token}`);
+      } else {
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } else if (!isPublicEndpoint(config.url)) {
+      // Abort request before network dispatch if protected and unauthenticated
+      clearStoredSession();
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
+      return Promise.reject(
+        new StoreError('unauthenticated', 'Session expired. Please log in again.')
+      );
     }
 
     if (!(config.data instanceof FormData) && !config.headers['Content-Type']) {
-      config.headers['Content-Type'] = 'application/json';
+      if (config.headers?.set) {
+        config.headers.set('Content-Type', 'application/json');
+      } else {
+        config.headers = config.headers || {};
+        config.headers['Content-Type'] = 'application/json';
+      }
     }
 
     return config;
@@ -108,44 +164,34 @@ apiClient.interceptors.response.use(
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
-      getStoredRefreshToken() &&
-      !originalRequest.url?.includes(ENDPOINTS.AUTH.LOGIN) &&
-      !originalRequest.url?.includes(ENDPOINTS.AUTH.REFRESH)
+      !isPublicEndpoint(originalRequest.url) &&
+      getStoredRefreshToken()
     ) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then((token) => {
-            originalRequest._retry = true;
-            if (originalRequest.headers?.set) {
-              originalRequest.headers.set('Authorization', `Bearer ${token}`);
-            } else {
-              originalRequest.headers = originalRequest.headers || {};
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-            }
-            return apiClient(originalRequest);
-          })
-          .catch((err) => Promise.reject(err));
-      }
-
       originalRequest._retry = true;
-      isRefreshing = true;
 
       try {
-        const newToken = await doRefreshToken();
-        isRefreshing = false;
-        processQueue(null, newToken);
-        if (originalRequest.headers?.set) {
-          originalRequest.headers.set('Authorization', `Bearer ${newToken}`);
-        } else {
-          originalRequest.headers = originalRequest.headers || {};
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        if (!refreshPromise) {
+          refreshPromise = doRefreshToken()
+            .then((newToken) => {
+              refreshPromise = null;
+              return newToken;
+            })
+            .catch((err) => {
+              refreshPromise = null;
+              throw err;
+            });
         }
-        return apiClient(originalRequest);
-      } catch (refreshErr) {
-        isRefreshing = false;
-        processQueue(refreshErr, null);
+        const newToken = await refreshPromise;
+        if (newToken) {
+          if (originalRequest.headers?.set) {
+            originalRequest.headers.set('Authorization', `Bearer ${newToken}`);
+          } else {
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          }
+          return apiClient(originalRequest);
+        }
+      } catch {
         clearStoredSession();
         if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
           window.location.href = '/login';
@@ -154,9 +200,7 @@ apiClient.interceptors.response.use(
       }
     } else if (
       error.response?.status === 401 &&
-      !originalRequest.url?.includes(ENDPOINTS.AUTH.LOGIN) &&
-      !originalRequest.url?.includes(ENDPOINTS.AUTH.REFRESH) &&
-      !originalRequest.url?.includes('/lookups')
+      !isPublicEndpoint(originalRequest.url)
     ) {
       clearStoredSession();
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {

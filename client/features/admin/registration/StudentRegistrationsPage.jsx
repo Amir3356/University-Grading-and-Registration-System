@@ -54,10 +54,6 @@ export function StudentRegistrationsPage() {
   const [deleting, setDeleting] = useState(null)
   const [rejecting, setRejecting] = useState(null)
 
-  // Without an explicit semester the API reports on the current one.
-  const currentSemesterId = semesters.find((s) => s.is_current)?.id ?? ''
-  const selectedSemesterId = studentSemFilter || currentSemesterId
-  const selectedSemester = semesters.find((s) => s.id === selectedSemesterId)
 
   const visiblePrograms = useMemo(
     () => (studentDeptFilter ? programs.filter((p) => p.department_id === studentDeptFilter) : programs),
@@ -83,6 +79,10 @@ export function StudentRegistrationsPage() {
     live: false,
   })
   const rawItems = listQuery.data?.items || []
+  // Without an explicit semester the API picks one (the semester whose registration is open),
+  // so use the semester it reports for the Academic Year / Semester columns.
+  const selectedSemesterId = studentSemFilter || listQuery.data?.semesterId || ''
+  const selectedSemester = semesters.find((s) => s.id === selectedSemesterId)
   const students = useMemo(
     () => rawItems.filter((s) => s.registration && s.status !== 'not_registered'),
     [rawItems]
@@ -179,7 +179,7 @@ export function StudentRegistrationsPage() {
           <div className="reg-filter-select-box">
             <label className="reg-filter-select-label">Semester</label>
             <select value={studentSemFilter} onChange={setFilter(setStudentSemFilter)} className="reg-filter-select">
-              <option value="">Current Semester</option>
+              <option value="">Open Registration Semester</option>
               {semesters.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}

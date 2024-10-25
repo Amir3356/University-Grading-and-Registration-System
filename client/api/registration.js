@@ -1,4 +1,5 @@
 import { api } from './client';
+import { notifyPeriodChange } from '@/lib/syncEvents';
 
 /**
  * Registration Periods & Requests API calls
@@ -9,19 +10,27 @@ export async function listRegistrationPeriods(params = {}) {
 }
 
 export async function createRegistrationPeriod(data) {
-  return await api.post('/registration-periods', data);
+  const result = await api.post('/registration-periods', data);
+  notifyPeriodChange();
+  return result;
 }
 
 export async function updateRegistrationPeriod(id, data) {
-  return await api.put(`/registration-periods/${id}`, data);
+  const result = await api.put(`/registration-periods/${id}`, data);
+  notifyPeriodChange();
+  return result;
 }
 
 export async function deleteRegistrationPeriod(id) {
-  return await api.delete(`/registration-periods/${id}`);
+  const result = await api.delete(`/registration-periods/${id}`);
+  notifyPeriodChange();
+  return result;
 }
 
 export async function toggleRegistrationPeriod(id) {
-  return await api.post(`/registration-periods/${id}/toggle`);
+  const result = await api.post(`/registration-periods/${id}/toggle`);
+  notifyPeriodChange();
+  return result;
 }
 
 export async function getRegistrationSummary(params = {}) {
@@ -53,6 +62,10 @@ export async function submitStudentRegistration(data) {
   return await api.post('/student/registrations', data);
 }
 
+export async function cancelStudentRegistration(id) {
+  return await api.post(`/student/registrations/${id}/cancel`);
+}
+
 // Backward-compatible named aliases
 export const listRegistrationPeriodsApi = listRegistrationPeriods;
 export const createRegistrationPeriodApi = createRegistrationPeriod;
@@ -66,3 +79,4 @@ export const updateSemesterRegistrationTypeApi = updateSemesterRegistrationType;
 export const deleteSemesterRegistrationApi = deleteSemesterRegistration;
 export const getStudentRegistrationsApi = getStudentRegistrations;
 export const submitStudentRegistrationApi = submitStudentRegistration;
+export const cancelStudentRegistrationApi = cancelStudentRegistration;

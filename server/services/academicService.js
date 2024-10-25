@@ -261,7 +261,9 @@ export async function createSemester(data, user) {
 
   const id = `sem_${Date.now()}`;
   const termLabels = { first: 'First Semester', second: 'Second Semester', summer: 'Summer Semester' };
-  const name = data.name || `${termLabels[data.term] || data.term}`;
+  const year = await calRepo.getAcademicYearById(data.academicYearId);
+  const yearPrefix = year?.name?.split('/')[0] || new Date(data.startDate).getFullYear();
+  const name = data.name || `${yearPrefix} ${termLabels[data.term] || data.term}`;
 
   const sem = await calRepo.createSemester({
     id,

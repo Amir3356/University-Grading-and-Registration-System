@@ -45,9 +45,9 @@ export async function seedDatabase() {
       }
     }
 
-    // 2. Users
-    console.log('Seeding users...');
-    const usersData = readJson('users.json');
+    // 2. Users (Admin credentials only)
+    console.log('Seeding users (admin only)...');
+    const usersData = readJson('users.json').filter((u) => u.roleId === 'admin');
     for (const u of usersData) {
       const passwordHash = u.password
         ? await bcrypt.hash(u.password, 10)
@@ -149,13 +149,13 @@ export async function seedDatabase() {
       );
     }
 
-    // Update department head teachers
+    // Update department head teachers if teachers exist
     for (const d of departmentsData) {
       if (d.headTeacherId) {
-        await client.query(
-          `UPDATE departments SET head_teacher_id = $1 WHERE id = $2`,
-          [d.headTeacherId, d.id]
-        );
+        const teacherExists = await client.query(`SELECT 1 FROM teachers WHERE id = $1`, [d.headTeacherId]);
+        if (teacherExists.rows.length > 0) {
+          await client.query(`UPDATE departments SET head_teacher_id = $1 WHERE id = $2`, [d.headTeacherId, d.id]);
+        }
       }
     }
 
@@ -297,7 +297,7 @@ export async function seedDatabase() {
     // 9. Registration Types & Periods
     console.log('Seeding registration types & periods...');
     const regTypes = [
-      { id: 'regular', label: 'Regular (Café & Non-Café)', description: 'Regular program (Café & Non-Café) registration' },
+      { id: 'regular', label: 'Regular', description: 'Regular program registration' },
       { id: 'extension', label: 'Extension', description: 'Evening extension program registration' },
       { id: 'weekend', label: 'Weekend', description: 'Weekend program registration' },
     ];
@@ -309,9 +309,6 @@ export async function seedDatabase() {
         [rt.id, rt.label, rt.description]
       );
     }
-
-    // Registration periods and semester registrations:
-    // Left unseeded so administrators configure real registration periods from the UI.
 
     // 10. Course Offerings
     console.log('Seeding course offerings...');
@@ -544,49 +541,7 @@ export async function seedDatabase() {
 
     // Withdrawal requests
     console.log('Seeding withdrawal requests...');
-    const withdrawalRequests = [
-      {
-        id: 'wr_001',
-        referenceNo: 'WR-001',
-        studentId: 'stu_0001',
-        scope: 'semester',
-        semesterId: 'sem_2026_fall',
-        reasonCategoryId: 'medical',
-        reason: 'Medical condition requiring rest and clinical treatment for the duration of the semester.',
-        status: 'pending',
-        submittedAt: '2026-10-18T09:30:00Z',
-        adminNotes: 'Awaiting formal review by the Academic Commission and Registrar Office.',
-        clearances: { department: 'pending', library: 'approved', housing: 'pending', registrar: 'pending' },
-      },
-      {
-        id: 'wr_002',
-        referenceNo: 'WR-002',
-        studentId: 'stu_0002',
-        scope: 'university',
-        semesterId: 'sem_2026_fall',
-        reasonCategoryId: 'relocation_transfer',
-        reason: 'Permanently relocating abroad and transferring academic credits to an international university.',
-        status: 'approved',
-        submittedAt: '2026-10-15T11:00:00Z',
-        decidedBy: 'usr_0001',
-        decidedAt: '2026-10-17T14:00:00Z',
-        adminNotes: 'All university clearance items verified and approved. Permanent withdrawal finalized.',
-        clearances: { department: 'approved', library: 'approved', housing: 'approved', registrar: 'approved' },
-      },
-      {
-        id: 'wr_003',
-        referenceNo: 'WR-003',
-        studentId: 'stu_0003',
-        scope: 'semester',
-        semesterId: 'sem_2026_fall',
-        reasonCategoryId: 'financial',
-        reason: 'Temporary severe financial hardship preventing continuation of active university studies this semester.',
-        status: 'pending',
-        submittedAt: '2026-10-12T14:15:00Z',
-        adminNotes: 'Student advised to apply for financial assistance program alongside withdrawal application.',
-        clearances: { department: 'approved', library: 'pending', housing: 'pending', registrar: 'pending' },
-      },
-    ];
+    const withdrawalRequests = [];
 
     for (const wr of withdrawalRequests) {
       await client.query(

@@ -21,9 +21,8 @@ const COLUMNS = [
   { key: 'no', header: 'No' },
   { key: 'name', header: 'Full name' },
   { key: 'roleId', header: 'Role' },
-  { key: 'identifier', header: 'ID / Identifier' },
+  { key: 'identifier', header: 'Department Head ID' },
   { key: 'departmentName', header: 'Department' },
-  { key: 'programType', header: 'Program type' },
   { key: 'password', header: 'Password' },
 ]
 
@@ -77,15 +76,14 @@ export function UsersPage() {
       !u.isSeed &&
       !u.is_seed &&
       !/^usr_\d{4}$/.test(u.id) &&
-      !/^stu_\d{4}$/.test(u.id) &&
-      (u.roleId === 'dept_head' || u.role_id === 'dept_head' || u.roleId === 'student' || u.role_id === 'student')
+      (u.roleId === 'dept_head' || u.role_id === 'dept_head')
   )
 
   const filteredItems = useMemo(() => {
     return items.filter((u) => {
       const name = u.name || `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim()
       const roleId = u.roleId || u.role_id || ''
-      const identifier = u.identifier || u.employee_number || u.student_number || ''
+      const identifier = u.identifier || u.employee_number || ''
       const departmentName = u.departmentName || u.department_name || ''
       const username = u.username || ''
       const status = u.status || 'active'
@@ -101,7 +99,6 @@ export function UsersPage() {
           username.toLowerCase().includes(q) ||
           identifier.toLowerCase().includes(q) ||
           departmentName.toLowerCase().includes(q) ||
-          (roleId === 'student' && 'fresh student'.includes(q)) ||
           (ROLE_LABELS[roleId] || '').toLowerCase().includes(q)
         if (!match) return false
       }
@@ -122,7 +119,7 @@ export function UsersPage() {
     <>
       <PageHeader
         title="Account Provision"
-        description="Provision and manage fresh student and department head accounts."
+        description="Provision and manage department head accounts."
         centered
         actions={
           <Button onClick={openCreate}>
@@ -132,7 +129,7 @@ export function UsersPage() {
       />
 
       {loading && !data ? (
-        <TableSkeleton cols={7} />
+        <TableSkeleton cols={6} />
       ) : error ? (
         <ErrorState error={error} onRetry={refetch} />
       ) : (
@@ -188,23 +185,21 @@ export function UsersPage() {
                 {items.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
                     <TableCell colSpan={COLUMNS.length + 1} className="whitespace-normal">
-                      <EmptyState compact icon={Users} title="No provisioned accounts yet" description="Create a fresh student or department head account to get started." />
+                      <EmptyState compact icon={Users} title="No department head accounts yet" description="Create the first department head account to get started." />
                     </TableCell>
                   </TableRow>
                 ) : filteredItems.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
                     <TableCell colSpan={COLUMNS.length + 1} className="whitespace-normal">
-                      <EmptyState compact icon={Users} title="No matching accounts found" description="Try adjusting your search query or filter options." />
+                      <EmptyState compact icon={Users} title="No matching department head accounts found" description="Try adjusting your search query or filter options." />
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredItems.map((u, i) => {
                     const name = u.name || `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim()
                     const roleId = u.roleId || u.role_id
-                    const identifier = u.identifier || u.employee_number || u.student_number || '—'
+                    const identifier = u.identifier || u.employee_number || '—'
                     const departmentName = u.departmentName || u.department_name || '—'
-                    const rawProg = u.programType || u.program_type
-                    const programType = rawProg ? rawProg.charAt(0).toUpperCase() + rawProg.slice(1) : '—'
                     const passwordHash = u.passwordHash || u.password_hash || '—'
                     return (
                       <TableRow key={u.id} className="hover:bg-muted/50">
@@ -212,12 +207,11 @@ export function UsersPage() {
                         <TableCell className="font-medium">{name}</TableCell>
                         <TableCell>
                           <Badge variant={ROLE_BADGE[roleId] || 'secondary'}>
-                            {roleId === 'student' ? 'Fresh Student' : ROLE_LABELS[roleId] || roleId}
+                            {ROLE_LABELS[roleId] || roleId}
                           </Badge>
                         </TableCell>
                         <TableCell className="tabular font-medium">{identifier}</TableCell>
                         <TableCell>{departmentName}</TableCell>
-                        <TableCell>{programType}</TableCell>
                         <TableCell className="tabular font-mono text-xs max-w-[150px]" title={passwordHash}>
                           <span className="rounded bg-muted px-1.5 py-0.5 select-all truncate block" title={passwordHash}>
                             {passwordHash}
@@ -245,7 +239,7 @@ export function UsersPage() {
         onOpenChange={setFormOpen}
         userId={editingId}
         roleOptions={ROLE_OPTIONS}
-        defaultRole={roleFilter || 'student'}
+        defaultRole={roleFilter || 'dept_head'}
         onCreated={() => refetch()}
       />
       <UserActionDialogs action={action} onClose={() => setAction(null)} />

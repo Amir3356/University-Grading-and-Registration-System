@@ -5,19 +5,35 @@ import { defineAbilityFor } from './authorize.js';
 
 export async function authenticate(req, res, next) {
   try {
-    // Extract token from browser cookies first, falling back to Bearer header
-    let token = req.cookies?.ugs_token || req.cookies?.token || req.cookies?.accessToken;
-    if (!token && req.headers.authorization?.startsWith('Bearer ')) {
-      token = req.headers.authorization.split(' ')[1];
+    let token = null;
+    let decoded = null;
+
+    // 1. Check Bearer authorization header first
+    if (req.headers.authorization?.startsWith('Bearer ')) {
+      const bearerToken = req.headers.authorization.split(' ')[1];
+      const bearerDecoded = verifyAccessToken(bearerToken);
+      if (bearerDecoded?.userId) {
+        token = bearerToken;
+        decoded = bearerDecoded;
+      }
     }
 
-    if (!token) {
-      throw new UnauthorizedError('Authentication token missing or invalid.');
+    // 2. Fall back to browser cookies
+    if (!decoded) {
+      const cookieToken = req.cookies?.ugs_token || req.cookies?.token || req.cookies?.accessToken;
+      if (cookieToken) {
+        const cookieDecoded = verifyAccessToken(cookieToken);
+        if (cookieDecoded?.userId) {
+          token = cookieToken;
+          decoded = cookieDecoded;
+        }
+      }
     }
 
-    const decoded = verifyAccessToken(token);
     if (!decoded || !decoded.userId) {
-      throw new UnauthorizedError('Token expired or invalid.');
+      res.clearCookie('ugs_token', { path: '/' });
+      res.clearCookie('token', { path: '/' });
+      throw new UnauthorizedError('Authentication token missing or invalid.');
     }
 
     const userRes = await query(
@@ -64,7 +80,7 @@ export async function authenticate(req, res, next) {
       }
     } else if (user.role_id === 'student') {
       const sRes = await query(
-        `SELECT s.id AS student_id, s.department_id, s.program_id, s.student_number, s.academic_status
+        `SELECT s.id AS student_id, s.department_id, s.program_id, s.student_number, s.academic_status, s.program_type
          FROM students s
          WHERE s.user_id = $1`,
         [user.id]
@@ -75,6 +91,7 @@ export async function authenticate(req, res, next) {
         req.user.programId = sRes.rows[0].program_id;
         req.user.studentNumber = sRes.rows[0].student_number;
         req.user.academicStatus = sRes.rows[0].academic_status;
+        req.user.programType = sRes.rows[0].program_type;
       }
     }
 

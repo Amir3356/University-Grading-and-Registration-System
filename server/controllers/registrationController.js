@@ -1,6 +1,7 @@
 import * as regService from '../services/registrationService.js';
 import { ForbiddenError, ValidationError } from '../utils/errors.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
+import { broadcastEvent } from '../config/websocket.js';
 
 // Registration Periods
 export async function listPeriods(req, res, next) {
@@ -15,6 +16,7 @@ export async function listPeriods(req, res, next) {
 export async function createPeriod(req, res, next) {
   try {
     const period = await regService.createPeriod(req.body, req.user);
+    broadcastEvent('PERIOD_CHANGED', { action: 'create', periodId: period.id });
     sendCreated(res, period);
   } catch (err) {
     next(err);
@@ -24,6 +26,7 @@ export async function createPeriod(req, res, next) {
 export async function updatePeriod(req, res, next) {
   try {
     const period = await regService.updatePeriod(req.params.id, req.body, req.user);
+    broadcastEvent('PERIOD_CHANGED', { action: 'update', periodId: period.id });
     sendSuccess(res, period);
   } catch (err) {
     next(err);
@@ -40,6 +43,7 @@ export async function togglePeriod(req, res, next) {
     } else {
       result = await regService.openPeriod(id, req.user);
     }
+    broadcastEvent('PERIOD_CHANGED', { action: 'toggle', periodId: id, status: result.status });
     sendSuccess(res, result);
   } catch (err) {
     next(err);
@@ -49,6 +53,7 @@ export async function togglePeriod(req, res, next) {
 export async function deletePeriod(req, res, next) {
   try {
     const result = await regService.deletePeriod(req.params.id, req.user);
+    broadcastEvent('PERIOD_CHANGED', { action: 'delete', periodId: req.params.id });
     sendSuccess(res, result);
   } catch (err) {
     next(err);
@@ -134,7 +139,8 @@ export async function getStudentRegistrations(req, res, next) {
     if (!req.user.studentId) throw new ForbiddenError('Only students can access registration self-service.');
     const currentPeriod = await regService.getStudentCurrentPeriod(req.user.studentId);
     const history = await regService.listStudentHistory(req.user.studentId);
-    sendSuccess(res, { currentPeriod, history });
+    const upcomingPeriod = currentPeriod ? null : await regService.getUpcomingPeriod();
+    sendSuccess(res, { currentPeriod, upcomingPeriod, history });
   } catch (err) {
     next(err);
   }

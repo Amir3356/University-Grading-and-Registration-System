@@ -12,6 +12,8 @@ dotenv.config();
 const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
+import { initWebSocketServer } from './config/websocket.js';
+
 async function startServer() {
   try {
     // Verify database connectivity through connection pool
@@ -25,6 +27,9 @@ async function startServer() {
       console.log(`[Server] University Grading & Registration API running on http://localhost:${PORT}`);
       console.log(`[Server] Environment: ${NODE_ENV}`);
     });
+
+    // Initialize WebSocket server
+    initWebSocketServer(server);
 
     // Graceful shutdown handling
     const shutdown = async (signal) => {

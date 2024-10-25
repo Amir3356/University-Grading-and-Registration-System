@@ -10,8 +10,8 @@ dotenv.config();
 
 const getJwtSecret = () => process.env.JWT_SECRET || 'secret_jwt_access_key_university_grading';
 const getJwtRefreshSecret = () => process.env.JWT_REFRESH_SECRET || 'secret_jwt_refresh_key_university_grading';
-const getJwtExpiresIn = () => parseInt(process.env.JWT_EXPIRES_IN || '900', 10);
-const getJwtRefreshExpiresIn = () => parseInt(process.env.JWT_REFRESH_EXPIRES_IN || '604800', 10);
+export const getJwtExpiresIn = () => parseInt(process.env.JWT_EXPIRES_IN || '86400', 10);
+export const getJwtRefreshExpiresIn = () => parseInt(process.env.JWT_REFRESH_EXPIRES_IN || '604800', 10);
 
 export function signAccessToken(payload) {
   return jwt.sign(payload, getJwtSecret(), {

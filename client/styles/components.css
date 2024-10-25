@@ -220,7 +220,7 @@
 
 .select-content {
   position: relative;
-  z-index: 50;
+  z-index: 100;
   min-width: 8rem;
   max-height: var(--radix-select-content-available-height);
   overflow: hidden auto;
@@ -695,7 +695,7 @@
 
 /* ---------- Dropdown menu ---------- */
 .menu {
-  z-index: 50;
+  z-index: 100;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--popover);
@@ -783,7 +783,7 @@
 
 /* ---------- Tooltip ---------- */
 .tooltip {
-  z-index: 50;
+  z-index: 100;
   width: fit-content;
   max-width: 20rem;
   padding: 0.375rem 0.625rem;

@@ -1,4 +1,4 @@
-import { api as httpClient, apiRequest } from './client';
+import { api as httpClient } from './client';
 import * as auth from './auth';
 import * as users from './users';
 import * as academics from './academics';

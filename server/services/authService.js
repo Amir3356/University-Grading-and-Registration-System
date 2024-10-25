@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import * as userRepo from '../repositories/userRepository.js';
 import { comparePassword, hashPassword, validatePasswordStrength } from '../utils/password.js';
-import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
+import { signAccessToken, signRefreshToken, verifyRefreshToken, getJwtExpiresIn } from '../utils/jwt.js';
 import { UnauthorizedError, ValidationError, NotFoundError, ConflictError } from '../utils/errors.js';
 import { query } from '../config/database.js';
 
@@ -56,7 +56,7 @@ export async function login({ role, identifier, username, password, userAgent, i
   return {
     accessToken,
     refreshToken,
-    expiresIn: 900,
+    expiresIn: getJwtExpiresIn(),
     user: {
       id: user.id,
       roleId: user.role_id,
@@ -101,7 +101,7 @@ export async function refreshAccessToken(refreshToken, userAgent, ipAddress) {
   const newAccessToken = signAccessToken({ userId: user.id, roleId: user.role_id });
   return {
     accessToken: newAccessToken,
-    expiresIn: 900,
+    expiresIn: getJwtExpiresIn(),
   };
 }
 

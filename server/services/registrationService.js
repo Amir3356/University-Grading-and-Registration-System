@@ -170,6 +170,10 @@ export async function getStudentCurrentPeriod(studentId) {
   return await regRepo.getCurrentPeriodForStudent(studentId);
 }
 
+export async function getUpcomingPeriod() {
+  return await regRepo.getUpcomingPeriod();
+}
+
 export async function listStudentHistory(studentId) {
   return await regRepo.listStudentRegistrationHistory(studentId);
 }
@@ -177,7 +181,7 @@ export async function listStudentHistory(studentId) {
 export async function submitStudentRegistration({ semesterId, registrationTypeId }, studentId, user) {
   const currentPeriod = await regRepo.getCurrentPeriodForStudent(studentId);
   if (!currentPeriod) {
-    throw new ConflictError('No semester registration period is currently open.');
+    throw new ConflictError('Semester registration is not open right now.');
   }
 
   if (currentPeriod.semester_id !== semesterId) {
@@ -188,14 +192,27 @@ export async function submitStudentRegistration({ semesterId, registrationTypeId
     throw new ConflictError('Only active students may submit semester registrations.');
   }
 
-  const allowed = currentPeriod.allowed_types.some((t) => t.id === registrationTypeId);
+  // Lock registration type strictly to the student's assigned program_type (RBAC)
+  const studentProgramType = currentPeriod.studentProgramType || user.programType || 'regular';
+  const effectiveType = studentProgramType;
+
+  const allowed = currentPeriod.allowed_types.some((t) => t.id === effectiveType);
   if (!allowed) {
-    throw new ValidationError('Selected registration type is not allowed for this registration period.', {
-      registrationTypeId: 'This registration type is not available.',
-    });
+    const typeLabel = effectiveType.charAt(0).toUpperCase() + effectiveType.slice(1);
+    throw new ForbiddenError(
+      `Registration for ${typeLabel} students is not open for this registration period.`
+    );
   }
 
-  if (currentPeriod.myRegistration) {
+  const existing = currentPeriod.myRegistration;
+  if (existing?.status === 'cancelled') {
+    return await regRepo.resubmitStudentRegistration({
+      id: existing.id,
+      periodId: currentPeriod.id,
+      registrationTypeId: effectiveType,
+    });
+  }
+  if (existing) {
     throw new ConflictError(`You have already registered for ${currentPeriod.semester_name}.`);
   }
 
@@ -205,7 +222,7 @@ export async function submitStudentRegistration({ semesterId, registrationTypeId
     studentId,
     semesterId,
     periodId: currentPeriod.id,
-    registrationTypeId,
+    registrationTypeId: effectiveType,
   });
 
   return reg;

@@ -13,15 +13,14 @@ export function formatDate(value) {
   if (!value) return '—'
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+  // DD/MM/YYYY, matching the form fields.
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 export const TERM_LABELS = { first: 'First Semester', second: 'Second Semester', summer: 'Summer' }
 
 export const TYPE_BADGE_CLASS = {
   regular: 'reg-badge--regular',
-  cafe: 'reg-badge--cafe',
-  non_cafe: 'reg-badge--non-cafe',
   extension: 'reg-badge--extension',
   weekend: 'reg-badge--weekend',
 }

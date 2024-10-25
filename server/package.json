@@ -23,6 +23,7 @@
     "morgan": "^1.12.1",
     "node-pg-migrate": "^9.0.0",
     "pg": "^8.23.1",
+    "ws": "^8.22.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {

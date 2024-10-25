@@ -19,8 +19,9 @@ export async function logout(refreshToken) {
   return await api.post('/auth/logout', { refreshToken });
 }
 
+/** Current user and role profile (e.g. the student's student_number). */
 export async function getProfile() {
-  return await api.get('/auth/profile');
+  return await api.get('/auth/me');
 }
 
 export async function updateProfile(data) {

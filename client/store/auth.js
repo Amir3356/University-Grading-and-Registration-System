@@ -29,7 +29,7 @@ export async function logout() {
     if (refreshToken) {
       await logoutApi(refreshToken);
     }
-  } catch (e) {
+  } catch {
     // Ignore network failure on logout
   }
   clearStoredSession();

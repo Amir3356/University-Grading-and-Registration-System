@@ -13,7 +13,6 @@ import { store } from '@/store'
 import { SelectField } from './SelectField'
 
 export const ADMIN_ROLE_OPTIONS = [
-  { value: 'student', label: 'Fresh Student' },
   { value: 'dept_head', label: 'Department Head' },
 ]
 
@@ -93,7 +92,12 @@ const SHOWN_FIELDS = ['firstName', 'lastName', 'username', 'roleId', 'identifier
 /** Departments from the database, falling back to the static list until lookups load. */
 function useDepartmentOptions() {
   const departments = useLookups()?.departments
-  return departments?.length ? departments.map((d) => ({ value: d.id, label: d.name })) : DEPARTMENT_OPTIONS
+  const raw = departments?.length
+    ? departments.map((d) => ({ value: d.id, label: d.name }))
+    : [...DEPARTMENT_OPTIONS]
+  const fresh = raw.find((o) => o.value === 'dep_fresh' || o.label.toLowerCase() === 'fresh') || { value: 'dep_fresh', label: 'Fresh' }
+  const rest = raw.filter((o) => o.value !== fresh.value && o.label.toLowerCase() !== 'fresh')
+  return [{ value: fresh.value || 'dep_fresh', label: fresh.label || 'Fresh' }, ...rest]
 }
 
 function initialForm(user) {
@@ -119,7 +123,7 @@ function initialForm(user) {
 }
 
 /** Create form: full name, username, role, department dropdown, identifier and password. */
-function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRoleOptions, lockDepartment, onClose, onCreated }) {
+function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRoleOptions, departmentOptions: customDepartmentOptions, lockDepartment, onClose, onCreated }) {
   const roleOptions =
     customRoleOptions ??
     (defaultRole === 'student'
@@ -139,7 +143,8 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
     departmentId: initialDeptId,
     programType: 'regular',
   })
-  const departmentOptions = useDepartmentOptions()
+  const lookupDeptOptions = useDepartmentOptions()
+  const departmentOptions = customDepartmentOptions ?? lookupDeptOptions
   const [nameError, setNameError] = useState(null)
   const [usernameError, setUsernameError] = useState(null)
   const [identifierError, setIdentifierError] = useState(null)
@@ -223,17 +228,22 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
         required
         value={form.roleId}
         onChange={(val) => {
-          setForm((f) => ({
-            ...f,
-            roleId: val,
-            departmentId: lockDepartment
-              ? f.departmentId
-              : val === 'student' && (!f.departmentId || f.departmentId === 'dep_cs')
-                ? 'dep_fresh'
-                : val === 'dept_head' && f.departmentId === 'dep_fresh'
-                  ? 'dep_cs'
-                  : f.departmentId,
-          }))
+          setForm((f) => {
+            let nextDept = f.departmentId
+            if (!lockDepartment) {
+              if (val === 'student') {
+                nextDept = 'dep_fresh'
+              } else if (val === 'teacher' && f.departmentId === 'dep_fresh') {
+                const nonFresh = departmentOptions.find((d) => d.value !== 'dep_fresh')
+                if (nonFresh) nextDept = nonFresh.value
+              }
+            }
+            return {
+              ...f,
+              roleId: val,
+              departmentId: nextDept,
+            }
+          })
         }}
         options={roleOptions}
         error={fe.roleId}
@@ -295,7 +305,7 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
 }
 
 /** Edit an existing account: full name, username, role, department dropdown, and password. */
-function UserForm({ user, roleOptions: customRoleOptions, lockDepartment, onClose }) {
+function UserForm({ user, roleOptions: customRoleOptions, departmentOptions: customDepartmentOptions, lockDepartment, onClose }) {
   const roleOptions =
     customRoleOptions ??
     (user.roleId === 'student'
@@ -316,7 +326,8 @@ function UserForm({ user, roleOptions: customRoleOptions, lockDepartment, onClos
     fullName: `${user.firstName} ${user.lastName}`.trim(),
     departmentId: currentDeptId,
   }))
-  const departmentOptions = useDepartmentOptions()
+  const lookupDeptOptions = useDepartmentOptions()
+  const departmentOptions = customDepartmentOptions ?? lookupDeptOptions
   const [nameError, setNameError] = useState(null)
   const [usernameError, setUsernameError] = useState(null)
   const [departmentError, setDepartmentError] = useState(null)
@@ -453,19 +464,19 @@ function UserForm({ user, roleOptions: customRoleOptions, lockDepartment, onClos
 }
 
 /** Loads the full user record (profile fields) before showing the edit form. */
-function EditUserForm({ userId, roleOptions, lockDepartment, onClose }) {
+function EditUserForm({ userId, roleOptions, departmentOptions, lockDepartment, onClose }) {
   const { data, loading, error, refetch } = useQuery(() => store.users.getUser(userId), [userId], { live: false })
   if (loading && !data) return <Spinner label="Loading user…" />
   if (error) return <ErrorState error={error} onRetry={refetch} />
   const userObj = data?.user ? { ...data, ...data.user, profile: data.profile } : data
-  return <UserForm user={userObj} roleOptions={roleOptions} lockDepartment={lockDepartment} onClose={onClose} />
+  return <UserForm user={userObj} roleOptions={roleOptions} departmentOptions={departmentOptions} lockDepartment={lockDepartment} onClose={onClose} />
 }
 
 /**
  * Create / edit a user account.
  * userId: edit that user; omitted = create. onCreated({ user, temporaryPassword }) after create.
  */
-export function UserFormDialog({ open, onOpenChange, userId, defaultRole, defaultDepartment, roleOptions, lockDepartment = false, onCreated }) {
+export function UserFormDialog({ open, onOpenChange, userId, defaultRole, defaultDepartment, roleOptions, departmentOptions, lockDepartment = false, onCreated }) {
   const close = () => onOpenChange(false)
   const isStudentOnly = roleOptions ? roleOptions.every((r) => r.value === 'student') : defaultRole === 'student'
   return (
@@ -482,12 +493,13 @@ export function UserFormDialog({ open, onOpenChange, userId, defaultRole, defaul
           </DialogDescription>
         </DialogHeader>
         {userId ? (
-          <EditUserForm userId={userId} roleOptions={roleOptions} lockDepartment={lockDepartment} onClose={close} />
+          <EditUserForm userId={userId} roleOptions={roleOptions} departmentOptions={departmentOptions} lockDepartment={lockDepartment} onClose={close} />
         ) : (
           <CreateUserForm
             defaultRole={defaultRole}
             defaultDepartment={defaultDepartment}
             roleOptions={roleOptions}
+            departmentOptions={departmentOptions}
             lockDepartment={lockDepartment}
             onClose={close}
             onCreated={onCreated}

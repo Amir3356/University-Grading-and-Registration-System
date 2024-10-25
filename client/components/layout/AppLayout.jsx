@@ -14,7 +14,7 @@ export function AppLayout() {
   const { theme, toggle } = useTheme()
   const location = useLocation()
 
-  const { data: notif } = useQuery(() => store.notifications.listNotifications({ pageSize: 1 }), [])
+  const { data: notif } = useQuery(() => store.notifications.listNotifications({ pageSize: 1 }), [], { enabled: Boolean(user) })
   const { data: approvals } = useQuery(() => store.grades.listApprovalRequests({ status: 'pending', pageSize: 1 }), [], { enabled: user?.roleId === 'admin' })
   const badges = { unread: notif?.unreadCount ?? 0, pendingApprovals: approvals?.pendingCount ?? 0 }
 

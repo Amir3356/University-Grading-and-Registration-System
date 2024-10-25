@@ -113,6 +113,21 @@ export function DeptAccountProvisionPage() {
       (d) => d.id === headDeptId || (profile?.id && (d.head_teacher_id ?? d.headTeacherId) === profile.id),
     ) || null
 
+  const deptOptions = useMemo(() => {
+    const opts = [{ value: 'dep_fresh', label: 'Fresh' }]
+    if (headDept && headDept.id !== 'dep_fresh') {
+      opts.push({ value: headDept.id, label: headDept.name })
+    }
+    const seen = new Set(opts.map((o) => o.value))
+    for (const d of departments) {
+      if (!seen.has(d.id)) {
+        opts.push({ value: d.id, label: d.name })
+        seen.add(d.id)
+      }
+    }
+    return opts
+  }, [headDept, departments])
+
   const [formOpen, setFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [action, setAction] = useState(null)
@@ -309,8 +324,9 @@ export function DeptAccountProvisionPage() {
         onOpenChange={setFormOpen}
         userId={editingId}
         defaultRole="student"
-        defaultDepartment={headDept?.id}
+        defaultDepartment="dep_fresh"
         roleOptions={DEPT_ROLE_OPTIONS}
+        departmentOptions={deptOptions}
         onCreated={handleCreated}
       />
       <UserActionDialogs action={action} onClose={() => { setAction(null); refetch() }} />

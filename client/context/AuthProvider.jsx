@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { store } from '@/store'
 import { AuthContext } from './auth-context'
 
@@ -15,6 +15,19 @@ export function AuthProvider({ children }) {
   const [state, setState] = useState(readSignedInUser)
 
   const refresh = useCallback(() => setState(readSignedInUser()), [])
+
+  useEffect(() => {
+    const handleSessionChange = () => {
+      setState(readSignedInUser())
+    }
+
+    window.addEventListener('ugs:session-changed', handleSessionChange)
+    window.addEventListener('storage', handleSessionChange)
+    return () => {
+      window.removeEventListener('ugs:session-changed', handleSessionChange)
+      window.removeEventListener('storage', handleSessionChange)
+    }
+  }, [])
 
   const login = useCallback(async ({ username, password, role }) => {
     const res = await store.auth.login({ username, password, role })

@@ -42,6 +42,7 @@ export async function login(req, res, next) {
       user: result.user,
       token: result.accessToken,
       refreshToken: result.refreshToken,
+      expiresIn: result.expiresIn,
     });
   } catch (err) {
     next(err);

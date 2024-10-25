@@ -15,32 +15,19 @@ export function useStoreVersion() {
 export function useQuery(fn, deps = [], { enabled = true, live = true } = {}) {
   const version = useStoreVersion()
   const [nonce, setNonce] = useState(0)
-  const [state, setState] = useState(() => {
-    if (!enabled) return { data: undefined, error: null, loading: false }
-    try {
-      const res = fn()
-      if (res && typeof res.then === 'function') {
-        // The effect below performs the real load; don't leave this probe's rejection unhandled.
-        res.catch(() => {})
-        return { data: undefined, error: null, loading: true }
-      }
-      return { data: res, error: null, loading: false }
-    } catch (error) {
-      return { data: undefined, error, loading: false }
-    }
+  const [state, setState] = useState({
+    data: undefined,
+    error: null,
+    loading: enabled,
   })
 
   useEffect(() => {
-    if (!enabled) {
-      setState({ data: undefined, error: null, loading: false })
-      return
-    }
+    if (!enabled) return
 
     let cancelled = false
     try {
       const res = fn()
       if (res && typeof res.then === 'function') {
-        setState((s) => (s.loading ? s : { ...s, loading: true }))
         res
           .then((data) => {
             if (!cancelled) setState({ data, error: null, loading: false })
@@ -49,10 +36,14 @@ export function useQuery(fn, deps = [], { enabled = true, live = true } = {}) {
             if (!cancelled) setState({ data: undefined, error, loading: false })
           })
       } else {
-        setState({ data: res, error: null, loading: false })
+        queueMicrotask(() => {
+          if (!cancelled) setState({ data: res, error: null, loading: false })
+        })
       }
     } catch (error) {
-      setState({ data: undefined, error, loading: false })
+      queueMicrotask(() => {
+        if (!cancelled) setState({ data: undefined, error, loading: false })
+      })
     }
 
     return () => {
@@ -60,8 +51,17 @@ export function useQuery(fn, deps = [], { enabled = true, live = true } = {}) {
     }
   }, [enabled, live ? version : nonce, ...deps])
 
-  const refetch = useCallback(() => setNonce((n) => n + 1), [])
-  return { ...state, refetch }
+  const refetch = useCallback(() => {
+    setState((s) => ({ ...s, loading: true }))
+    setNonce((n) => n + 1)
+  }, [])
+
+  return {
+    data: enabled ? state.data : undefined,
+    error: enabled ? state.error : null,
+    loading: enabled ? state.loading : false,
+    refetch,
+  }
 }
 
 

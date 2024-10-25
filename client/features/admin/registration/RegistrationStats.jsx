@@ -1,8 +1,7 @@
-import { CalendarDays, CalendarCheck2, Users, Clock } from 'lucide-react'
+import { CalendarDays, Users, Clock } from 'lucide-react'
 
 const CARDS = [
   { key: 'totalSemesters', label: 'Total Semesters', icon: CalendarDays, tone: 'blue' },
-  { key: 'openPeriods', label: 'Open Registration Periods', icon: CalendarCheck2, tone: 'green' },
   { key: 'registered', label: 'Registered Students', icon: Users, tone: 'purple' },
   { key: 'pending', label: 'Pending Registrations', icon: Clock, tone: 'orange' },
 ]

@@ -1,5 +1,18 @@
 import { query, withTransaction } from '../config/database.js';
 
+// A period accepts registrations if open, or while today is within scheduled dates, unless closed.
+const ACCEPTING_NOW = `rp.status <> 'closed' AND (rp.status = 'open' OR (rp.start_date <= CURRENT_DATE AND rp.deadline >= CURRENT_DATE))`;
+
+/** Semester whose registration window is running now, falling back to the current semester. */
+async function getDefaultSemesterId() {
+  const activeRes = await query(
+    `SELECT rp.semester_id FROM registration_periods rp WHERE ${ACCEPTING_NOW} ORDER BY rp.start_date DESC, rp.created_at DESC LIMIT 1`
+  );
+  if (activeRes.rows[0]) return activeRes.rows[0].semester_id;
+  const currRes = await query(`SELECT id FROM semesters WHERE is_current = true LIMIT 1`);
+  return currRes.rows[0]?.id;
+}
+
 export async function listRegistrationPeriods({ academicYearId, term, status, search, page = 1, pageSize = 10 } = {}) {
   const conditions = [];
   const params = [];
@@ -66,7 +79,7 @@ export async function listRegistrationPeriods({ academicYearId, term, status, se
     LEFT JOIN semester_registrations sr ON sr.period_id = rp.id
     ${whereClause}
     GROUP BY rp.id, s.id, ay.id
-    ORDER BY rp.start_date DESC
+    ORDER BY rp.start_date DESC, rp.created_at DESC
     LIMIT $${limitIdx} OFFSET $${offsetIdx}
   `;
 
@@ -189,14 +202,9 @@ export async function countRegistrationsInPeriod(periodId) {
 
 export async function getRegistrationSummary(semesterId) {
   const semsRes = await query(`SELECT count(*) as total_semesters FROM semesters`);
-  const openRes = await query(`SELECT count(*) as open_periods FROM registration_periods WHERE status = 'open'`);
+  const openRes = await query(`SELECT count(*) as open_periods FROM registration_periods rp WHERE ${ACCEPTING_NOW}`);
 
-  // Target semester
-  let semId = semesterId;
-  if (!semId) {
-    const currRes = await query(`SELECT id FROM semesters WHERE is_current = true LIMIT 1`);
-    semId = currRes.rows[0]?.id;
-  }
+  const semId = semesterId || (await getDefaultSemesterId());
 
   const countsRes = await query(
     `SELECT
@@ -232,11 +240,7 @@ export async function getRegistrationSummary(semesterId) {
 }
 
 export async function listStudentRegistrations({ semesterId, departmentId, programId, registrationTypeId, status, search, page = 1, pageSize = 10 }) {
-  let semId = semesterId;
-  if (!semId) {
-    const currRes = await query(`SELECT id FROM semesters WHERE is_current = true LIMIT 1`);
-    semId = currRes.rows[0]?.id;
-  }
+  const semId = semesterId || (await getDefaultSemesterId());
 
   const conditions = [`s.academic_status = 'active'`];
   const params = [semId];
@@ -321,7 +325,8 @@ export async function listStudentRegistrations({ semesterId, departmentId, progr
   `;
 
   const dataRes = await query(dataSql, params);
-  return { items: dataRes.rows, total };
+  // semesterId tells the client which semester these rows belong to (the default may be implicit).
+  return { items: dataRes.rows, total, semesterId: semId };
 }
 
 export async function findRegistrationById(id) {
@@ -383,13 +388,21 @@ export async function getCurrentPeriodForStudent(studentId) {
     JOIN academic_years ay ON ay.id = s.academic_year_id
     JOIN registration_period_types rpt ON rpt.period_id = rp.id
     JOIN registration_types rt ON rt.id = rpt.registration_type_id
-    WHERE rp.status = 'open' AND rp.start_date <= CURRENT_DATE AND rp.deadline >= CURRENT_DATE
+    WHERE ${ACCEPTING_NOW}
     GROUP BY rp.id, s.id, ay.id
+    ORDER BY rp.start_date DESC, rp.created_at DESC
     LIMIT 1
   `);
 
   if (periodRes.rows.length === 0) return null;
   const p = periodRes.rows[0];
+
+  const studentRes = await query(
+    `SELECT program_type, academic_status FROM students WHERE id = $1`,
+    [studentId]
+  );
+  const studentProgramType = studentRes.rows[0]?.program_type || 'regular';
+  const isAllowedForStudent = Array.isArray(p.allowed_types) && p.allowed_types.some((t) => t.id === studentProgramType);
 
   const regRes = await query(
     `SELECT sr.*, rt.label as registration_type_label
@@ -407,8 +420,25 @@ export async function getCurrentPeriodForStudent(studentId) {
   return {
     ...p,
     daysLeft,
+    studentProgramType,
+    isAllowedForStudent,
     myRegistration: regRes.rows[0] || null,
   };
+}
+
+/** Next period that has not started yet (shown to students as "registration opens on …"). */
+export async function getUpcomingPeriod() {
+  const res = await query(`
+    SELECT rp.id, rp.semester_id, rp.start_date, rp.deadline, rp.status,
+           s.name as semester_name, ay.name as academic_year_name
+    FROM registration_periods rp
+    JOIN semesters s ON s.id = rp.semester_id
+    JOIN academic_years ay ON ay.id = s.academic_year_id
+    WHERE rp.status <> 'closed' AND rp.start_date > CURRENT_DATE
+    ORDER BY rp.start_date ASC
+    LIMIT 1
+  `);
+  return res.rows[0] || null;
 }
 
 export async function listStudentRegistrationHistory(studentId) {
@@ -437,6 +467,19 @@ export async function createStudentRegistration({ id, studentId, semesterId, per
     [id, studentId, semesterId, periodId, registrationTypeId]
   );
   return res.rows[0];
+}
+
+/** Re-submit a registration the student had cancelled (one row per student and semester). */
+export async function resubmitStudentRegistration({ id, periodId, registrationTypeId }) {
+  const res = await query(
+    `UPDATE semester_registrations
+     SET status = 'pending', period_id = $2, registration_type_id = $3, submitted_at = now(),
+         reviewed_by = NULL, reviewed_at = NULL, remarks = NULL, updated_at = now()
+     WHERE id = $1 AND status = 'cancelled'
+     RETURNING *`,
+    [id, periodId, registrationTypeId]
+  );
+  return res.rows[0] || null;
 }
 
 export async function cancelStudentRegistration(id, studentId) {

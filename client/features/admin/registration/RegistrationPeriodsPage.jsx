@@ -4,15 +4,17 @@ import {
   createRegistrationPeriodApi,
   updateRegistrationPeriodApi,
   deleteRegistrationPeriodApi,
-  toggleRegistrationPeriodApi,
   getRegistrationSummaryApi,
 } from '@/api/registration'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+import { DateInput } from '@/components/common/DateInput'
 import { EmptyState } from '@/components/common/EmptyState'
 import { RegistrationStats } from './RegistrationStats'
 import { toDateInput, formatDate, TERM_LABELS, TYPE_BADGE_CLASS, errorMessage } from './registration-utils'
+import { notifyPeriodChange } from '@/lib/syncEvents'
+import { useWebSocketEvent } from '@/lib/websocket'
 
 import {
   Plus,
@@ -21,7 +23,6 @@ import {
   Save,
   X,
   Calendar,
-  Clock,
   Trash2,
   CalendarClock,
 } from 'lucide-react'
@@ -31,7 +32,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
@@ -45,6 +45,18 @@ const EMPTY_FORM = {
   startDate: '',
   deadline: '',
   status: 'scheduled',
+}
+
+/**
+ * What students actually experience: a non-closed period accepts registrations while today
+ * is within its dates (so 'scheduled' opens automatically) and stops after the deadline.
+ */
+function effectiveStatus(period) {
+  if (period.status === 'closed' || !period.startDate || !period.deadline) return period.status
+  const today = toDateInput(new Date())
+  if (today > period.deadline) return 'closed'
+  if (today >= period.startDate) return 'open'
+  return 'scheduled'
 }
 
 function mapPeriod(p) {
@@ -66,12 +78,20 @@ function mapPeriod(p) {
 export function RegistrationPeriodsPage() {
   const lookups = useLookups()
   const semesters = useMemo(() => lookups?.semesters ?? [], [lookups])
-  const registrationTypes = useMemo(() => lookups?.registrationTypes ?? [], [lookups])
+  const registrationTypes = useMemo(() => {
+    const list = lookups?.registrationTypes ?? []
+    if (list.length > 0) return list
+    return [
+      { id: 'regular', label: 'Regular' },
+      { id: 'extension', label: 'Extension' },
+      { id: 'weekend', label: 'Weekend' },
+    ]
+  }, [lookups])
 
   const periodsQuery = useQuery(() => listRegistrationPeriodsApi({ pageSize: 'all' }), [], { live: false })
   const summaryQuery = useQuery(() => getRegistrationSummaryApi(), [], { live: false })
   const periods = useMemo(
-    () => (periodsQuery.data?.items || []).filter((p) => !/^per_\d{4}_/.test(p.id)).map(mapPeriod),
+    () => (periodsQuery.data?.items || []).map(mapPeriod),
     [periodsQuery.data]
   )
   const summary = summaryQuery.data
@@ -93,15 +113,36 @@ export function RegistrationPeriodsPage() {
     summaryQuery.refetch()
   }
 
+  // Real-time WebSocket sync across all admin and user clients
+  useWebSocketEvent('PERIOD_CHANGED', reload)
+
   const yearOptions = useMemo(
     () => [...new Set(periods.map((p) => p.academicYear))].sort(),
     [periods]
   )
 
   // A semester can only have one registration period.
+  // Dynamically increments for every year: displays only the current arrived year's semesters
+  // (e.g. 2026 First Semester and 2026 Second Semester in 2026; 2027 First and Second in 2027).
   const availableSemesters = useMemo(() => {
+    const currentYear = new Date().getFullYear()
     const used = new Set(periods.map((p) => p.semesterId))
-    return semesters.filter((s) => !used.has(s.id) || s.id === formState.semesterId)
+    return semesters
+      .filter((s) => {
+        if (s.id === formState.semesterId) return true
+        if (used.has(s.id)) return false
+        if (s.status === 'closed') return false
+
+        // Extract year from semester name (e.g. "2026 First Semester" -> 2026)
+        const yearMatch = (s.name || '').match(/\b(20\d{2})\b/) || (s.academic_year?.name || '').match(/\b(20\d{2})\b/)
+        if (yearMatch) {
+          const semYear = parseInt(yearMatch[1], 10)
+          // Display ONLY the current arrived year's semesters (e.g. 2027 First/Second in 2027)
+          if (semYear !== currentYear) return false
+        }
+        return true
+      })
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
   }, [semesters, periods, formState.semesterId])
 
   const filteredPeriods = useMemo(() => {
@@ -115,7 +156,7 @@ export function RegistrationPeriodsPage() {
 
       const matchYear = periodYearFilter === 'All' || p.academicYear === periodYearFilter
       const matchSem = periodSemFilter === 'All' || p.term === periodSemFilter
-      const matchStatus = periodStatusFilter === 'All' || p.status === periodStatusFilter
+      const matchStatus = periodStatusFilter === 'All' || effectiveStatus(p) === periodStatusFilter
 
       return matchSearch && matchYear && matchSem && matchStatus
     })
@@ -194,6 +235,7 @@ export function RegistrationPeriodsPage() {
         await createRegistrationPeriodApi({ ...payload, semesterId: formState.semesterId })
         toast.success('New registration period created successfully.')
       }
+      notifyPeriodChange()
       setIsDrawerOpen(false)
       reload()
     } catch (err) {
@@ -203,23 +245,11 @@ export function RegistrationPeriodsPage() {
     }
   }
 
-  const handleTogglePeriod = async (period) => {
-    try {
-      await toggleRegistrationPeriodApi(period.id)
-      toast.success(
-        period.status === 'open'
-          ? `Registration for ${period.semester} closed.`
-          : `Registration for ${period.semester} opened.`
-      )
-      reload()
-    } catch (err) {
-      toast.error(errorMessage(err, 'Failed to change period status.'))
-    }
-  }
 
   const handleDeletePeriod = async () => {
     try {
       await deleteRegistrationPeriodApi(deleting.id)
+      notifyPeriodChange()
       toast.success(`Registration period for ${deleting.semester} deleted.`)
       if (editingPeriodId === deleting.id) setIsDrawerOpen(false)
       reload()
@@ -375,13 +405,13 @@ export function RegistrationPeriodsPage() {
                           </td>
                           <td>{formatDate(period.startDate + 'T00:00:00')}</td>
                           <td>{formatDate(period.deadline + 'T00:00:00')}</td>
-                          <td>{renderStatusBadge(period.status)}</td>
+                          <td>{renderStatusBadge(effectiveStatus(period))}</td>
                           <td>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <button type="button" className="reg-action-trigger">
-                                    <span>{period.status === 'closed' ? 'View' : 'Edit'}</span>
+                                    <span>{effectiveStatus(period) === 'closed' ? 'View' : 'Edit'}</span>
                                     <ChevronDown size={14} aria-hidden="true" />
                                   </button>
                                 </DropdownMenuTrigger>
@@ -390,18 +420,6 @@ export function RegistrationPeriodsPage() {
                                   <DropdownMenuItem onClick={() => handleEditPeriod(period)}>
                                     <Calendar size={14} className="mr-2" />
                                     Configure Period
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleTogglePeriod(period)}>
-                                    <Clock size={14} className="mr-2" />
-                                    {period.status === 'open' ? 'Close Period' : 'Open Period'}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/40"
-                                    onClick={() => setDeleting(period)}
-                                  >
-                                    <Trash2 size={14} className="mr-2 text-rose-600" />
-                                    Delete Period
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -514,7 +532,6 @@ export function RegistrationPeriodsPage() {
                     {availableSemesters.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name}
-                        {s.academic_year?.name ? ` (${s.academic_year.name})` : ''}
                       </option>
                     ))}
                   </select>
@@ -547,12 +564,11 @@ export function RegistrationPeriodsPage() {
                   </label>
                   <div className="reg-date-input-wrap">
                     <Calendar aria-hidden="true" />
-                    <input
+                    <DateInput
                       id="reg-start-date"
-                      type="date"
                       value={formState.startDate}
-                      onChange={(e) => setFormState((f) => ({ ...f, startDate: e.target.value }))}
-                      className="reg-date-input"
+                      onChange={(startDate) => setFormState((f) => ({ ...f, startDate }))}
+                      inputClassName="reg-date-input"
                       required
                     />
                   </div>
@@ -565,13 +581,12 @@ export function RegistrationPeriodsPage() {
                   </label>
                   <div className="reg-date-input-wrap">
                     <Calendar aria-hidden="true" />
-                    <input
+                    <DateInput
                       id="reg-deadline"
-                      type="date"
                       value={formState.deadline}
                       min={formState.startDate || undefined}
-                      onChange={(e) => setFormState((f) => ({ ...f, deadline: e.target.value }))}
-                      className="reg-date-input"
+                      onChange={(deadline) => setFormState((f) => ({ ...f, deadline }))}
+                      inputClassName="reg-date-input"
                       required
                     />
                   </div>

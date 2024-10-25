@@ -9,16 +9,48 @@ import { getCookie, setCookie, removeCookie } from './cookies.js';
 
 export { TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY, PROFILE_KEY };
 
+export function isJwtExpired(token) {
+  if (!token || typeof token !== 'string') return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const payload = JSON.parse(jsonPayload);
+    if (!payload.exp) return false;
+    // Buffer by 5 seconds
+    return Date.now() >= payload.exp * 1000 - 5000;
+  } catch {
+    return true;
+  }
+}
+
 export function getStoredToken() {
   return getCookie(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || null;
 }
 
 export function getStoredRefreshToken() {
-  return getCookie(REFRESH_TOKEN_KEY) || localStorage.getItem(REFRESH_TOKEN_KEY) || null;
+  const token = getCookie(REFRESH_TOKEN_KEY) || localStorage.getItem(REFRESH_TOKEN_KEY) || null;
+  if (!token || isJwtExpired(token)) {
+    return null;
+  }
+  return token;
 }
 
 export function getStoredUser() {
   try {
+    const token = getStoredToken();
+    const refreshToken = getStoredRefreshToken();
+    // If access token is expired and no valid refresh token exists, clear session
+    if (isJwtExpired(token) && !refreshToken) {
+      clearStoredSession();
+      return null;
+    }
     const raw = localStorage.getItem(USER_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
@@ -48,6 +80,10 @@ export function setStoredSession(token, refreshToken, user, profile) {
 
   if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
   if (profile) localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('ugs:session-changed', { detail: { user, profile } }));
+  }
 }
 
 export function clearStoredSession() {
@@ -60,4 +96,8 @@ export function clearStoredSession() {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(PROFILE_KEY);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('ugs:session-changed', { detail: { user: null, profile: null } }));
+  }
 }

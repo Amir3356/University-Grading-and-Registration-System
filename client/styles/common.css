@@ -751,3 +751,55 @@ a.list-item:hover {
   justify-content: center;
   gap: 0.75rem;
 }
+
+/* DateInput: DD/MM/YYYY text field with a calendar button backed by a hidden native picker */
+.date-dmy {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.date-dmy > input[type='text'] {
+  padding-right: 2.5rem;
+}
+
+.date-dmy .date-dmy__picker-btn {
+  position: absolute;
+  right: 0.375rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.date-dmy .date-dmy__picker-btn:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.date-dmy .date-dmy__picker-btn svg {
+  position: static;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
+/* Kept in the layout (not display:none) so showPicker() can anchor to it. */
+.date-dmy .date-dmy__native {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+  padding: 0;
+}

@@ -1,6 +1,80 @@
 import { query, withTransaction } from '../config/database.js';
 
+/**
+ * Automatically increments and ensures academic years and semesters exist for each year
+ * as calendar years arrive (e.g. 2026 First/Second, 2027 First/Second, etc.),
+ * and marks past semesters as closed once their end date has passed.
+ */
+export async function ensureAcademicCalendarYears() {
+  const currentYear = new Date().getFullYear();
+  const targetYear = Math.max(currentYear + 1, 2027);
+
+  // Automatically close semesters whose end_date has passed
+  await query(`
+    UPDATE semesters
+    SET status = 'closed', is_current = false
+    WHERE end_date < CURRENT_DATE AND status != 'closed'
+  `);
+
+  for (let year = 2026; year <= targetYear; year++) {
+    const ayId = `ay_${year}`;
+    const ayName = `${year}/${year + 1}`;
+    const ayStart = `${year}-09-01`;
+    const ayEnd = `${year + 1}-06-30`;
+
+    await query(
+      `INSERT INTO academic_years (id, name, start_date, end_date, is_current)
+       VALUES ($1, $2, $3, $4, false)
+       ON CONFLICT (id) DO NOTHING`,
+      [ayId, ayName, ayStart, ayEnd]
+    );
+
+    // First Semester (e.g. 2027 First Semester)
+    const sem1Id = `sem_${year}_fall`;
+    const sem1Name = `${year} First Semester`;
+    const sem1Start = `${year}-09-01`;
+    const sem1End = `${year + 1}-01-15`;
+    const sem1Deadline = `${year + 1}-01-25`;
+
+    const existingSem1 = await query(`SELECT id FROM semesters WHERE id = $1`, [sem1Id]);
+    if (existingSem1.rows.length === 0) {
+      const maxOrderRes = await query(`SELECT COALESCE(MAX(sort_order), 0) + 1 as next_order FROM semesters`);
+      const sortOrder1 = maxOrderRes.rows[0].next_order;
+      await query(
+        `INSERT INTO semesters (
+           id, academic_year_id, term, name, sort_order, start_date, end_date,
+           grade_submission_deadline, is_current, status
+         ) VALUES ($1, $2, 'first', $3, $4, $5, $6, $7, false, 'upcoming')
+         ON CONFLICT (id) DO NOTHING`,
+        [sem1Id, ayId, sem1Name, sortOrder1, sem1Start, sem1End, sem1Deadline]
+      );
+    }
+
+    // Second Semester (e.g. 2027 Second Semester)
+    const sem2Id = `sem_${year + 1}_spring`;
+    const sem2Name = `${year} Second Semester`;
+    const sem2Start = `${year + 1}-02-01`;
+    const sem2End = `${year + 1}-06-20`;
+    const sem2Deadline = `${year + 1}-06-30`;
+
+    const existingSem2 = await query(`SELECT id FROM semesters WHERE id = $1`, [sem2Id]);
+    if (existingSem2.rows.length === 0) {
+      const maxOrderRes = await query(`SELECT COALESCE(MAX(sort_order), 0) + 1 as next_order FROM semesters`);
+      const sortOrder2 = maxOrderRes.rows[0].next_order;
+      await query(
+        `INSERT INTO semesters (
+           id, academic_year_id, term, name, sort_order, start_date, end_date,
+           grade_submission_deadline, is_current, status
+         ) VALUES ($1, $2, 'second', $3, $4, $5, $6, $7, false, 'upcoming')
+         ON CONFLICT (id) DO NOTHING`,
+        [sem2Id, ayId, sem2Name, sortOrder2, sem2Start, sem2End, sem2Deadline]
+      );
+    }
+  }
+}
+
 export async function listAcademicCalendar() {
+  await ensureAcademicCalendarYears();
   const yearsRes = await query(`SELECT * FROM academic_years ORDER BY start_date DESC`);
   const semsRes = await query(`
     SELECT s.*,
