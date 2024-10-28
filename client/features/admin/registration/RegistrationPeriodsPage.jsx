@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { DateInput } from '@/components/common/DateInput'
 import { EmptyState } from '@/components/common/EmptyState'
 import { RegistrationStats } from './RegistrationStats'
+import { RegistrationCountdown } from '@/components/registration/RegistrationCountdown'
 import { toDateInput, formatDate, TERM_LABELS, TYPE_BADGE_CLASS, errorMessage } from './registration-utils'
 import { notifyPeriodChange } from '@/lib/syncEvents'
 import { useWebSocketEvent } from '@/lib/websocket'
@@ -19,21 +20,15 @@ import { useWebSocketEvent } from '@/lib/websocket'
 import {
   Plus,
   Search,
-  ChevronDown,
   Save,
   X,
   Calendar,
   Trash2,
   CalendarClock,
+  Pencil,
+  Eye,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 
 const PERIODS_PER_PAGE = 10
 
@@ -120,6 +115,13 @@ export function RegistrationPeriodsPage() {
     () => [...new Set(periods.map((p) => p.academicYear))].sort(),
     [periods]
   )
+
+  const activeOrUpcomingPeriod = useMemo(() => {
+    const open = periods.find((p) => effectiveStatus(p) === 'open')
+    if (open) return open
+    const scheduled = periods.find((p) => effectiveStatus(p) === 'scheduled')
+    return scheduled || null
+  }, [periods])
 
   // A semester can only have one registration period.
   // Dynamically increments for every year: displays only the current arrived year's semesters
@@ -284,6 +286,15 @@ export function RegistrationPeriodsPage() {
 
       <RegistrationStats summary={summary} />
 
+      {activeOrUpcomingPeriod && (
+        <RegistrationCountdown
+          startDate={activeOrUpcomingPeriod.startDate}
+          deadline={activeOrUpcomingPeriod.deadline}
+          semesterName={activeOrUpcomingPeriod.semester}
+          academicYearName={activeOrUpcomingPeriod.academicYear}
+        />
+      )}
+
       {/* Main Workspace Layout */}
       <div className="semester-reg-layout">
         {/* Left Column: Semester Registration Periods Table */}
@@ -397,32 +408,46 @@ export function RegistrationPeriodsPage() {
                           <td>
                             <div className="reg-table-types">
                               {period.registrationTypes.map((type) => (
-                                <span key={type.id} className={`reg-badge ${TYPE_BADGE_CLASS[type.id] || 'reg-badge--non-cafe'}`}>
+                                <span key={type.id} className={`reg-badge ${TYPE_BADGE_CLASS[type.id] || 'reg-badge--regular'}`}>
                                   {type.label}
                                 </span>
                               ))}
                             </div>
                           </td>
                           <td>{formatDate(period.startDate + 'T00:00:00')}</td>
-                          <td>{formatDate(period.deadline + 'T00:00:00')}</td>
+                          <td>
+                            <div className="flex flex-col gap-1 items-start">
+                              <span>{formatDate(period.deadline + 'T00:00:00')}</span>
+                              {effectiveStatus(period) !== 'closed' && (
+                                <RegistrationCountdown
+                                  startDate={period.startDate}
+                                  deadline={period.deadline}
+                                  variant="compact"
+                                />
+                              )}
+                            </div>
+                          </td>
                           <td>{renderStatusBadge(effectiveStatus(period))}</td>
                           <td>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <button type="button" className="reg-action-trigger">
-                                    <span>{effectiveStatus(period) === 'closed' ? 'View' : 'Edit'}</span>
-                                    <ChevronDown size={14} aria-hidden="true" />
-                                  </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-44">
-                                  <DropdownMenuLabel>Period Actions</DropdownMenuLabel>
-                                  <DropdownMenuItem onClick={() => handleEditPeriod(period)}>
-                                    <Calendar size={14} className="mr-2" />
-                                    Configure Period
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                              <button
+                                type="button"
+                                className="reg-action-trigger"
+                                onClick={() => handleEditPeriod(period)}
+                                title={effectiveStatus(period) === 'closed' ? 'View period configuration' : 'Edit period configuration'}
+                              >
+                                {effectiveStatus(period) === 'closed' ? (
+                                  <>
+                                    <Eye size={13} aria-hidden="true" />
+                                    <span>View</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Pencil size={13} aria-hidden="true" />
+                                    <span>Edit</span>
+                                  </>
+                                )}
+                              </button>
 
                               <button
                                 type="button"

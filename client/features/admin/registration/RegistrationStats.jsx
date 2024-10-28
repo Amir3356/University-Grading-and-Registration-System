@@ -1,7 +1,7 @@
 import { CalendarDays, Users, Clock } from 'lucide-react'
 
 const CARDS = [
-  { key: 'totalSemesters', label: 'Total Semesters', icon: CalendarDays, tone: 'blue' },
+  { key: 'totalPeriods', fallbackKey: 'totalSemesters', label: 'Total Registration Periods', icon: CalendarDays, tone: 'blue' },
   { key: 'registered', label: 'Registered Students', icon: Users, tone: 'purple' },
   { key: 'pending', label: 'Pending Registrations', icon: Clock, tone: 'orange' },
 ]
@@ -10,17 +10,20 @@ const CARDS = [
 export function RegistrationStats({ summary }) {
   return (
     <div className="semester-reg-stats">
-      {CARDS.map(({ key, label, icon: Icon, tone }) => (
-        <div key={key} className="reg-stat-card">
-          <div className={`reg-stat-card__icon reg-stat-card__icon--${tone}`}>
-            <Icon aria-hidden="true" />
+      {CARDS.map(({ key, fallbackKey, label, icon: Icon, tone }) => {
+        const val = summary ? (summary[key] ?? (fallbackKey ? summary[fallbackKey] : undefined) ?? 0) : '—'
+        return (
+          <div key={key} className="reg-stat-card">
+            <div className={`reg-stat-card__icon reg-stat-card__icon--${tone}`}>
+              <Icon aria-hidden="true" />
+            </div>
+            <div className="reg-stat-card__content">
+              <p className="reg-stat-card__label">{label}</p>
+              <p className={`reg-stat-card__value reg-stat-card__value--${tone}`}>{val}</p>
+            </div>
           </div>
-          <div className="reg-stat-card__content">
-            <p className="reg-stat-card__label">{label}</p>
-            <p className={`reg-stat-card__value reg-stat-card__value--${tone}`}>{summary ? summary[key] ?? 0 : '—'}</p>
-          </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

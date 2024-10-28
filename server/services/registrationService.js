@@ -193,10 +193,10 @@ export async function submitStudentRegistration({ semesterId, registrationTypeId
   }
 
   // Lock registration type strictly to the student's assigned program_type (RBAC)
-  const studentProgramType = currentPeriod.studentProgramType || user.programType || 'regular';
+  const studentProgramType = (currentPeriod.studentProgramType || user.programType || 'regular').toLowerCase();
   const effectiveType = studentProgramType;
 
-  const allowed = currentPeriod.allowed_types.some((t) => t.id === effectiveType);
+  const allowed = Array.isArray(currentPeriod.allowed_types) && currentPeriod.allowed_types.some((t) => (t.id || '').toLowerCase() === effectiveType);
   if (!allowed) {
     const typeLabel = effectiveType.charAt(0).toUpperCase() + effectiveType.slice(1);
     throw new ForbiddenError(

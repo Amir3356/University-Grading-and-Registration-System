@@ -29,55 +29,52 @@ import {
   cancelStudentRegistrationApi,
 } from '@/api/registration'
 import { formatDate } from '@/features/admin/registration/registration-utils'
+import { RegistrationCountdown } from '@/components/registration/RegistrationCountdown'
 
 function RegistrationStatus({ status }) {
   return <StatusBadge status={status} label={status === 'cancelled' ? 'Cancelled' : undefined} />
 }
 
-/** Open / upcoming / closed banner for the student's registration window. */
+/** Open / upcoming / closed banner for the student's registration window with live running countdown timer. */
 function PeriodBanner({ currentPeriod, upcomingPeriod, isAllowedForStudent, programLabel }) {
   if (currentPeriod) {
     const mine = currentPeriod.myRegistration
     return (
-      <Card>
-        <CardContent className="stack stack--sm py-4 text-center">
-          <p className="font-semibold text-foreground text-center">
-            Registration is open for {currentPeriod.semester_name} ({currentPeriod.academic_year_name})
-          </p>
-          <p className="text-sm text-muted-foreground text-center">
-            {formatDate(currentPeriod.start_date)} – {formatDate(currentPeriod.deadline)} ·{' '}
-            {currentPeriod.daysLeft === 0 ? 'Last day to register' : `${currentPeriod.daysLeft} day(s) left`}
-          </p>
+      <div className="space-y-3">
+        <RegistrationCountdown
+          startDate={currentPeriod.start_date}
+          deadline={currentPeriod.deadline}
+          semesterName={currentPeriod.semester_name}
+          academicYearName={currentPeriod.academic_year_name}
+        />
 
-          {!isAllowedForStudent && (
-            <div className="mt-2 inline-flex items-center justify-center gap-2 rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-amber-700 dark:text-amber-400 text-sm font-medium">
-              Registration for <strong>{programLabel}</strong> cohort is not currently open for this semester window.
-            </div>
-          )}
+        {!isAllowedForStudent && (
+          <div className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-3 text-amber-700 dark:text-amber-400 text-sm font-medium">
+            Registration for <strong>{programLabel}</strong> cohort is not currently open for this semester window.
+          </div>
+        )}
 
-          {mine && mine.status !== 'cancelled' && (
-            <p className="text-sm text-center">
-              Your registration: <RegistrationStatus status={mine.status} />
-              {mine.status === 'rejected' && mine.remarks ? ` — ${mine.remarks}` : ''}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+        {mine && mine.status !== 'cancelled' && (
+          <div className="rounded-lg border bg-card p-3 text-sm text-center text-foreground flex items-center justify-center gap-2">
+            <span>Your registration status:</span>
+            <RegistrationStatus status={mine.status} />
+            {mine.status === 'rejected' && mine.remarks ? (
+              <span className="text-destructive font-medium">— {mine.remarks}</span>
+            ) : null}
+          </div>
+        )}
+      </div>
     )
   }
 
   if (upcomingPeriod) {
     return (
-      <Card>
-        <CardContent className="stack stack--sm py-4 text-center">
-          <p className="font-semibold text-foreground text-center">
-            Upcoming Registration: {upcomingPeriod.semester_name} ({upcomingPeriod.academic_year_name})
-          </p>
-          <p className="text-sm text-muted-foreground text-center">
-            Opens on {formatDate(upcomingPeriod.start_date)} · Closes on {formatDate(upcomingPeriod.deadline)}
-          </p>
-        </CardContent>
-      </Card>
+      <RegistrationCountdown
+        startDate={upcomingPeriod.start_date}
+        deadline={upcomingPeriod.deadline}
+        semesterName={upcomingPeriod.semester_name}
+        academicYearName={upcomingPeriod.academic_year_name}
+      />
     )
   }
 
@@ -119,7 +116,7 @@ export function RegistrationsPage() {
       : studentProgramType.charAt(0).toUpperCase() + studentProgramType.slice(1)
 
   const isAllowedForStudent = currentPeriod
-    ? (currentPeriod.isAllowedForStudent ?? currentPeriod.allowed_types?.some((t) => t.id === studentProgramType))
+    ? (currentPeriod.isAllowedForStudent ?? currentPeriod.allowed_types?.some((t) => (t.id || '').toLowerCase() === studentProgramType.toLowerCase()))
     : false
 
   const myRegistration = currentPeriod?.myRegistration
@@ -144,12 +141,12 @@ export function RegistrationsPage() {
     }
   }, [refetch])
 
-  // Automatically dismiss registration dialog if period is removed while open
+  // Automatically dismiss registration dialog if period is removed or student is not allowed
   useEffect(() => {
-    if (!currentPeriod && isRegisterOpen) {
+    if ((!currentPeriod || !isAllowedForStudent) && isRegisterOpen) {
       setIsRegisterOpen(false)
     }
-  }, [currentPeriod, isRegisterOpen])
+  }, [currentPeriod, isAllowedForStudent, isRegisterOpen])
 
   const openRegister = () => {
     if (!currentPeriod) {
@@ -217,7 +214,7 @@ export function RegistrationsPage() {
           <Button
             onClick={openRegister}
             variant={canRegister ? 'default' : 'outline'}
-            className={!canRegister ? 'opacity-80' : ''}
+            className={!canRegister ? 'opacity-60 cursor-not-allowed' : ''}
             title={
               !currentPeriod
                 ? 'Registration is currently closed'

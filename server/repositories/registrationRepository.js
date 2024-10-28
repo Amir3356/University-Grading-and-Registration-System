@@ -201,7 +201,7 @@ export async function countRegistrationsInPeriod(periodId) {
 }
 
 export async function getRegistrationSummary(semesterId) {
-  const semsRes = await query(`SELECT count(*) as total_semesters FROM semesters`);
+  const periodsRes = await query(`SELECT count(*) as total_periods FROM registration_periods`);
   const openRes = await query(`SELECT count(*) as open_periods FROM registration_periods rp WHERE ${ACCEPTING_NOW}`);
 
   const semId = semesterId || (await getDefaultSemesterId());
@@ -229,8 +229,11 @@ export async function getRegistrationSummary(semesterId) {
     [semId]
   );
 
+  const totalPeriods = parseInt(periodsRes.rows[0]?.total_periods || '0', 10);
+
   return {
-    totalSemesters: parseInt(semsRes.rows[0]?.total_semesters || '0', 10),
+    totalPeriods,
+    totalSemesters: totalPeriods,
     openPeriods: parseInt(openRes.rows[0]?.open_periods || '0', 10),
     registered,
     pending,
@@ -401,8 +404,8 @@ export async function getCurrentPeriodForStudent(studentId) {
     `SELECT program_type, academic_status FROM students WHERE id = $1`,
     [studentId]
   );
-  const studentProgramType = studentRes.rows[0]?.program_type || 'regular';
-  const isAllowedForStudent = Array.isArray(p.allowed_types) && p.allowed_types.some((t) => t.id === studentProgramType);
+  const studentProgramType = (studentRes.rows[0]?.program_type || 'regular').toLowerCase();
+  const isAllowedForStudent = Array.isArray(p.allowed_types) && p.allowed_types.some((t) => (t.id || '').toLowerCase() === studentProgramType);
 
   const regRes = await query(
     `SELECT sr.*, rt.label as registration_type_label
