@@ -284,9 +284,16 @@ export function StudentRegistrationsPage() {
                         <td>{selectedSemester?.name || '—'}</td>
                         <td>
                           {typeId ? (
-                            <span className={`reg-badge ${TYPE_BADGE_CLASS[typeId] || 'reg-badge--non-cafe'}`}>
-                              {typeLabels[typeId] || typeId}
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`reg-badge ${TYPE_BADGE_CLASS[typeId] || 'reg-badge--regular'}`}>
+                                {typeLabels[typeId] || typeId}
+                              </span>
+                              {reg?.cafeStatus && (
+                                <span className={`reg-badge ${reg.cafeStatus === 'cafe' ? 'reg-badge--cafe' : 'reg-badge--non-cafe'}`}>
+                                  {reg.cafeStatus === 'cafe' ? 'Cafe' : 'Non-cafe'}
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <span>—</span>
                           )}

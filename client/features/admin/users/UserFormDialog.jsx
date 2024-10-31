@@ -10,6 +10,7 @@ import { useQuery, useMutation } from '@/hooks/useStore'
 import { useLookups } from '@/context/lookups-context'
 import { ROLE_LABELS } from '@/lib/format'
 import { store } from '@/store'
+import { notifyUserChange } from '@/lib/syncEvents'
 import { SelectField } from './SelectField'
 
 export const ADMIN_ROLE_OPTIONS = [
@@ -154,6 +155,7 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
   const [save, { loading, fieldErrors }] = useMutation((data) => store.users.createUser(data), {
     success: 'User account created successfully.',
     onSuccess: (result) => {
+      notifyUserChange({ userId: result?.user?.id })
       onClose()
       onCreated?.(result)
     },
@@ -335,7 +337,10 @@ function UserForm({ user, roleOptions: customRoleOptions, departmentOptions: cus
 
   const [save, { loading, fieldErrors }] = useMutation((data) => store.users.updateUser(user.id, data), {
     success: 'User updated.',
-    onSuccess: onClose,
+    onSuccess: () => {
+      notifyUserChange({ userId: user?.id })
+      onClose()
+    },
   })
 
   const submit = (e) => {

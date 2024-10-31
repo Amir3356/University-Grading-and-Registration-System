@@ -1,5 +1,6 @@
 import * as userService from '../services/userService.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
+import { broadcastEvent } from '../config/websocket.js';
 
 export async function listUsers(req, res, next) {
   try {
@@ -22,6 +23,7 @@ export async function getUserDetail(req, res, next) {
 export async function createUser(req, res, next) {
   try {
     const result = await userService.createUser(req.body, req.user);
+    broadcastEvent('USER_UPDATED', { userId: result?.user?.id });
     sendCreated(res, result);
   } catch (err) {
     next(err);
@@ -31,6 +33,8 @@ export async function createUser(req, res, next) {
 export async function updateUser(req, res, next) {
   try {
     const result = await userService.updateUser(req.params.id, req.body, req.user);
+    broadcastEvent('USER_UPDATED', { userId: req.params.id });
+    broadcastEvent('STUDENT_UPDATED', { userId: req.params.id });
     sendSuccess(res, result);
   } catch (err) {
     next(err);
@@ -40,6 +44,7 @@ export async function updateUser(req, res, next) {
 export async function setUserStatus(req, res, next) {
   try {
     const result = await userService.setUserStatus(req.params.id, req.body, req.user);
+    broadcastEvent('USER_UPDATED', { userId: req.params.id, status: req.body?.status });
     sendSuccess(res, result);
   } catch (err) {
     next(err);

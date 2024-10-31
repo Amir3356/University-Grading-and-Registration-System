@@ -310,6 +310,7 @@ export async function listStudentRegistrations({ semesterId, departmentId, progr
              json_build_object(
                'id', sr.id,
                'registrationTypeId', sr.registration_type_id,
+               'cafeStatus', sr.cafe_status,
                'status', sr.status,
                'submittedAt', sr.submitted_at,
                'reviewedAt', sr.reviewed_at,
@@ -401,9 +402,10 @@ export async function getCurrentPeriodForStudent(studentId) {
   const p = periodRes.rows[0];
 
   const studentRes = await query(
-    `SELECT program_type, academic_status FROM students WHERE id = $1`,
+    `SELECT id, student_number, program_type, academic_status FROM students WHERE id = $1`,
     [studentId]
   );
+  const studentNumber = studentRes.rows[0]?.student_number || null;
   const studentProgramType = (studentRes.rows[0]?.program_type || 'regular').toLowerCase();
   const isAllowedForStudent = Array.isArray(p.allowed_types) && p.allowed_types.some((t) => (t.id || '').toLowerCase() === studentProgramType);
 
@@ -423,9 +425,32 @@ export async function getCurrentPeriodForStudent(studentId) {
   return {
     ...p,
     daysLeft,
+    studentNumber,
     studentProgramType,
     isAllowedForStudent,
     myRegistration: regRes.rows[0] || null,
+  };
+}
+
+export async function getStudentProfile(studentId) {
+  const res = await query(
+    `SELECT s.id, s.student_number, s.program_type, s.academic_status,
+            p.name as program_name, d.name as department_name
+     FROM students s
+     LEFT JOIN programs p ON p.id = s.program_id
+     LEFT JOIN departments d ON d.id = s.department_id
+     WHERE s.id = $1`,
+    [studentId]
+  );
+  if (res.rows.length === 0) return null;
+  const row = res.rows[0];
+  return {
+    id: row.id,
+    studentNumber: row.student_number,
+    programType: (row.program_type || 'regular').toLowerCase(),
+    academicStatus: row.academic_status,
+    programName: row.program_name,
+    departmentName: row.department_name,
   };
 }
 
@@ -461,26 +486,26 @@ export async function listStudentRegistrationHistory(studentId) {
   return res.rows;
 }
 
-export async function createStudentRegistration({ id, studentId, semesterId, periodId, registrationTypeId }) {
+export async function createStudentRegistration({ id, studentId, semesterId, periodId, registrationTypeId, cafeStatus = 'cafe' }) {
   const res = await query(
     `INSERT INTO semester_registrations (
-       id, student_id, semester_id, period_id, registration_type_id, status, submitted_at
-     ) VALUES ($1, $2, $3, $4, $5, 'pending', now())
+       id, student_id, semester_id, period_id, registration_type_id, cafe_status, status, submitted_at
+     ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', now())
      RETURNING *`,
-    [id, studentId, semesterId, periodId, registrationTypeId]
+    [id, studentId, semesterId, periodId, registrationTypeId, cafeStatus]
   );
   return res.rows[0];
 }
 
 /** Re-submit a registration the student had cancelled (one row per student and semester). */
-export async function resubmitStudentRegistration({ id, periodId, registrationTypeId }) {
+export async function resubmitStudentRegistration({ id, periodId, registrationTypeId, cafeStatus = 'cafe' }) {
   const res = await query(
     `UPDATE semester_registrations
-     SET status = 'pending', period_id = $2, registration_type_id = $3, submitted_at = now(),
+     SET status = 'pending', period_id = $2, registration_type_id = $3, cafe_status = $4, submitted_at = now(),
          reviewed_by = NULL, reviewed_at = NULL, remarks = NULL, updated_at = now()
      WHERE id = $1 AND status = 'cancelled'
      RETURNING *`,
-    [id, periodId, registrationTypeId]
+    [id, periodId, registrationTypeId, cafeStatus]
   );
   return res.rows[0] || null;
 }

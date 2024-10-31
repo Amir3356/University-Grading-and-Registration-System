@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Plus, UserCheck } from 'lucide-react'
 import { toast } from 'sonner'
-import { onPeriodChange } from '@/lib/syncEvents'
+import { onPeriodChange, onUserChange } from '@/lib/syncEvents'
+import { setStoredSession } from '@/lib/storage'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,6 +14,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FormField } from '@/components/common/FormField'
 import { PageHeader } from '@/components/common/PageHeader'
@@ -55,9 +63,14 @@ function PeriodBanner({ currentPeriod, upcomingPeriod, isAllowedForStudent, prog
         )}
 
         {mine && mine.status !== 'cancelled' && (
-          <div className="rounded-lg border bg-card p-3 text-sm text-center text-foreground flex items-center justify-center gap-2">
+          <div className="rounded-lg border bg-card p-3 text-sm text-center text-foreground flex items-center justify-center gap-2 flex-wrap">
             <span>Your registration status:</span>
             <RegistrationStatus status={mine.status} />
+            {mine.cafe_status && (
+              <span className={`reg-badge ${mine.cafe_status === 'cafe' ? 'reg-badge--cafe' : 'reg-badge--non-cafe'}`}>
+                {mine.cafe_status === 'cafe' ? 'Cafe' : 'Non-cafe'}
+              </span>
+            )}
             {mine.status === 'rejected' && mine.remarks ? (
               <span className="text-destructive font-medium">— {mine.remarks}</span>
             ) : null}
@@ -85,10 +98,12 @@ export function RegistrationsPage() {
   const { user, profile } = useAuth()
   // The Student ID is the one the department entered in Account Provision. Load it fresh
   // (it may have been edited since login) and fall back to the profile cached at login.
-  const { data: me } = useQuery(getProfileApi, [], { live: false, enabled: Boolean(user) })
-  const studentId = me?.profile?.student_number ?? profile?.student_number ?? user?.studentNumber ?? ''
-
+  const { data: me, refetch: refetchProfile } = useQuery(getProfileApi, [], { live: false, enabled: Boolean(user) })
   const { data, loading, error, refetch } = useQuery(getStudentRegistrationsApi, [], { live: false, enabled: Boolean(user) })
+
+  const [openingRegister, setOpeningRegister] = useState(false)
+  const [freshStudentOverride, setFreshStudentOverride] = useState(null)
+
   const currentPeriod = data?.currentPeriod ?? null
   const upcomingPeriod = data?.upcomingPeriod ?? null
   const history = data?.history ?? []
@@ -96,9 +111,22 @@ export function RegistrationsPage() {
   const [isRegisterOpen, setIsRegisterOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [cancellingId, setCancellingId] = useState(null)
+  const [cafeStatus, setCafeStatus] = useState('cafe')
+
+  // Resolve student's latest Student ID
+  const studentId =
+    freshStudentOverride?.studentNumber ??
+    data?.student?.studentNumber ??
+    currentPeriod?.studentNumber ??
+    me?.profile?.student_number ??
+    profile?.student_number ??
+    user?.studentNumber ??
+    ''
 
   // Enforce student's assigned program type (RBAC assigned by Department Head)
   const studentProgramType = (
+    freshStudentOverride?.programType ??
+    data?.student?.programType ??
     currentPeriod?.studentProgramType ??
     me?.profile?.program_type ??
     profile?.program_type ??
@@ -127,19 +155,78 @@ export function RegistrationsPage() {
     refetch()
   })
 
+  // Real-time WebSocket event listener: server pushes USER_UPDATED / STUDENT_UPDATED instantly
+  useWebSocketEvent('USER_UPDATED', (payload) => {
+    if (!payload?.userId || payload.userId === user?.id) {
+      refetchProfile?.()
+      refetch?.()
+      getProfileApi().then((fresh) => {
+        if (fresh?.profile) {
+          setStoredSession(null, null, fresh.user, fresh.profile)
+          setFreshStudentOverride({
+            studentNumber: fresh.profile.student_number,
+            programType: fresh.profile.program_type,
+          })
+        }
+      }).catch(() => {})
+    }
+  })
+
+  useWebSocketEvent('STUDENT_UPDATED', () => {
+    refetchProfile?.()
+    refetch?.()
+    getProfileApi().then((fresh) => {
+      if (fresh?.profile) {
+        setStoredSession(null, null, fresh.user, fresh.profile)
+        setFreshStudentOverride({
+          studentNumber: fresh.profile.student_number,
+          programType: fresh.profile.program_type,
+        })
+      }
+    }).catch(() => {})
+  })
+
   // Instant event notification across tabs in the same browser
   useEffect(() => {
-    const unsubscribe = onPeriodChange(() => {
+    const unsubPeriod = onPeriodChange(() => {
       refetch()
     })
-    const handleFocus = () => refetch()
+    const unsubUser = onUserChange((payload) => {
+      if (!payload?.userId || payload.userId === user?.id) {
+        refetchProfile?.()
+        refetch?.()
+        getProfileApi().then((fresh) => {
+          if (fresh?.profile) {
+            setStoredSession(null, null, fresh.user, fresh.profile)
+            setFreshStudentOverride({
+              studentNumber: fresh.profile.student_number,
+              programType: fresh.profile.program_type,
+            })
+          }
+        }).catch(() => {})
+      }
+    })
+    const handleFocus = () => {
+      refetch()
+      refetchProfile?.()
+      getProfileApi().then((fresh) => {
+        if (fresh?.profile) {
+          setStoredSession(null, null, fresh.user, fresh.profile)
+          setFreshStudentOverride({
+            studentNumber: fresh.profile.student_number,
+            programType: fresh.profile.program_type,
+          })
+        }
+      }).catch(() => {})
+    }
     window.addEventListener('focus', handleFocus)
 
     return () => {
-      unsubscribe?.()
+      unsubPeriod?.()
+      unsubUser?.()
       window.removeEventListener('focus', handleFocus)
     }
-  }, [refetch])
+  }, [refetch, refetchProfile, user?.id])
 
   // Automatically dismiss registration dialog if period is removed or student is not allowed
   useEffect(() => {
@@ -148,20 +235,75 @@ export function RegistrationsPage() {
     }
   }, [currentPeriod, isAllowedForStudent, isRegisterOpen])
 
-  const openRegister = () => {
-    if (!currentPeriod) {
+  const openRegister = async () => {
+    setOpeningRegister(true)
+    let freshPeriod = currentPeriod
+    let effectiveProgramType = studentProgramType
+    let effectiveStudentId = studentId
+
+    try {
+      // Concurrently fetch the freshest student details and registration state from the server
+      const [profileRes, regRes] = await Promise.all([
+        getProfileApi().catch(() => null),
+        getStudentRegistrationsApi().catch(() => null),
+      ])
+
+      if (profileRes?.profile) {
+        setStoredSession(null, null, profileRes.user, profileRes.profile)
+        effectiveStudentId = profileRes.profile.student_number || effectiveStudentId
+        effectiveProgramType = (profileRes.profile.program_type || effectiveProgramType).toLowerCase()
+        setFreshStudentOverride({
+          studentNumber: effectiveStudentId,
+          programType: effectiveProgramType,
+        })
+      } else if (regRes?.student) {
+        effectiveStudentId = regRes.student.studentNumber || effectiveStudentId
+        effectiveProgramType = (regRes.student.programType || effectiveProgramType).toLowerCase()
+        setFreshStudentOverride({
+          studentNumber: effectiveStudentId,
+          programType: effectiveProgramType,
+        })
+      }
+
+      refetchProfile?.()
+      refetch?.()
+
+      if (regRes?.currentPeriod) {
+        freshPeriod = regRes.currentPeriod
+      }
+    } catch {
+      // Fallback to existing state if network issue
+    } finally {
+      setOpeningRegister(false)
+    }
+
+    if (!freshPeriod) {
       toast.error('Semester registration is currently closed. Please check back later.')
       return
     }
-    if (!isAllowedForStudent) {
-      toast.error(`Registration for ${programLabel} students is not open for this period.`)
+
+    const progLabel =
+      effectiveProgramType === 'regular'
+        ? 'Regular'
+        : effectiveProgramType === 'extension'
+        ? 'Extension'
+        : effectiveProgramType === 'weekend'
+        ? 'Weekend'
+        : effectiveProgramType.charAt(0).toUpperCase() + effectiveProgramType.slice(1)
+
+    const allowed = freshPeriod.isAllowedForStudent ?? freshPeriod.allowed_types?.some((t) => (t.id || '').toLowerCase() === effectiveProgramType)
+    if (!allowed) {
+      toast.error(`Registration for ${progLabel} students is not open for this period.`)
       return
     }
-    if (myRegistration && myRegistration.status !== 'cancelled') {
-      const statusCap = myRegistration.status.charAt(0).toUpperCase() + myRegistration.status.slice(1)
+
+    const myReg = freshPeriod.myRegistration
+    if (myReg && myReg.status !== 'cancelled') {
+      const statusCap = myReg.status.charAt(0).toUpperCase() + myReg.status.slice(1)
       toast.info(`You have already registered for this semester (Status: ${statusCap}).`)
       return
     }
+
     setIsRegisterOpen(true)
   }
 
@@ -180,6 +322,7 @@ export function RegistrationsPage() {
       await submitStudentRegistrationApi({
         semesterId: currentPeriod.semester_id,
         registrationTypeId: studentProgramType,
+        cafeStatus,
       })
       toast.success(`Registration submitted for ${currentPeriod.semester_name}. It is now pending approval.`)
       setIsRegisterOpen(false)
@@ -213,6 +356,7 @@ export function RegistrationsPage() {
         actions={
           <Button
             onClick={openRegister}
+            loading={openingRegister}
             variant={canRegister ? 'default' : 'outline'}
             className={!canRegister ? 'opacity-60 cursor-not-allowed' : ''}
             title={
@@ -273,7 +417,16 @@ export function RegistrationsPage() {
                         <TableCell className="font-semibold text-foreground">{studentId || '—'}</TableCell>
                         <TableCell className="font-medium text-foreground">{r.academic_year_name}</TableCell>
                         <TableCell className="font-medium text-foreground">{r.semester_name}</TableCell>
-                        <TableCell>{r.type_label}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-medium text-foreground">{r.type_label}</span>
+                            {r.cafe_status && (
+                              <span className={`reg-badge ${r.cafe_status === 'cafe' ? 'reg-badge--cafe' : 'reg-badge--non-cafe'}`}>
+                                {r.cafe_status === 'cafe' ? 'Cafe' : 'Non-cafe'}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{formatDate(r.submitted_at)}</TableCell>
                         <TableCell className="text-center">
                           <RegistrationStatus status={r.status} />
@@ -343,6 +496,21 @@ export function RegistrationsPage() {
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Auto-locked to your enrolled program assigned by the Department Head.
+              </p>
+            </FormField>
+
+            <FormField label="Cafeteria / Meal Service" required>
+              <Select value={cafeStatus} onValueChange={setCafeStatus}>
+                <SelectTrigger id="student-cafe-status" className="w-full">
+                  <SelectValue placeholder="Select Cafe or Non-cafe" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cafe">Cafe</SelectItem>
+                  <SelectItem value="non-cafe">Non-cafe</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Select your campus cafeteria meal service status (Cafe or Non-cafe).
               </p>
             </FormField>
 

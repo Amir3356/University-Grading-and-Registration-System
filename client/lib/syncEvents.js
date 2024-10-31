@@ -68,3 +68,62 @@ export function onPeriodChange(callback) {
     window.removeEventListener('storage', handleStorage);
   };
 }
+
+/**
+ * Notify all browser tabs and components that user/student info (e.g. ID, program type) has been updated.
+ */
+export function notifyUserChange(detail = {}) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.dispatchEvent(new CustomEvent('ugs_user_changed', { detail: { ...detail, timestamp: Date.now() } }));
+  } catch {}
+
+  try {
+    channel?.postMessage({ type: 'ugs_user_changed', ...detail, timestamp: Date.now() });
+  } catch {}
+
+  try {
+    localStorage.setItem('ugs_user_event', JSON.stringify({ ...detail, timestamp: Date.now() }));
+  } catch {}
+}
+
+/**
+ * Listen for user updates across tabs, windows, and local actions.
+ * @param {(detail?: any) => void} callback
+ * @returns {() => void} Unsubscribe function
+ */
+export function onUserChange(callback) {
+  if (typeof window === 'undefined' || typeof callback !== 'function') return () => {};
+
+  const handleEvent = (e) => {
+    callback(e.detail);
+  };
+
+  window.addEventListener('ugs_user_changed', handleEvent);
+
+  const handleMessage = (e) => {
+    if (e.data?.type === 'ugs_user_changed') {
+      callback(e.data);
+    }
+  };
+  channel?.addEventListener('message', handleMessage);
+
+  const handleStorage = (e) => {
+    if (e.key === 'ugs_user_event') {
+      try {
+        const parsed = JSON.parse(e.newValue || '{}');
+        callback(parsed);
+      } catch {
+        callback();
+      }
+    }
+  };
+  window.addEventListener('storage', handleStorage);
+
+  return () => {
+    window.removeEventListener('ugs_user_changed', handleEvent);
+    channel?.removeEventListener('message', handleMessage);
+    window.removeEventListener('storage', handleStorage);
+  };
+}

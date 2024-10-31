@@ -166,6 +166,10 @@ export async function deleteRegistration(id, user) {
 }
 
 // Student self-service
+export async function getStudentProfile(studentId) {
+  return await regRepo.getStudentProfile(studentId);
+}
+
 export async function getStudentCurrentPeriod(studentId) {
   return await regRepo.getCurrentPeriodForStudent(studentId);
 }
@@ -178,7 +182,7 @@ export async function listStudentHistory(studentId) {
   return await regRepo.listStudentRegistrationHistory(studentId);
 }
 
-export async function submitStudentRegistration({ semesterId, registrationTypeId }, studentId, user) {
+export async function submitStudentRegistration({ semesterId, registrationTypeId, cafeStatus = 'cafe' }, studentId, user) {
   const currentPeriod = await regRepo.getCurrentPeriodForStudent(studentId);
   if (!currentPeriod) {
     throw new ConflictError('Semester registration is not open right now.');
@@ -204,12 +208,17 @@ export async function submitStudentRegistration({ semesterId, registrationTypeId
     );
   }
 
+  const normalizedCafeStatus = (cafeStatus || 'cafe').toLowerCase() === 'non-cafe' || (cafeStatus || 'cafe').toLowerCase() === 'non_cafe'
+    ? 'non_cafe'
+    : 'cafe';
+
   const existing = currentPeriod.myRegistration;
   if (existing?.status === 'cancelled') {
     return await regRepo.resubmitStudentRegistration({
       id: existing.id,
       periodId: currentPeriod.id,
       registrationTypeId: effectiveType,
+      cafeStatus: normalizedCafeStatus,
     });
   }
   if (existing) {
@@ -223,6 +232,7 @@ export async function submitStudentRegistration({ semesterId, registrationTypeId
     semesterId,
     periodId: currentPeriod.id,
     registrationTypeId: effectiveType,
+    cafeStatus: normalizedCafeStatus,
   });
 
   return reg;

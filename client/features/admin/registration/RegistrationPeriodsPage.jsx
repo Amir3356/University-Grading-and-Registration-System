@@ -284,7 +284,7 @@ export function RegistrationPeriodsPage() {
         </p>
       </div>
 
-      <RegistrationStats summary={summary} />
+      <RegistrationStats summary={summary} showPending={false} />
 
       {activeOrUpcomingPeriod && (
         <RegistrationCountdown

@@ -7,10 +7,12 @@ const CARDS = [
 ]
 
 /** Summary cards shared by the registration periods and student registrations pages. */
-export function RegistrationStats({ summary }) {
+export function RegistrationStats({ summary, showPending = true }) {
+  const visibleCards = showPending ? CARDS : CARDS.filter((c) => c.key !== 'pending')
+
   return (
     <div className="semester-reg-stats">
-      {CARDS.map(({ key, fallbackKey, label, icon: Icon, tone }) => {
+      {visibleCards.map(({ key, fallbackKey, label, icon: Icon, tone }) => {
         const val = summary ? (summary[key] ?? (fallbackKey ? summary[fallbackKey] : undefined) ?? 0) : '—'
         return (
           <div key={key} className="reg-stat-card">
