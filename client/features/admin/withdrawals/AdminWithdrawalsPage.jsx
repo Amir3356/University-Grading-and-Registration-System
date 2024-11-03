@@ -1,15 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   AlertCircle,
   Building2,
   Calendar,
   Check,
   CheckCircle2,
-  Clock,
   FileText,
-  UserMinus,
+  RotateCcw,
   X,
-  XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -34,7 +32,21 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { PageHeader } from '@/components/common/PageHeader'
 import { StatusBadge } from '@/components/common/StatusBadge'
+import { SearchInput } from '@/components/common/SearchInput'
+import { FilterSelect } from '@/components/common/FilterSelect'
 import { useWithdrawalRequests } from '@/store/withdrawalsStore'
+
+const STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+]
+
+const PROGRAM_OPTIONS = [
+  { value: 'regular', label: 'Regular' },
+  { value: 'extension', label: 'Extension' },
+  { value: 'summer', label: 'Summer' },
+]
 
 export function AdminWithdrawalsPage() {
   const { requests, updateStatus } = useWithdrawalRequests()
@@ -43,17 +55,90 @@ export function AdminWithdrawalsPage() {
   const [actionConfirm, setActionConfirm] = useState(null) // { request, action: 'approved' | 'rejected' }
   const [adminNoteInput, setAdminNoteInput] = useState('')
 
-  // Summary Metrics
-  const metrics = useMemo(() => {
-    const total = requests.length
-    const pending = requests.filter((r) => r.status === 'pending').length
-    const approved = requests.filter((r) => r.status === 'approved').length
-    const rejected = requests.filter((r) => r.status === 'rejected').length
-    return { total, pending, approved, rejected }
-  }, [requests])
+  // Filter States
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+  const [programFilter, setProgramFilter] = useState('')
+  const [yearFilter, setYearFilter] = useState('')
+
+  const currentYear = String(new Date().getFullYear())
+
+  // Dynamic Options
+  const withdrawalTypeOptions = useMemo(() => {
+    const types = new Set()
+    requests.forEach((r) => {
+      if (r.withdrawalType) types.add(r.withdrawalType)
+    })
+    types.add('Complete University Withdrawal')
+    types.add(`${currentYear} First Semester`)
+    types.add(`${currentYear} Second Semester`)
+    return Array.from(types).map((t) => ({ value: t, label: t }))
+  }, [requests, currentYear])
+
+  const academicYearOptions = useMemo(() => {
+    const years = new Set()
+    requests.forEach((r) => {
+      if (r.academicYear) years.add(String(r.academicYear))
+    })
+    years.add(currentYear)
+    return Array.from(years).map((y) => ({ value: y, label: y }))
+  }, [requests, currentYear])
+
+  const isFiltered = Boolean(search || statusFilter || typeFilter || programFilter || yearFilter)
+
+  const resetFilters = () => {
+    setSearch('')
+    setStatusFilter('')
+    setTypeFilter('')
+    setProgramFilter('')
+    setYearFilter('')
+  }
+
+  // Filtered List
+  const filteredRequests = useMemo(() => {
+    return requests.filter((r) => {
+      if (statusFilter && r.status !== statusFilter) return false
+      if (typeFilter && r.withdrawalType !== typeFilter) return false
+      if (
+        programFilter &&
+        (r.programType || 'Regular').toLowerCase() !== programFilter.toLowerCase()
+      )
+        return false
+      if (yearFilter && String(r.academicYear) !== String(yearFilter)) return false
+
+      if (search.trim()) {
+        const q = search.trim().toLowerCase()
+        const sId = (r.studentId || '').toLowerCase()
+        const sName = (r.studentName || '').toLowerCase()
+        const wType = (r.withdrawalType || '').toLowerCase()
+        const pType = (r.programType || '').toLowerCase()
+        const aYear = String(r.academicYear || '').toLowerCase()
+        const reason = (r.reason || '').toLowerCase()
+        const status = (r.status || '').toLowerCase()
+
+        const match =
+          sId.includes(q) ||
+          sName.includes(q) ||
+          wType.includes(q) ||
+          pType.includes(q) ||
+          aYear.includes(q) ||
+          reason.includes(q) ||
+          status.includes(q)
+
+        if (!match) return false
+      }
+
+      return true
+    })
+  }, [requests, search, statusFilter, typeFilter, programFilter, yearFilter])
 
   const handleOpenConfirm = (request, action, e) => {
     e?.stopPropagation()
+    if (action === 'rejected' && request.status === 'approved') {
+      toast.error('Approved withdrawal requests cannot be rejected.')
+      return
+    }
     setActionConfirm({ request, action })
     setAdminNoteInput(
       action === 'approved'
@@ -65,6 +150,11 @@ export function AdminWithdrawalsPage() {
   const handleConfirmAction = () => {
     if (!actionConfirm) return
     const { request, action } = actionConfirm
+    if (action === 'rejected' && request.status === 'approved') {
+      toast.error('Approved withdrawal requests cannot be rejected.')
+      setActionConfirm(null)
+      return
+    }
     updateStatus(request.id, action, adminNoteInput.trim() || undefined)
 
     if (action === 'approved') {
@@ -79,6 +169,10 @@ export function AdminWithdrawalsPage() {
 
   const handleQuickAction = (request, action, e) => {
     e?.stopPropagation()
+    if (action === 'rejected' && request.status === 'approved') {
+      toast.error('Approved withdrawal requests cannot be rejected.')
+      return
+    }
     updateStatus(
       request.id,
       action,
@@ -97,117 +191,84 @@ export function AdminWithdrawalsPage() {
     <div className="space-y-6">
       {/* Page Header */}
       <PageHeader
+        centered
         title="Student Withdrawals"
         description="Review student withdrawal requests, verify reasons, and execute institutional approvals or rejections."
       />
 
-      {/* KPI Stat Cards - Exact 2 by 2 Horizontal Flexbox Layout */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%', marginBottom: '1.25rem' }}>
-        {/* Row 1: Total Requests & Pending Review */}
-        <div style={{ display: 'flex', flexDirection: 'row', gap: '0.75rem', width: '100%' }}>
-          {/* Total Requests */}
-          <div
-            className="border border-border/80 rounded-lg bg-card shadow-sm hover:border-border transition-all"
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.875rem 1.25rem',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span className="text-sm font-semibold text-foreground">
-                Total Requests:
-              </span>
-              <span className="text-base font-bold text-foreground">
-                {metrics.total}
-              </span>
-            </div>
-            <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-              <UserMinus className="w-4 h-4" />
-            </div>
+      {/* Search & Dropdown Filter Toolbar */}
+      <div className="space-y-2">
+        <div className="toolbar--split">
+          <div className="toolbar--split__left">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search by student ID, name, reason..."
+            />
           </div>
-
-          {/* Pending Review */}
-          <div
-            className="border border-border/80 rounded-lg bg-card shadow-sm hover:border-border transition-all"
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.875rem 1.25rem',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span className="text-sm font-semibold text-foreground">
-                Pending Review:
-              </span>
-              <span className="text-base font-bold text-amber-600 dark:text-amber-400">
-                {metrics.pending}
-              </span>
-            </div>
-            <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-              <Clock className="w-4 h-4" />
-            </div>
-          </div>
-        </div>
-
-        {/* Row 2: Approved & Rejected */}
-        <div style={{ display: 'flex', flexDirection: 'row', gap: '0.75rem', width: '100%' }}>
-          {/* Approved */}
-          <div
-            className="border border-border/80 rounded-lg bg-card shadow-sm hover:border-border transition-all"
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.875rem 1.25rem',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span className="text-sm font-semibold text-foreground">
-                Approved:
-              </span>
-              <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">
-                {metrics.approved}
-              </span>
-            </div>
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-          </div>
-
-          {/* Rejected */}
-          <div
-            className="border border-border/80 rounded-lg bg-card shadow-sm hover:border-border transition-all"
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.875rem 1.25rem',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span className="text-sm font-semibold text-foreground">
-                Rejected:
-              </span>
-              <span className="text-base font-bold text-rose-600 dark:text-rose-400">
-                {metrics.rejected}
-              </span>
-            </div>
-            <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
-              <XCircle className="w-4 h-4" />
-            </div>
+          <div className="toolbar--split__right">
+            <FilterSelect
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={STATUS_OPTIONS}
+              allLabel="All statuses"
+              label="Status"
+              className="sm:w-36"
+            />
+            <FilterSelect
+              value={typeFilter}
+              onChange={setTypeFilter}
+              options={withdrawalTypeOptions}
+              allLabel="All withdraw types"
+              label="Withdraw Type"
+              className="sm:w-52"
+            />
+            <FilterSelect
+              value={programFilter}
+              onChange={setProgramFilter}
+              options={PROGRAM_OPTIONS}
+              allLabel="All programs"
+              label="Program"
+              className="sm:w-36"
+            />
+            <FilterSelect
+              value={yearFilter}
+              onChange={setYearFilter}
+              options={academicYearOptions}
+              allLabel="All academic years"
+              label="Academic Year"
+              className="sm:w-40"
+            />
+            {isFiltered && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetFilters}
+                className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground gap-1"
+                title="Reset all filters"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Reset
+              </Button>
+            )}
           </div>
         </div>
+
+        {isFiltered && (
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-0.5">
+            <span>
+              Showing <strong className="text-foreground">{filteredRequests.length}</strong> of{' '}
+              <strong>{requests.length}</strong> withdrawal requests
+            </span>
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="text-primary hover:underline font-medium"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main Content Card */}
@@ -217,42 +278,52 @@ export function AdminWithdrawalsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableHead className="w-[130px] font-semibold text-foreground">StudentID</TableHead>
+                  <TableHead className="w-[130px] font-semibold text-foreground">Student ID</TableHead>
                   <TableHead className="w-[170px] font-semibold text-foreground">Student Name</TableHead>
-                  <TableHead className="w-[150px] font-semibold text-foreground">Department</TableHead>
-                  <TableHead className="w-[130px] font-semibold text-foreground">Program type</TableHead>
-                  <TableHead className="w-[140px] font-semibold text-foreground">
-                    <div className="flex flex-col leading-tight">
-                      <span>Academic Year</span>
-                      <span className="text-[10px] font-normal text-muted-foreground">Relevant academic year</span>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-[160px] font-semibold text-foreground">
-                    <div className="flex flex-col leading-tight">
-                      <span>Semester</span>
-                      <span className="text-[10px] font-normal text-muted-foreground">Semester being withdrawn from</span>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-[170px] font-semibold text-foreground">withdrawtype</TableHead>
+                  <TableHead className="w-[170px] font-semibold text-foreground">Withdraw Type</TableHead>
+                  <TableHead className="w-[130px] font-semibold text-foreground">Program Type</TableHead>
+                  <TableHead className="w-[140px] font-semibold text-foreground">Academic Year</TableHead>
                   <TableHead className="min-w-[240px] font-semibold text-foreground">Reason</TableHead>
-                  <TableHead className="text-center w-[110px] font-semibold text-foreground">status</TableHead>
+                  <TableHead className="text-center w-[110px] font-semibold text-foreground">Status</TableHead>
                   <TableHead className="text-center w-[190px] font-semibold text-foreground">Action</TableHead>
                 </TableRow>
               </TableHeader>
 
               <TableBody>
-                {requests.length === 0 ? (
+                {filteredRequests.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <FileText className="w-8 h-8 text-muted-foreground/60 stroke-1" />
-                        <p className="text-sm font-medium">No withdrawal requests found</p>
+                        <p className="text-sm font-medium">
+                          {requests.length === 0
+                            ? 'No withdrawal requests found'
+                            : 'No matching withdrawal requests found'}
+                        </p>
+                        {isFiltered && (
+                          <div className="flex flex-col items-center gap-2 mt-1">
+                            <p className="text-xs text-muted-foreground">
+                              Try adjusting your search keywords or clear the active dropdown filters.
+                            </p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={resetFilters}
+                              className="mt-1 text-xs gap-1.5"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              Reset Filters
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  requests.map((r) => {
-                    const isUnivWithdrawal = r.withdrawalType === 'University Withdrawal'
+                  filteredRequests.map((r) => {
+                    const isUnivWithdrawal =
+                      r.withdrawalType === 'University Withdrawal' ||
+                      r.withdrawalType?.toLowerCase().includes('university')
                     const isPending = r.status === 'pending'
                     const isApproved = r.status === 'approved'
                     const isRejected = r.status === 'rejected'
@@ -264,7 +335,7 @@ export function AdminWithdrawalsPage() {
                         onClick={() => setSelectedRequest(r)}
                         className="cursor-pointer hover:bg-muted/50 transition-colors group"
                       >
-                        {/* StudentID */}
+                        {/* Student ID */}
                         <TableCell className="font-mono text-xs font-semibold text-foreground">
                           {r.studentId}
                         </TableCell>
@@ -274,12 +345,22 @@ export function AdminWithdrawalsPage() {
                           {r.studentName}
                         </TableCell>
 
-                        {/* Department */}
-                        <TableCell className="text-xs text-muted-foreground font-medium">
-                          {r.department}
+                        {/* Withdraw Type */}
+                        <TableCell>
+                          <Badge
+                            variant={isUnivWithdrawal ? 'secondary' : 'outline'}
+                            className="text-[11px] font-medium gap-1 whitespace-nowrap"
+                          >
+                            {isUnivWithdrawal ? (
+                              <Building2 className="w-3 h-3 text-purple-500" />
+                            ) : (
+                              <Calendar className="w-3 h-3 text-blue-500" />
+                            )}
+                            {r.withdrawalType}
+                          </Badge>
                         </TableCell>
 
-                        {/* Program type */}
+                        {/* Program Type */}
                         <TableCell>
                           <Badge
                             variant="outline"
@@ -300,26 +381,6 @@ export function AdminWithdrawalsPage() {
                           {r.academicYear}
                         </TableCell>
 
-                        {/* Semester */}
-                        <TableCell className="text-xs font-medium text-foreground whitespace-nowrap">
-                          {r.semester}
-                        </TableCell>
-
-                        {/* withdrawtype */}
-                        <TableCell>
-                          <Badge
-                            variant={isUnivWithdrawal ? 'secondary' : 'outline'}
-                            className="text-[11px] font-medium gap-1 whitespace-nowrap"
-                          >
-                            {isUnivWithdrawal ? (
-                              <Building2 className="w-3 h-3 text-purple-500" />
-                            ) : (
-                              <Calendar className="w-3 h-3 text-blue-500" />
-                            )}
-                            {r.withdrawalType}
-                          </Badge>
-                        </TableCell>
-
                         {/* Reason */}
                         <TableCell>
                           <div className="max-w-md">
@@ -337,7 +398,7 @@ export function AdminWithdrawalsPage() {
                           </div>
                         </TableCell>
 
-                        {/* status */}
+                        {/* Status */}
                         <TableCell className="text-center">
                           <StatusBadge status={r.status} />
                         </TableCell>
@@ -352,33 +413,43 @@ export function AdminWithdrawalsPage() {
                             <Button
                               size="sm"
                               variant={isApproved ? 'default' : 'outline'}
+                              disabled={isApproved}
                               className={`h-7 px-2.5 text-xs font-medium transition-all ${
                                 isApproved
-                                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-transparent'
+                                  ? 'bg-emerald-600 hover:bg-emerald-600 text-white border-transparent cursor-default opacity-95 disabled:opacity-95'
                                   : 'text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
                               }`}
-                              title={isApproved ? 'Currently Approved (Click to re-confirm)' : 'Approve withdrawal request'}
-                              onClick={(e) => handleOpenConfirm(r, 'approved', e)}
+                              title={isApproved ? 'Approved' : 'Approve withdrawal request'}
+                              onClick={(e) => {
+                                if (isApproved) return
+                                handleQuickAction(r, 'approved', e)
+                              }}
                             >
                               <Check className="w-3 h-3 mr-1" />
-                              Approve
+                              {isApproved ? 'Approved' : 'Approve'}
                             </Button>
 
-                            {/* Reject Button */}
-                            <Button
-                              size="sm"
-                              variant={isRejected ? 'destructive' : 'outline'}
-                              className={`h-7 px-2.5 text-xs font-medium transition-all ${
-                                isRejected
-                                  ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                                  : 'text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40'
-                              }`}
-                              title={isRejected ? 'Currently Rejected (Click to re-confirm)' : 'Reject withdrawal request'}
-                              onClick={(e) => handleOpenConfirm(r, 'rejected', e)}
-                            >
-                              <X className="w-3 h-3 mr-1" />
-                              Reject
-                            </Button>
+                            {/* Reject Button - automatically removed once Approved */}
+                            {!isApproved && (
+                              <Button
+                                size="sm"
+                                variant={isRejected ? 'destructive' : 'outline'}
+                                disabled={isRejected}
+                                className={`h-7 px-2.5 text-xs font-medium transition-all ${
+                                  isRejected
+                                    ? 'bg-rose-600 hover:bg-rose-600 text-white cursor-default'
+                                    : 'text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40'
+                                }`}
+                                title={isRejected ? 'Rejected' : 'Reject withdrawal request'}
+                                onClick={(e) => {
+                                  if (isRejected) return
+                                  handleOpenConfirm(r, 'rejected', e)
+                                }}
+                              >
+                                <X className="w-3 h-3 mr-1" />
+                                {isRejected ? 'Rejected' : 'Reject'}
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -618,30 +689,34 @@ export function AdminWithdrawalsPage() {
                 >
                   Close
                 </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                  onClick={(e) => {
-                    handleOpenConfirm(selectedRequest, 'approved', e)
-                    setSelectedRequest(null)
-                  }}
-                >
-                  <Check className="w-3.5 h-3.5 mr-1" />
-                  Approve Request
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="bg-rose-600 hover:bg-rose-700 text-white"
-                  onClick={(e) => {
-                    handleOpenConfirm(selectedRequest, 'rejected', e)
-                    setSelectedRequest(null)
-                  }}
-                >
-                  <X className="w-3.5 h-3.5 mr-1" />
-                  Reject Request
-                </Button>
+                {selectedRequest.status !== 'approved' && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={(e) => {
+                      handleQuickAction(selectedRequest, 'approved', e)
+                      setSelectedRequest((prev) => ({ ...prev, status: 'approved' }))
+                    }}
+                  >
+                    <Check className="w-3.5 h-3.5 mr-1" />
+                    Approve Request
+                  </Button>
+                )}
+                {selectedRequest.status !== 'approved' && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="bg-rose-600 hover:bg-rose-700 text-white"
+                    onClick={(e) => {
+                      handleOpenConfirm(selectedRequest, 'rejected', e)
+                      setSelectedRequest(null)
+                    }}
+                  >
+                    <X className="w-3.5 h-3.5 mr-1" />
+                    Reject Request
+                  </Button>
+                )}
               </DialogFooter>
             </>
           )}

@@ -110,6 +110,7 @@ export function RegistrationPeriodsPage() {
 
   // Real-time WebSocket sync across all admin and user clients
   useWebSocketEvent('PERIOD_CHANGED', reload)
+  useWebSocketEvent('REGISTRATION_CHANGED', reload)
 
   const yearOptions = useMemo(
     () => [...new Set(periods.map((p) => p.academicYear))].sort(),

@@ -894,6 +894,78 @@
 }
 
 
+.reg-action-approve {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: #10b981;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reg-action-approve:hover {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #059669;
+}
+
+.dark .reg-action-approve:hover {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #34d399;
+}
+
+.reg-action-reject {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: #ef4444;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reg-action-reject:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+.dark .reg-action-reject:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+.reg-action-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reg-action-more:hover {
+  background: var(--muted);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+
 .reg-action-delete {
   display: inline-flex;
   align-items: center;

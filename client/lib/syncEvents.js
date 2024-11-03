@@ -127,3 +127,63 @@ export function onUserChange(callback) {
     window.removeEventListener('storage', handleStorage);
   };
 }
+
+/**
+ * Notify all browser tabs and components that a semester registration has changed (created, updated, deleted, reviewed).
+ */
+export function notifyRegistrationChange(detail = {}) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.dispatchEvent(new CustomEvent('ugs_registration_changed', { detail: { ...detail, timestamp: Date.now() } }));
+  } catch {}
+
+  try {
+    channel?.postMessage({ type: 'ugs_registration_changed', ...detail, timestamp: Date.now() });
+  } catch {}
+
+  try {
+    localStorage.setItem('ugs_registration_event', JSON.stringify({ ...detail, timestamp: Date.now() }));
+  } catch {}
+}
+
+/**
+ * Listen for semester registration changes across tabs, windows, and local actions.
+ * @param {(detail?: any) => void} callback
+ * @returns {() => void} Unsubscribe function
+ */
+export function onRegistrationChange(callback) {
+  if (typeof window === 'undefined' || typeof callback !== 'function') return () => {};
+
+  const handleEvent = (e) => {
+    callback(e.detail);
+  };
+
+  window.addEventListener('ugs_registration_changed', handleEvent);
+
+  const handleMessage = (e) => {
+    if (e.data?.type === 'ugs_registration_changed') {
+      callback(e.data);
+    }
+  };
+  channel?.addEventListener('message', handleMessage);
+
+  const handleStorage = (e) => {
+    if (e.key === 'ugs_registration_event') {
+      try {
+        const parsed = JSON.parse(e.newValue || '{}');
+        callback(parsed);
+      } catch {
+        callback();
+      }
+    }
+  };
+  window.addEventListener('storage', handleStorage);
+
+  return () => {
+    window.removeEventListener('ugs_registration_changed', handleEvent);
+    channel?.removeEventListener('message', handleMessage);
+    window.removeEventListener('storage', handleStorage);
+  };
+}
+

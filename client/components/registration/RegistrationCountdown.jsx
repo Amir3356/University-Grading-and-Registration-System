@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Clock, Calendar, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Clock, Calendar, AlertCircle } from 'lucide-react'
 
 /** Parse date strings into timestamps safely */
 function getTimestamp(value, isEndOfDay = false) {
@@ -43,7 +43,19 @@ export function formatDateDMY(value) {
   return `${dd}/${mm}/${yyyy}`
 }
 
-/** Hook for continuous real-time countdown updates */
+/** Utility to check if a deadline has passed */
+export function isDeadlinePassed(deadline) {
+  const endMs = getTimestamp(deadline, true)
+  if (!endMs) return false
+  return Date.now() > endMs
+}
+
+/**
+ * Hook for continuous real-time countdown updates.
+ * - Ticks every second.
+ * - Transitions to 'ended' the instant deadline is reached.
+ * - Transitions to 'expired' exactly 1 additional day after the deadline so the timer is automatically removed.
+ */
 export function useRegistrationCountdown(startDate, deadline) {
   const [now, setNow] = useState(() => Date.now())
 
@@ -57,11 +69,14 @@ export function useRegistrationCountdown(startDate, deadline) {
 
   const startMs = useMemo(() => getTimestamp(startDate, false), [startDate])
   const endMs = useMemo(() => getTimestamp(deadline, true), [deadline])
+  const removalMs = useMemo(() => (endMs ? endMs + 24 * 60 * 60 * 1000 : null), [endMs])
 
   return useMemo(() => {
     if (!startMs || !endMs) {
       return {
         status: 'unknown',
+        isEnded: false,
+        isExpired: false,
         days: 0,
         hours: 0,
         minutes: 0,
@@ -74,8 +89,8 @@ export function useRegistrationCountdown(startDate, deadline) {
       }
     }
 
+    // 1. Upcoming: counting down to start
     if (now < startMs) {
-      // Upcoming: counting down to start
       const diffMs = Math.max(0, startMs - now)
       const totalSec = Math.floor(diffMs / 1000)
       const days = Math.floor(totalSec / 86400)
@@ -85,6 +100,8 @@ export function useRegistrationCountdown(startDate, deadline) {
 
       return {
         status: 'upcoming',
+        isEnded: false,
+        isExpired: false,
         days,
         hours,
         minutes,
@@ -97,8 +114,8 @@ export function useRegistrationCountdown(startDate, deadline) {
       }
     }
 
+    // 2. Active: counting down to deadline
     if (now <= endMs) {
-      // Active: counting down to deadline
       const diffMs = Math.max(0, endMs - now)
       const totalSec = Math.floor(diffMs / 1000)
       const days = Math.floor(totalSec / 86400)
@@ -113,6 +130,8 @@ export function useRegistrationCountdown(startDate, deadline) {
 
       return {
         status: 'active',
+        isEnded: false,
+        isExpired: false,
         days,
         hours,
         minutes,
@@ -125,9 +144,29 @@ export function useRegistrationCountdown(startDate, deadline) {
       }
     }
 
-    // Ended
+    // 3. One additional day has passed after the registration deadline: automatically remove timer
+    if (removalMs && now > removalMs) {
+      return {
+        status: 'expired',
+        isEnded: true,
+        isExpired: true,
+        days: 0,
+        hours: 0,
+        minutes: 0,
+        seconds: 0,
+        totalSeconds: 0,
+        isUrgent: false,
+        progressPercent: 100,
+        formatted: 'Closed',
+        shortFormatted: 'Closed',
+      }
+    }
+
+    // 4. Deadline reached, but still within the 1 additional day grace period: show closed status
     return {
       status: 'ended',
+      isEnded: true,
+      isExpired: false,
       days: 0,
       hours: 0,
       minutes: 0,
@@ -138,12 +177,13 @@ export function useRegistrationCountdown(startDate, deadline) {
       formatted: 'Closed',
       shortFormatted: 'Closed',
     }
-  }, [now, startMs, endMs])
+  }, [now, startMs, endMs, removalMs])
 }
 
 /**
  * Registration Countdown Timer Component
- * Displays live running timer with ticking seconds
+ * Displays live running timer with ticking seconds.
+ * Automatically removed once 1 additional day after the deadline has passed.
  */
 export function RegistrationCountdown({
   startDate,
@@ -156,50 +196,15 @@ export function RegistrationCountdown({
 }) {
   const cd = useRegistrationCountdown(startDate, deadline)
 
-  if (cd.status === 'unknown') return null
-
-  // Clean human-readable remaining label (e.g., "8 days, 0 hours left remaining")
-  const remainingLabel = useMemo(() => {
-    if (cd.status === 'ended') return 'Registration Closed'
-    if (cd.status === 'upcoming') {
-      if (cd.days > 0) {
-        return `Registration opens in ${cd.days} day${cd.days === 1 ? '' : 's'}, ${cd.hours} hour${cd.hours === 1 ? '' : 's'}`
-      }
-      if (cd.hours > 0) {
-        return `Registration opens in ${cd.hours} hour${cd.hours === 1 ? '' : 's'}, ${cd.minutes} min`
-      }
-      return `Registration opens in ${cd.minutes} min`
-    }
-    // active
-    if (cd.days > 0) {
-      return `${cd.days} day${cd.days === 1 ? '' : 's'}, ${cd.hours} hour${cd.hours === 1 ? '' : 's'} left remaining`
-    }
-    if (cd.hours > 0) {
-      return `${cd.hours} hour${cd.hours === 1 ? '' : 's'}, ${cd.minutes} min left remaining`
-    }
-    if (cd.minutes > 0) {
-      return `${cd.minutes} min${cd.minutes === 1 ? '' : 's'}, ${cd.seconds}s left remaining`
-    }
-    return `${cd.seconds} seconds left remaining`
-  }, [cd.status, cd.days, cd.hours, cd.minutes, cd.seconds])
-
-  // Badge label explicitly mentioning days and hours
-  const badgeLabel = useMemo(() => {
-    if (cd.days > 0) {
-      return `${cd.days} Days, ${cd.hours} Hours Left Remaining`
-    }
-    if (cd.hours > 0) {
-      return `${cd.hours} Hours, ${cd.minutes} Mins Left Remaining`
-    }
-    return `${cd.minutes}m ${cd.seconds}s Left Remaining`
-  }, [cd.days, cd.hours, cd.minutes, cd.seconds])
+  // Automatically remove timer when expired (> 1 day after deadline) or unknown
+  if (cd.status === 'unknown' || cd.status === 'expired') return null
 
   // Compact inline format for tables and chips
   if (variant === 'compact' || variant === 'inline') {
     if (cd.status === 'ended') {
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
-          <Clock className="size-3.5 text-muted-foreground" />
+        <span className="inline-flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400 font-mono font-medium">
+          <Clock className="size-3.5" />
           Closed
         </span>
       )
@@ -207,8 +212,8 @@ export function RegistrationCountdown({
 
     const isUpcoming = cd.status === 'upcoming'
     const compactLabel = isUpcoming
-      ? (cd.days > 0 ? `Starts in ${cd.days}d ${cd.hours}h` : `Starts in ${cd.hours}h`)
-      : (cd.days > 0 ? `${cd.days} days, ${cd.hours}h left remaining` : `${cd.hours}h ${cd.minutes}m left`)
+      ? (cd.days > 0 ? `Opens in ${cd.days}d ${cd.hours}h` : `Opens in ${cd.hours}h ${cd.minutes}m`)
+      : (cd.days > 0 ? `${cd.days}d ${cd.hours}h remaining` : `${cd.hours}h ${cd.minutes}m left`)
 
     return (
       <span
@@ -232,7 +237,7 @@ export function RegistrationCountdown({
     )
   }
 
-  // Full Hero Banner & Card variant with large live digital clock blocks
+  // Full Banner variant
   const isActive = cd.status === 'active'
   const isUpcoming = cd.status === 'upcoming'
   const isEnded = cd.status === 'ended'
@@ -243,7 +248,7 @@ export function RegistrationCountdown({
     ? 'border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-300'
     : isActive
     ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-    : 'border-muted-foreground/30 bg-muted/40 text-muted-foreground'
+    : 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300'
 
   const dotColor = isUpcoming
     ? 'bg-blue-500'
@@ -251,7 +256,7 @@ export function RegistrationCountdown({
     ? 'bg-amber-500'
     : isActive
     ? 'bg-emerald-500'
-    : 'bg-muted-foreground'
+    : 'bg-rose-500'
 
   return (
     <div
@@ -263,7 +268,7 @@ export function RegistrationCountdown({
         <div className="flex flex-wrap items-center gap-2.5">
           <span className={`reg-countdown-pulse-badge ${badgeColor}`}>
             <span className={`reg-countdown-pulse-dot ${dotColor}`} />
-            {isUpcoming ? 'UPCOMING PERIOD' : isActive ? 'LIVE COUNTDOWN' : 'PERIOD CLOSED'}
+            {isUpcoming ? 'UPCOMING PERIOD' : isActive ? 'LIVE COUNTDOWN' : 'REGISTRATION CLOSED'}
           </span>
           {semesterName && (
             <span className="font-semibold text-foreground text-sm sm:text-base">
@@ -276,23 +281,19 @@ export function RegistrationCountdown({
       </div>
 
       <div className="reg-countdown-banner__body">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="reg-countdown-banner__subhead">
-            <Clock className="size-4 text-primary shrink-0" />
-            <span className="text-base font-bold text-foreground">
-              {remainingLabel}
-            </span>
-          </div>
-
-          {!isEnded && (
-            <span className="text-xs font-bold px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/25">
-              {badgeLabel}
-            </span>
-          )}
-        </div>
-
-        {!isEnded ? (
+        {isActive && (
           <>
+            <div className="flex items-center gap-2">
+              <Clock className="size-4 text-primary shrink-0" />
+              <span className="text-base font-bold text-foreground">
+                {cd.days > 0
+                  ? `${cd.days} day${cd.days === 1 ? '' : 's'}, ${cd.hours} hour${cd.hours === 1 ? '' : 's'} remaining`
+                  : cd.hours > 0
+                  ? `${cd.hours} hour${cd.hours === 1 ? '' : 's'}, ${cd.minutes} min remaining`
+                  : `${cd.minutes}m ${cd.seconds}s remaining`}
+              </span>
+            </div>
+
             <div className="reg-countdown-digits" aria-label={`Time remaining: ${cd.formatted}`}>
               <div className="reg-countdown-block">
                 <span className="reg-countdown-num">{pad2(cd.days)}</span>
@@ -316,55 +317,83 @@ export function RegistrationCountdown({
             </div>
 
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 mt-0.5">
-              <Clock className="size-3.5 text-primary shrink-0" />
+              <Calendar className="size-3.5 text-primary shrink-0" />
               <span>
-                <strong className="text-foreground font-semibold">
-                  {cd.days > 0 ? `${cd.days} day${cd.days === 1 ? '' : 's'}, ` : ''}
-                  {cd.hours} hour${cd.hours === 1 ? '' : 's'}, {cd.minutes} minute${cd.minutes === 1 ? '' : 's'} left remaining
-                </strong>{' '}
-                until registration closes on <strong className="text-foreground">{formatDateDMY(deadline)}</strong>
+                Registration closes on <strong className="text-foreground">{formatDateDMY(deadline)}</strong> (23:59:59).
               </span>
             </p>
+
+            <div className="reg-countdown-progress-wrapper mt-1">
+              <div className="flex justify-between items-center text-xs text-muted-foreground font-mono">
+                <span>Start: <strong className="text-foreground font-semibold">{formatDateDMY(startDate)}</strong></span>
+                <span>Deadline: <strong className="text-foreground font-semibold">{formatDateDMY(deadline)}</strong></span>
+              </div>
+              <div className="reg-countdown-progress-bar">
+                <div
+                  className={`reg-countdown-progress-fill ${
+                    cd.isUrgent ? 'bg-amber-500' : 'bg-emerald-500'
+                  }`}
+                  style={{ width: `${cd.progressPercent}%` }}
+                />
+              </div>
+            </div>
           </>
-        ) : (
-          <div className="text-sm font-medium text-muted-foreground py-2">
-            The deadline for this registration period has passed.
-          </div>
         )}
 
-        {isActive && (
-          <div className="reg-countdown-progress-wrapper mt-1">
-            <div className="flex flex-wrap justify-between items-center gap-2 text-xs text-muted-foreground font-mono">
-              <span className="whitespace-nowrap">
-                Start: <strong className="text-foreground font-semibold">{formatDateDMY(startDate)}</strong>
-              </span>
-              <span className="rounded-full bg-primary/10 border border-primary/25 px-3 py-0.5 text-xs font-semibold text-primary whitespace-nowrap shadow-xs">
-                {cd.days > 0 ? `${cd.days} days, ${cd.hours} hours left remaining` : `${cd.hours}h ${cd.minutes}m left remaining`}
-              </span>
-              <span className="whitespace-nowrap">
-                Deadline: <strong className="text-foreground font-semibold">{formatDateDMY(deadline)}</strong>
-              </span>
+        {isEnded && (
+          <div className="py-2 flex items-center gap-3">
+            <div className="size-10 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-600 shrink-0">
+              <AlertCircle className="size-5" />
             </div>
-            <div className="reg-countdown-progress-bar">
-              <div
-                className={`reg-countdown-progress-fill ${
-                  cd.isUrgent ? 'bg-amber-500' : 'bg-emerald-500'
-                }`}
-                style={{ width: `${cd.progressPercent}%` }}
-              />
+            <div>
+              <p className="font-semibold text-foreground text-sm">
+                Registration Deadline Has Passed
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                The registration deadline for this semester closed on <strong className="text-foreground">{formatDateDMY(deadline)}</strong>. New student registrations and edits are no longer accepted.
+              </p>
             </div>
           </div>
         )}
 
         {isUpcoming && (
-          <div className="flex flex-wrap justify-between items-center gap-2 text-xs text-muted-foreground font-mono mt-1">
-            <span className="whitespace-nowrap">
-              Start: <strong className="text-foreground font-semibold">{formatDateDMY(startDate)}</strong>
-            </span>
-            <span className="whitespace-nowrap">
-              Deadline: <strong className="text-foreground font-semibold">{formatDateDMY(deadline)}</strong>
-            </span>
-          </div>
+          <>
+            <div className="flex items-center gap-2">
+              <Clock className="size-4 text-primary shrink-0" />
+              <span className="text-base font-bold text-foreground">
+                {cd.days > 0
+                  ? `Registration opens in ${cd.days} day${cd.days === 1 ? '' : 's'}, ${cd.hours} hour${cd.hours === 1 ? '' : 's'}`
+                  : `Registration opens in ${cd.hours} hour${cd.hours === 1 ? '' : 's'}, ${cd.minutes} min`}
+              </span>
+            </div>
+
+            <div className="reg-countdown-digits" aria-label={`Opens in: ${cd.formatted}`}>
+              <div className="reg-countdown-block">
+                <span className="reg-countdown-num">{pad2(cd.days)}</span>
+                <span className="reg-countdown-unit">Days</span>
+              </div>
+              <span className="reg-countdown-colon">:</span>
+              <div className="reg-countdown-block">
+                <span className="reg-countdown-num">{pad2(cd.hours)}</span>
+                <span className="reg-countdown-unit">Hours</span>
+              </div>
+              <span className="reg-countdown-colon">:</span>
+              <div className="reg-countdown-block">
+                <span className="reg-countdown-num">{pad2(cd.minutes)}</span>
+                <span className="reg-countdown-unit">Minutes</span>
+              </div>
+              <span className="reg-countdown-colon">:</span>
+              <div className="reg-countdown-block reg-countdown-block--seconds">
+                <span className="reg-countdown-num">{pad2(cd.seconds)}</span>
+                <span className="reg-countdown-unit">Seconds</span>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center text-xs text-muted-foreground font-mono mt-1">
+              <span>Start: <strong className="text-foreground font-semibold">{formatDateDMY(startDate)}</strong></span>
+              <span>Deadline: <strong className="text-foreground font-semibold">{formatDateDMY(deadline)}</strong></span>
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Plus, UserCheck } from 'lucide-react'
+import { Plus, UserCheck, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { onPeriodChange, onUserChange } from '@/lib/syncEvents'
+import { onPeriodChange, onUserChange, onRegistrationChange } from '@/lib/syncEvents'
 import { setStoredSession } from '@/lib/storage'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { Button } from '@/components/ui/button'
@@ -28,16 +28,19 @@ import { StatusBadge } from '@/components/common/StatusBadge'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { Spinner } from '@/components/common/Loading'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { useAuth } from '@/context/auth-context'
 import { useQuery } from '@/hooks/useStore'
 import { getProfileApi } from '@/api/auth'
 import {
   getStudentRegistrationsApi,
   submitStudentRegistrationApi,
+  updateStudentRegistrationApi,
+  deleteStudentRegistrationApi,
   cancelStudentRegistrationApi,
 } from '@/api/registration'
 import { formatDate } from '@/features/admin/registration/registration-utils'
-import { RegistrationCountdown } from '@/components/registration/RegistrationCountdown'
+import { RegistrationCountdown, useRegistrationCountdown } from '@/components/registration/RegistrationCountdown'
 
 function RegistrationStatus({ status }) {
   return <StatusBadge status={status} label={status === 'cancelled' ? 'Cancelled' : undefined} />
@@ -101,7 +104,6 @@ export function RegistrationsPage() {
   const { data: me, refetch: refetchProfile } = useQuery(getProfileApi, [], { live: false, enabled: Boolean(user) })
   const { data, loading, error, refetch } = useQuery(getStudentRegistrationsApi, [], { live: false, enabled: Boolean(user) })
 
-  const [openingRegister, setOpeningRegister] = useState(false)
   const [freshStudentOverride, setFreshStudentOverride] = useState(null)
 
   const currentPeriod = data?.currentPeriod ?? null
@@ -110,8 +112,10 @@ export function RegistrationsPage() {
 
   const [isRegisterOpen, setIsRegisterOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [cancellingId, setCancellingId] = useState(null)
   const [cafeStatus, setCafeStatus] = useState('cafe')
+  const [editingRegistration, setEditingRegistration] = useState(null)
+  const [deleteConfirmRegistration, setDeleteConfirmRegistration] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Resolve student's latest Student ID
   const studentId =
@@ -147,203 +151,179 @@ export function RegistrationsPage() {
     ? (currentPeriod.isAllowedForStudent ?? currentPeriod.allowed_types?.some((t) => (t.id || '').toLowerCase() === studentProgramType.toLowerCase()))
     : false
 
-  const myRegistration = currentPeriod?.myRegistration
-  const canRegister = Boolean(currentPeriod) && isAllowedForStudent && (!myRegistration || myRegistration.status === 'cancelled')
+  const cd = useRegistrationCountdown(currentPeriod?.start_date, currentPeriod?.deadline)
+  const isPeriodClosed = cd.status === 'ended' || cd.status === 'expired'
 
-  // Real-time WebSocket event listener: server pushes PERIOD_CHANGED instantly
+  const myRegistration = currentPeriod?.myRegistration
+  const canRegister = Boolean(currentPeriod) && !isPeriodClosed && isAllowedForStudent && (!myRegistration || myRegistration.status === 'cancelled')
+
+  // Real-time WebSocket event listener: server pushes PERIOD_CHANGED & REGISTRATION_CHANGED instantly
   useWebSocketEvent('PERIOD_CHANGED', () => {
     refetch()
   })
 
-  // Real-time WebSocket event listener: server pushes USER_UPDATED / STUDENT_UPDATED instantly
-  useWebSocketEvent('USER_UPDATED', (payload) => {
+  useWebSocketEvent('REGISTRATION_CHANGED', () => {
+    refetch()
+  })
+
+  // Real-time WebSocket event listener: server pushes STUDENT_UPDATED / USER_UPDATED instantly with updated payload
+  useWebSocketEvent('STUDENT_UPDATED', (payload) => {
     if (!payload?.userId || payload.userId === user?.id) {
-      refetchProfile?.()
-      refetch?.()
-      getProfileApi().then((fresh) => {
-        if (fresh?.profile) {
-          setStoredSession(null, null, fresh.user, fresh.profile)
-          setFreshStudentOverride({
-            studentNumber: fresh.profile.student_number,
-            programType: fresh.profile.program_type,
-          })
-        }
-      }).catch(() => {})
+      if (payload.studentNumber || payload.programType) {
+        setFreshStudentOverride((prev) => ({
+          studentNumber: payload.studentNumber || prev?.studentNumber,
+          programType: payload.programType ? payload.programType.toLowerCase() : prev?.programType,
+        }))
+      }
+      if (payload.profile) {
+        setStoredSession(null, null, payload.user, payload.profile)
+      }
     }
   })
 
-  useWebSocketEvent('STUDENT_UPDATED', () => {
-    refetchProfile?.()
-    refetch?.()
-    getProfileApi().then((fresh) => {
-      if (fresh?.profile) {
-        setStoredSession(null, null, fresh.user, fresh.profile)
-        setFreshStudentOverride({
-          studentNumber: fresh.profile.student_number,
-          programType: fresh.profile.program_type,
-        })
+  useWebSocketEvent('USER_UPDATED', (payload) => {
+    if (!payload?.userId || payload.userId === user?.id) {
+      if (payload.studentNumber || payload.programType) {
+        setFreshStudentOverride((prev) => ({
+          studentNumber: payload.studentNumber || prev?.studentNumber,
+          programType: payload.programType ? payload.programType.toLowerCase() : prev?.programType,
+        }))
       }
-    }).catch(() => {})
+      if (payload.profile) {
+        setStoredSession(null, null, payload.user, payload.profile)
+      }
+    }
   })
 
-  // Instant event notification across tabs in the same browser
+  // Instant event notification across tabs in the same browser (HTML5 BroadcastChannel)
   useEffect(() => {
     const unsubPeriod = onPeriodChange(() => {
       refetch()
     })
+    const unsubRegistration = onRegistrationChange(() => {
+      refetch()
+    })
     const unsubUser = onUserChange((payload) => {
       if (!payload?.userId || payload.userId === user?.id) {
-        refetchProfile?.()
-        refetch?.()
-        getProfileApi().then((fresh) => {
-          if (fresh?.profile) {
-            setStoredSession(null, null, fresh.user, fresh.profile)
-            setFreshStudentOverride({
-              studentNumber: fresh.profile.student_number,
-              programType: fresh.profile.program_type,
-            })
-          }
-        }).catch(() => {})
+        if (payload?.studentNumber || payload?.programType) {
+          setFreshStudentOverride((prev) => ({
+            studentNumber: payload.studentNumber || prev?.studentNumber,
+            programType: payload.programType ? payload.programType.toLowerCase() : prev?.programType,
+          }))
+        }
+        if (payload?.profile) {
+          setStoredSession(null, null, payload.user, payload.profile)
+        }
       }
     })
-    const handleFocus = () => {
-      refetch()
-      refetchProfile?.()
-      getProfileApi().then((fresh) => {
-        if (fresh?.profile) {
-          setStoredSession(null, null, fresh.user, fresh.profile)
-          setFreshStudentOverride({
-            studentNumber: fresh.profile.student_number,
-            programType: fresh.profile.program_type,
-          })
-        }
-      }).catch(() => {})
-    }
-    window.addEventListener('focus', handleFocus)
 
     return () => {
       unsubPeriod?.()
+      unsubRegistration?.()
       unsubUser?.()
-      window.removeEventListener('focus', handleFocus)
     }
-  }, [refetch, refetchProfile, user?.id])
+  }, [refetch, user?.id])
 
   // Automatically dismiss registration dialog if period is removed or student is not allowed
   useEffect(() => {
-    if ((!currentPeriod || !isAllowedForStudent) && isRegisterOpen) {
+    if ((!currentPeriod || !isAllowedForStudent) && isRegisterOpen && !editingRegistration) {
       setIsRegisterOpen(false)
     }
-  }, [currentPeriod, isAllowedForStudent, isRegisterOpen])
+  }, [currentPeriod, isAllowedForStudent, isRegisterOpen, editingRegistration])
 
-  const openRegister = async () => {
-    setOpeningRegister(true)
-    let freshPeriod = currentPeriod
-    let effectiveProgramType = studentProgramType
-    let effectiveStudentId = studentId
-
-    try {
-      // Concurrently fetch the freshest student details and registration state from the server
-      const [profileRes, regRes] = await Promise.all([
-        getProfileApi().catch(() => null),
-        getStudentRegistrationsApi().catch(() => null),
-      ])
-
-      if (profileRes?.profile) {
-        setStoredSession(null, null, profileRes.user, profileRes.profile)
-        effectiveStudentId = profileRes.profile.student_number || effectiveStudentId
-        effectiveProgramType = (profileRes.profile.program_type || effectiveProgramType).toLowerCase()
-        setFreshStudentOverride({
-          studentNumber: effectiveStudentId,
-          programType: effectiveProgramType,
-        })
-      } else if (regRes?.student) {
-        effectiveStudentId = regRes.student.studentNumber || effectiveStudentId
-        effectiveProgramType = (regRes.student.programType || effectiveProgramType).toLowerCase()
-        setFreshStudentOverride({
-          studentNumber: effectiveStudentId,
-          programType: effectiveProgramType,
-        })
-      }
-
-      refetchProfile?.()
-      refetch?.()
-
-      if (regRes?.currentPeriod) {
-        freshPeriod = regRes.currentPeriod
-      }
-    } catch {
-      // Fallback to existing state if network issue
-    } finally {
-      setOpeningRegister(false)
-    }
-
-    if (!freshPeriod) {
-      toast.error('Semester registration is currently closed. Please check back later.')
-      return
-    }
-
-    const progLabel =
-      effectiveProgramType === 'regular'
-        ? 'Regular'
-        : effectiveProgramType === 'extension'
-        ? 'Extension'
-        : effectiveProgramType === 'weekend'
-        ? 'Weekend'
-        : effectiveProgramType.charAt(0).toUpperCase() + effectiveProgramType.slice(1)
-
-    const allowed = freshPeriod.isAllowedForStudent ?? freshPeriod.allowed_types?.some((t) => (t.id || '').toLowerCase() === effectiveProgramType)
-    if (!allowed) {
-      toast.error(`Registration for ${progLabel} students is not open for this period.`)
-      return
-    }
-
-    const myReg = freshPeriod.myRegistration
-    if (myReg && myReg.status !== 'cancelled') {
-      const statusCap = myReg.status.charAt(0).toUpperCase() + myReg.status.slice(1)
-      toast.info(`You have already registered for this semester (Status: ${statusCap}).`)
-      return
-    }
-
-    setIsRegisterOpen(true)
-  }
-
-  const handleRegisterSubmit = async (e) => {
-    e.preventDefault()
-    if (!currentPeriod) {
-      toast.error('Semester registration is closed.')
+  const openRegister = () => {
+    if (!currentPeriod || isPeriodClosed) {
+      toast.error('The registration deadline has passed. Semester registration is closed.')
       return
     }
     if (!isAllowedForStudent) {
       toast.error(`Registration for ${programLabel} students is not open for this period.`)
       return
     }
+    if (myRegistration && myRegistration.status !== 'cancelled') {
+      const statusCap = myRegistration.status.charAt(0).toUpperCase() + myRegistration.status.slice(1)
+      toast.info(`You have already registered for this semester (Status: ${statusCap}).`)
+      return
+    }
+    setEditingRegistration(null)
+    setCafeStatus('cafe')
+    setIsRegisterOpen(true)
+  }
+
+  const handleOpenEdit = (registration) => {
+    if (isPeriodClosed) {
+      toast.error('The registration deadline has passed. Registration details can no longer be edited.')
+      return
+    }
+    setEditingRegistration(registration)
+    setCafeStatus(registration.cafe_status === 'non_cafe' || registration.cafe_status === 'non-cafe' ? 'non-cafe' : 'cafe')
+    setIsRegisterOpen(true)
+  }
+
+  const handleRegisterSubmit = async (e) => {
+    e.preventDefault()
+    if (isPeriodClosed) {
+      toast.error('The registration deadline has passed. Registration is closed.')
+      setIsRegisterOpen(false)
+      return
+    }
     setSubmitting(true)
     try {
-      await submitStudentRegistrationApi({
-        semesterId: currentPeriod.semester_id,
-        registrationTypeId: studentProgramType,
-        cafeStatus,
-      })
-      toast.success(`Registration submitted for ${currentPeriod.semester_name}. It is now pending approval.`)
+      if (editingRegistration) {
+        await updateStudentRegistrationApi(editingRegistration.id, {
+          cafeStatus,
+        })
+        toast.success(`Registration updated for ${editingRegistration.semester_name}.`)
+      } else {
+        if (!currentPeriod) {
+          toast.error('Semester registration is closed.')
+          return
+        }
+        if (!isAllowedForStudent) {
+          toast.error(`Registration for ${programLabel} students is not open for this period.`)
+          return
+        }
+        await submitStudentRegistrationApi({
+          semesterId: currentPeriod.semester_id,
+          registrationTypeId: studentProgramType,
+          cafeStatus,
+        })
+        toast.success(`Registration submitted for ${currentPeriod.semester_name}. It is now pending approval.`)
+      }
       setIsRegisterOpen(false)
+      setEditingRegistration(null)
       refetch()
     } catch (err) {
-      toast.error(err?.message || 'Failed to submit registration.')
+      toast.error(err?.message || (editingRegistration ? 'Failed to update registration.' : 'Failed to submit registration.'))
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleCancel = async (registration) => {
-    setCancellingId(registration.id)
+  const handleDelete = async () => {
+    if (!deleteConfirmRegistration) return
+    if (isPeriodClosed) {
+      toast.error('The registration deadline has passed. Registration can no longer be deleted.')
+      setDeleteConfirmRegistration(null)
+      return
+    }
+    setIsDeleting(true)
     try {
-      await cancelStudentRegistrationApi(registration.id)
-      toast.success('Registration cancelled.')
+      await deleteStudentRegistrationApi(deleteConfirmRegistration.id)
+      toast.success('Registration deleted.')
       refetch()
+      setDeleteConfirmRegistration(null)
     } catch (err) {
-      toast.error(err?.message || 'Failed to cancel registration.')
+      try {
+        await cancelStudentRegistrationApi(deleteConfirmRegistration.id)
+        toast.success('Registration cancelled.')
+        refetch()
+        setDeleteConfirmRegistration(null)
+      } catch (cancelErr) {
+        toast.error(err?.message || cancelErr?.message || 'Failed to delete registration.')
+      }
     } finally {
-      setCancellingId(null)
+      setIsDeleting(false)
     }
   }
 
@@ -356,17 +336,19 @@ export function RegistrationsPage() {
         actions={
           <Button
             onClick={openRegister}
-            loading={openingRegister}
             variant={canRegister ? 'default' : 'outline'}
             className={!canRegister ? 'opacity-60 cursor-not-allowed' : ''}
+            disabled={!canRegister}
             title={
               !currentPeriod
                 ? 'Registration is currently closed'
-                : !isAllowedForStudent
-                  ? `Registration for ${programLabel} cohort is not open`
-                  : myRegistration && myRegistration.status !== 'cancelled'
-                    ? `Already registered (${myRegistration.status})`
-                    : 'Register for open semester'
+                : isPeriodClosed
+                  ? 'Registration deadline has passed'
+                  : !isAllowedForStudent
+                    ? `Registration for ${programLabel} cohort is not open`
+                    : myRegistration && myRegistration.status !== 'cancelled'
+                      ? `Already registered (${myRegistration.status})`
+                      : 'Register for open semester'
             }
           >
             <Plus className="icon" /> Register for Semester
@@ -408,7 +390,7 @@ export function RegistrationsPage() {
                       <TableHead>Type</TableHead>
                       <TableHead className="w-[130px]">Submitted</TableHead>
                       <TableHead className="text-center w-[130px]">Status</TableHead>
-                      <TableHead className="text-right w-[110px]">Action</TableHead>
+                      <TableHead className="text-right w-[110px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -433,14 +415,34 @@ export function RegistrationsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           {r.status === 'pending' ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleCancel(r)}
-                              loading={cancellingId === r.id}
-                            >
-                              Cancel
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              {!isPeriodClosed ? (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="text-primary hover:text-primary hover:bg-primary/10"
+                                    title="Edit registration"
+                                    aria-label={`Edit registration for ${r.semester_name}`}
+                                    onClick={() => handleOpenEdit(r)}
+                                  >
+                                    <Pencil className="size-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    title="Delete registration"
+                                    aria-label={`Delete registration for ${r.semester_name}`}
+                                    onClick={() => setDeleteConfirmRegistration(r)}
+                                  >
+                                    <Trash2 className="size-4" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <span className="text-xs text-muted-foreground font-medium">Closed</span>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
@@ -456,12 +458,20 @@ export function RegistrationsPage() {
       )}
 
       {/* Registration Modal Dialog */}
-      <Dialog open={isRegisterOpen} onOpenChange={setIsRegisterOpen}>
+      <Dialog
+        open={isRegisterOpen}
+        onOpenChange={(open) => {
+          setIsRegisterOpen(open)
+          if (!open) setEditingRegistration(null)
+        }}
+      >
         <DialogContent size="md" className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Register for Semester</DialogTitle>
+            <DialogTitle>{editingRegistration ? 'Edit Registration' : 'Register for Semester'}</DialogTitle>
             <DialogDescription>
-              Confirm your registration for the active semester. Your program is automatically applied based on your account enrollment.
+              {editingRegistration
+                ? `Update your meal service choice for ${editingRegistration.semester_name}. Other fields are locked.`
+                : 'Confirm your registration for the active semester. Your program is automatically applied based on your account enrollment.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -480,7 +490,11 @@ export function RegistrationsPage() {
               <input
                 type="text"
                 value={
-                  currentPeriod ? `${currentPeriod.semester_name} (${currentPeriod.academic_year_name})` : ''
+                  editingRegistration
+                    ? `${editingRegistration.semester_name} (${editingRegistration.academic_year_name})`
+                    : currentPeriod
+                    ? `${currentPeriod.semester_name} (${currentPeriod.academic_year_name})`
+                    : ''
                 }
                 disabled
                 className="input cursor-not-allowed bg-muted text-muted-foreground w-full"
@@ -490,7 +504,7 @@ export function RegistrationsPage() {
             <FormField label="Assigned Program / Registration Type">
               <input
                 type="text"
-                value={programLabel}
+                value={editingRegistration ? editingRegistration.type_label : programLabel}
                 disabled
                 className="input cursor-not-allowed bg-muted text-foreground font-semibold w-full"
               />
@@ -515,16 +529,39 @@ export function RegistrationsPage() {
             </FormField>
 
             <DialogFooter className="pt-4 border-t">
-              <Button type="button" variant="outline" onClick={() => setIsRegisterOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsRegisterOpen(false)
+                  setEditingRegistration(null)
+                }}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? 'Submitting...' : 'Submit Registration'}
+                {submitting
+                  ? (editingRegistration ? 'Saving...' : 'Submitting...')
+                  : (editingRegistration ? 'Save Changes' : 'Submit Registration')}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(deleteConfirmRegistration)}
+        onOpenChange={(open) => !open && setDeleteConfirmRegistration(null)}
+        title="Delete Registration"
+        description={
+          deleteConfirmRegistration
+            ? `Are you sure you want to delete your pending registration for ${deleteConfirmRegistration.semester_name}? You can re-register anytime while the semester registration period is open.`
+            : ''
+        }
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+      />
     </div>
   )
 }

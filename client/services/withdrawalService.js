@@ -25,10 +25,10 @@ export function formatWithdrawalRecord(r) {
       r.scope === 'course'
         ? 'Course Withdrawal'
         : r.scope === 'university'
-        ? 'University Withdrawal'
-        : 'Semester Withdrawal',
+        ? 'Complete University Withdrawal'
+        : `${(r.semester?.academicYear?.name || String(new Date().getFullYear())).split('/')[0]} ${r.semester?.name || 'First Semester'}`,
     scope: r.scope,
-    academicYear: r.semester?.academicYear?.name || '2026/2027',
+    academicYear: r.semester?.academicYear?.name || String(new Date().getFullYear()),
     semester: r.semester?.name || 'First Semester',
     reasonCategory: r.reasonCategory?.label || r.reasonCategory || 'General',
     reason: r.reason,
@@ -68,8 +68,10 @@ export async function submitWithdrawalRequest(formInput) {
     'Course Withdrawal': 'course',
     'Semester Withdrawal': 'semester',
     'University Withdrawal': 'university',
+    'Complete University Withdrawal': 'university',
   };
-  const scope = scopeMap[formInput.withdrawalType] || formInput.scope || 'semester';
+  const isUniv = (formInput.withdrawalType || '').toLowerCase().includes('university');
+  const scope = isUniv ? 'university' : (scopeMap[formInput.withdrawalType] || formInput.scope || 'semester');
   const payload = {
     scope,
     semesterId: formInput.semesterId || 'sem_2026_fall',

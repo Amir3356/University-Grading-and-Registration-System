@@ -182,10 +182,26 @@ export async function listStudentHistory(studentId) {
   return await regRepo.listStudentRegistrationHistory(studentId);
 }
 
+function isPeriodPastDeadline(deadline) {
+  if (!deadline) return false;
+  const d = new Date(deadline);
+  if (Number.isNaN(d.getTime())) return false;
+  // If midnight local/UTC, extend to 23:59:59.999 of the deadline day
+  if (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0) {
+    d.setHours(23, 59, 59, 999);
+  }
+  return Date.now() > d.getTime();
+}
+
 export async function submitStudentRegistration({ semesterId, registrationTypeId, cafeStatus = 'cafe' }, studentId, user) {
   const currentPeriod = await regRepo.getCurrentPeriodForStudent(studentId);
   if (!currentPeriod) {
     throw new ConflictError('Semester registration is not open right now.');
+  }
+
+  // Strict backend deadline validation
+  if (isPeriodPastDeadline(currentPeriod.deadline)) {
+    throw new ConflictError('The registration deadline has passed. Semester registration is now closed.');
   }
 
   if (currentPeriod.semester_id !== semesterId) {
@@ -239,6 +255,17 @@ export async function submitStudentRegistration({ semesterId, registrationTypeId
 }
 
 export async function cancelStudentRegistration(id, studentId, user) {
+  const reg = await regRepo.findRegistrationById(id);
+  if (!reg || reg.student_id !== studentId) {
+    throw new ConflictError('Registration cannot be cancelled (not found).');
+  }
+  if (reg.period_id) {
+    const period = await regRepo.getRegistrationPeriodById(reg.period_id);
+    if (period && isPeriodPastDeadline(period.deadline)) {
+      throw new ConflictError('The registration deadline has passed. Registration can no longer be cancelled.');
+    }
+  }
+
   const cancelled = await regRepo.cancelStudentRegistration(id, studentId);
   if (!cancelled) {
     throw new ConflictError('Registration cannot be cancelled (not found or not pending).');
@@ -246,3 +273,48 @@ export async function cancelStudentRegistration(id, studentId, user) {
 
   return cancelled;
 }
+
+export async function updateStudentRegistration(id, studentId, data, user) {
+  const reg = await regRepo.findRegistrationById(id);
+  if (!reg || reg.student_id !== studentId) {
+    throw new ConflictError('Registration cannot be updated (not found).');
+  }
+  if (reg.period_id) {
+    const period = await regRepo.getRegistrationPeriodById(reg.period_id);
+    if (period && isPeriodPastDeadline(period.deadline)) {
+      throw new ConflictError('The registration deadline has passed. Registration can no longer be edited.');
+    }
+  }
+
+  const normalizedCafeStatus = (data?.cafeStatus || 'cafe').toLowerCase() === 'non-cafe' || (data?.cafeStatus || 'cafe').toLowerCase() === 'non_cafe'
+    ? 'non_cafe'
+    : 'cafe';
+
+  const updated = await regRepo.updateStudentRegistration(id, studentId, { cafeStatus: normalizedCafeStatus });
+  if (!updated) {
+    throw new ConflictError('Registration cannot be updated (not found or not pending).');
+  }
+
+  return updated;
+}
+
+export async function deleteStudentRegistration(id, studentId, user) {
+  const reg = await regRepo.findRegistrationById(id);
+  if (!reg || reg.student_id !== studentId) {
+    throw new ConflictError('Registration cannot be deleted (not found).');
+  }
+  if (reg.period_id) {
+    const period = await regRepo.getRegistrationPeriodById(reg.period_id);
+    if (period && isPeriodPastDeadline(period.deadline)) {
+      throw new ConflictError('The registration deadline has passed. Registration can no longer be deleted.');
+    }
+  }
+
+  const deleted = await regRepo.deleteStudentRegistration(id, studentId);
+  if (!deleted) {
+    throw new ConflictError('Registration cannot be deleted (not found or not pending).');
+  }
+
+  return deleted;
+}
+

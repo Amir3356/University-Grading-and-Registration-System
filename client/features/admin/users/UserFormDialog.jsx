@@ -337,8 +337,14 @@ function UserForm({ user, roleOptions: customRoleOptions, departmentOptions: cus
 
   const [save, { loading, fieldErrors }] = useMutation((data) => store.users.updateUser(user.id, data), {
     success: 'User updated.',
-    onSuccess: () => {
-      notifyUserChange({ userId: user?.id })
+    onSuccess: (result) => {
+      notifyUserChange({
+        userId: user?.id,
+        studentNumber: form.identifier?.trim(),
+        programType: form.programType,
+        profile: result?.profile,
+        user: result?.user || result,
+      })
       onClose()
     },
   })

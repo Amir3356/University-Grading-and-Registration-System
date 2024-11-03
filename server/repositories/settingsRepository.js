@@ -22,18 +22,20 @@ export async function getUniversitySettings() {
 
 export async function updateUniversitySettings({ name, shortName, motto, address, email, phone, website, registrarName, userId }) {
   const res = await query(
-    `UPDATE university_settings
-     SET name = COALESCE($1, name),
-         short_name = COALESCE($2, short_name),
-         motto = $3,
-         address = $4,
-         email = COALESCE($5, email),
-         phone = $6,
-         website = $7,
-         registrar_name = COALESCE($8, registrar_name),
-         updated_by = $9,
-         updated_at = now()
-     WHERE id = 1
+    `INSERT INTO university_settings (
+       id, name, short_name, motto, address, email, phone, website, registrar_name, updated_by, updated_at
+     ) VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+     ON CONFLICT (id) DO UPDATE SET
+       name = COALESCE(EXCLUDED.name, university_settings.name),
+       short_name = COALESCE(EXCLUDED.short_name, university_settings.short_name),
+       motto = EXCLUDED.motto,
+       address = EXCLUDED.address,
+       email = COALESCE(EXCLUDED.email, university_settings.email),
+       phone = EXCLUDED.phone,
+       website = EXCLUDED.website,
+       registrar_name = COALESCE(EXCLUDED.registrar_name, university_settings.registrar_name),
+       updated_by = EXCLUDED.updated_by,
+       updated_at = now()
      RETURNING *`,
     [name, shortName, motto || null, address || null, email, phone || null, website || null, registrarName, userId]
   );
@@ -115,19 +117,22 @@ export async function updateAcademicPolicy({
 }) {
   return await withTransaction(async (client) => {
     const res = await client.query(
-      `UPDATE academic_policies
-       SET pass_mark = COALESCE($1, pass_mark),
-           approval_workflow_enabled = COALESCE($2, approval_workflow_enabled),
-           repeat_policy = COALESCE($3, repeat_policy),
-           incomplete_policy = COALESCE($4, incomplete_policy),
-           withdrawal_policy = COALESCE($5, withdrawal_policy),
-           probation_gpa = COALESCE($6, probation_gpa),
-           honors_gpa = COALESCE($7, honors_gpa),
-           require_weights_total_100 = COALESCE($8, require_weights_total_100),
-           at_risk_margin = COALESCE($9, at_risk_margin),
-           updated_by = $10,
-           updated_at = now()
-       WHERE id = 1
+      `INSERT INTO academic_policies (
+         id, pass_mark, approval_workflow_enabled, repeat_policy, incomplete_policy,
+         withdrawal_policy, probation_gpa, honors_gpa, require_weights_total_100, at_risk_margin, updated_by, updated_at
+       ) VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+       ON CONFLICT (id) DO UPDATE SET
+         pass_mark = COALESCE(EXCLUDED.pass_mark, academic_policies.pass_mark),
+         approval_workflow_enabled = COALESCE(EXCLUDED.approval_workflow_enabled, academic_policies.approval_workflow_enabled),
+         repeat_policy = COALESCE(EXCLUDED.repeat_policy, academic_policies.repeat_policy),
+         incomplete_policy = COALESCE(EXCLUDED.incomplete_policy, academic_policies.incomplete_policy),
+         withdrawal_policy = COALESCE(EXCLUDED.withdrawal_policy, academic_policies.withdrawal_policy),
+         probation_gpa = COALESCE(EXCLUDED.probation_gpa, academic_policies.probation_gpa),
+         honors_gpa = COALESCE(EXCLUDED.honors_gpa, academic_policies.honors_gpa),
+         require_weights_total_100 = COALESCE(EXCLUDED.require_weights_total_100, academic_policies.require_weights_total_100),
+         at_risk_margin = COALESCE(EXCLUDED.at_risk_margin, academic_policies.at_risk_margin),
+         updated_by = $10,
+         updated_at = now()
        RETURNING *`,
       [
         passMark,

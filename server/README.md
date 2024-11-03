@@ -53,9 +53,7 @@ server/
 ├── models/                    # Data schemas (Zod) and database domain models
 ├── repositories/              # Direct SQL queries and database operations
 ├── routes/                    # RESTful route definitions mounted under /api/v1
-├── seed/                      # Custom seed script and database seed data
-│   ├── data/                  # Source JSON datasets (users, courses, grades, etc.)
-│   └── index.js               # Database seeder using pg and bcryptjs
+├── seed/                      # Custom database seed script and embedded seed data (index.js)
 ├── services/                  # Business logic and cross-entity workflows
 ├── utils/                     # Reusable helpers (JWT, password, response, formatters)
 ├── .env                       # Environment configuration
@@ -102,9 +100,8 @@ cd server
 npm install
 npm run migrate        # Runs database migrations using node-pg-migrate
 npm run migrate:down   # Rolls back the latest migration batch
-npm run seed           # Runs custom seed script (seed/index.js) using pg & seed data
+npm run seed           # Runs seed script (seed/index.js) to set up admin credentials
 ```
-
 
 ### Start Backend API Server
 ```bash
@@ -124,11 +121,9 @@ npm run dev       # Starts on http://localhost:5173 with Vite
 
 ## 5. Default Login Accounts
 
-All seed user accounts are configured with default password `Password123!`:
+Seed user accounts are configured with default password `Password123!`:
 
-| Role | Username / Identifier | Notes |
-|---|---|---|
-| **Admin** | `admin` | System administrator / Registrar |
-| **Department Head** | `CS` or `dept_head` | Head of Computer Science (Dr. Tewodros Assefa) |
-| **Teacher** | `EMP-CS-01` or `teacher` | Instructor (Dr. Sarah Mitchell) |
-| **Student** | `UGR/24/0001` or `student` | Undergraduate student (Abebe Kebede) |
+| Role | Username | Default Password | Notes |
+|---|---|---|---|
+| **Admin** | `Amir` | `Password123!` | System Administrator |
+| **Admin** | `registrar` | `Password123!` | Registrar Office |

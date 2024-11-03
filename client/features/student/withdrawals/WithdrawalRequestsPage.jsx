@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Building2, Calendar, FileText, Plus, UserMinus } from 'lucide-react'
+import { Building2, Calendar, FileText, Pencil, Plus, Trash2, UserMinus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { FormField } from '@/components/common/FormField'
 import { PageHeader } from '@/components/common/PageHeader'
 import { StatusBadge } from '@/components/common/StatusBadge'
@@ -24,9 +25,16 @@ import { useWithdrawalRequests } from '@/store/withdrawalsStore'
 
 export function WithdrawalRequestsPage() {
   const { user } = useAuth()
-  const { requests: allRequests, addRequest } = useWithdrawalRequests()
-  const [selectedRequest, setSelectedRequest] = useState(null)
+  const {
+    requests: allRequests,
+    addRequest,
+    updateRequest,
+    deleteRequest,
+  } = useWithdrawalRequests()
   const [isSubmitOpen, setIsSubmitOpen] = useState(false)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [editingRequest, setEditingRequest] = useState(null)
+  const [requestToDelete, setRequestToDelete] = useState(null)
 
   // Show requests relevant to the student (or initial student requests)
   const requests = useMemo(() => {
@@ -38,10 +46,21 @@ export function WithdrawalRequestsPage() {
     return studentSpecific.length > 0 ? studentSpecific : allRequests.slice(0, 3)
   }, [allRequests, user])
 
+  const currentYear = String(new Date().getFullYear())
+  const academicYearOptions = useMemo(() => [currentYear], [currentYear])
+  const withdrawalTypeOptions = useMemo(
+    () => [
+      'Complete University Withdrawal',
+      `${currentYear} First Semester`,
+      `${currentYear} Second Semester`,
+    ],
+    [currentYear]
+  )
+
   // Form State
   const [newRequest, setNewRequest] = useState({
-    withdrawalType: 'Semester Withdrawal',
-    academicYear: '2026',
+    withdrawalType: 'Complete University Withdrawal',
+    academicYear: currentYear,
     semester: 'First Semester',
     programType: 'Regular',
     reasonCategory: 'Medical / Health',
@@ -52,8 +71,8 @@ export function WithdrawalRequestsPage() {
 
   const handleOpenSubmit = () => {
     setNewRequest({
-      withdrawalType: 'Semester Withdrawal',
-      academicYear: '2026',
+      withdrawalType: 'Complete University Withdrawal',
+      academicYear: currentYear,
       semester: 'First Semester',
       programType: 'Regular',
       reasonCategory: 'Medical / Health',
@@ -108,48 +127,70 @@ export function WithdrawalRequestsPage() {
     }, 350)
   }
 
+  const [editForm, setEditForm] = useState({
+    withdrawalType: 'Complete University Withdrawal',
+    academicYear: currentYear,
+    semester: 'First Semester',
+    programType: 'Regular',
+    reasonCategory: 'Medical / Health',
+    reason: '',
+  })
+  const [editFormError, setEditFormError] = useState('')
+
+  const handleOpenEdit = (req) => {
+    setEditingRequest(req)
+    setEditForm({
+      withdrawalType: req.withdrawalType || 'Complete University Withdrawal',
+      academicYear: req.academicYear || currentYear,
+      semester: req.semester || 'First Semester',
+      programType: req.programType || 'Regular',
+      reasonCategory: req.reasonCategory || 'Medical / Health',
+      reason: req.reason || '',
+    })
+    setEditFormError('')
+    setIsEditOpen(true)
+  }
+
+  const handleEditSubmit = (e) => {
+    e.preventDefault()
+    if (!editForm.reason.trim()) {
+      setEditFormError('Please enter a reason for withdrawal.')
+      return
+    }
+
+    const updatedRecord = {
+      ...editingRequest,
+      withdrawalType: editForm.withdrawalType,
+      academicYear: editForm.academicYear,
+      semester: editForm.semester,
+      programType: editForm.programType,
+      reasonCategory: editForm.reasonCategory,
+      reason: editForm.reason.trim(),
+    }
+
+    updateRequest(updatedRecord)
+    setIsEditOpen(false)
+    setEditingRequest(null)
+    toast.success(`Withdrawal request ${editingRequest.requestId} updated successfully.`)
+  }
+
   return (
     <div className="space-y-6">
-      {/* Centered Page Header */}
+      {/* Centered Page Header with Action Button */}
       <PageHeader
         centered
         title="My Withdrawal Requests"
         description="Official withdrawal request records submitted to the university registrar."
+        actions={
+          <Button size="sm" onClick={handleOpenSubmit} className="gap-1.5 shadow-sm">
+            <Plus className="w-3.5 h-3.5" />
+            Submit Request
+          </Button>
+        }
       />
 
       {/* Main Content Card containing the table */}
       <Card className="overflow-hidden">
-        <CardHeader
-          className="p-5 pb-4 border-b relative"
-          style={{
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <div style={{ textAlign: 'center', width: '100%' }}>
-            <CardTitle className="text-base font-semibold" style={{ textAlign: 'center' }}>
-              My Withdrawal Requests
-            </CardTitle>
-            <CardDescription className="text-xs text-muted-foreground mt-0.5" style={{ textAlign: 'center' }}>
-              Official withdrawal request records submitted to the university registrar.
-            </CardDescription>
-          </div>
-          <div
-            style={{
-              position: 'absolute',
-              right: '1.25rem',
-              top: '50%',
-              transform: 'translateY(-50%)',
-            }}
-          >
-            <Button size="sm" onClick={handleOpenSubmit} className="gap-1.5 shadow-sm">
-              <Plus className="w-3.5 h-3.5" />
-              Submit Request
-            </Button>
-          </div>
-        </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -157,216 +198,118 @@ export function WithdrawalRequestsPage() {
                 <TableHead className="w-[180px]">Withdrawal Type</TableHead>
                 <TableHead className="w-[120px]">Program Type</TableHead>
                 <TableHead className="w-[130px]">Academic Year</TableHead>
-                <TableHead className="w-[140px]">Semester</TableHead>
                 <TableHead>Reason</TableHead>
                 <TableHead className="w-[130px]">Request Date</TableHead>
                 <TableHead className="text-center w-[120px]">Status</TableHead>
+                <TableHead className="text-center w-[100px]">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {requests.map((r) => {
-                const isUnivWithdrawal = r.withdrawalType === 'University Withdrawal'
-                return (
-                  <TableRow
-                    key={r.requestId}
-                    onClick={() => setSelectedRequest(r)}
-                    className="cursor-pointer hover:bg-muted/50 transition-colors"
-                  >
-                    {/* Withdrawal Type */}
-                    <TableCell>
-                      <Badge
-                        variant={isUnivWithdrawal ? 'secondary' : 'default'}
-                        className="font-medium gap-1"
-                      >
-                        {isUnivWithdrawal ? (
-                          <Building2 className="w-3 h-3" />
-                        ) : (
-                          <Calendar className="w-3 h-3" />
-                        )}
-                        {r.withdrawalType}
-                      </Badge>
-                    </TableCell>
+              {requests.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <FileText className="w-8 h-8 text-muted-foreground/60 stroke-1" />
+                      <p className="text-sm font-medium">No withdrawal requests found</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                requests.map((r) => {
+                  const isUnivWithdrawal =
+                    r.withdrawalType === 'University Withdrawal' ||
+                    r.withdrawalType === 'Complete University Withdrawal' ||
+                    r.withdrawalType?.toLowerCase().includes('university')
+                  return (
+                    <TableRow
+                      key={r.requestId}
+                      className="hover:bg-muted/50 transition-colors"
+                    >
+                      {/* Withdrawal Type */}
+                      <TableCell>
+                        <Badge
+                          variant={isUnivWithdrawal ? 'secondary' : 'default'}
+                          className="font-medium gap-1"
+                        >
+                          {isUnivWithdrawal ? (
+                            <Building2 className="w-3 h-3" />
+                          ) : (
+                            <Calendar className="w-3 h-3" />
+                          )}
+                          {r.withdrawalType}
+                        </Badge>
+                      </TableCell>
 
-                    {/* Program Type */}
-                    <TableCell className="font-medium text-xs text-muted-foreground">
-                      {r.programType || 'Regular'}
-                    </TableCell>
+                      {/* Program Type */}
+                      <TableCell className="font-medium text-xs text-muted-foreground">
+                        {r.programType || 'Regular'}
+                      </TableCell>
 
-                    {/* Academic Year */}
-                    <TableCell className="font-medium text-foreground">
-                      {r.academicYear}
-                    </TableCell>
+                      {/* Academic Year */}
+                      <TableCell className="font-medium text-foreground">
+                        {r.academicYear}
+                      </TableCell>
 
-                    {/* Semester */}
-                    <TableCell className="font-medium text-foreground">
-                      {r.semester}
-                    </TableCell>
+                      {/* Reason */}
+                      <TableCell className="max-w-[280px]">
+                        <div className="space-y-0.5">
+                          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                            {r.reasonCategory}
+                          </span>
+                          <p className="text-xs text-foreground line-clamp-2 leading-relaxed" title={r.reason}>
+                            {r.reason}
+                          </p>
+                        </div>
+                      </TableCell>
 
-                    {/* Reason */}
-                    <TableCell className="max-w-[280px]">
-                      <div className="space-y-0.5">
-                        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                          {r.reasonCategory}
-                        </span>
-                        <p className="text-xs text-foreground line-clamp-2 leading-relaxed" title={r.reason}>
-                          {r.reason}
-                        </p>
-                      </div>
-                    </TableCell>
+                      {/* Request Date */}
+                      <TableCell className="text-muted-foreground">
+                        {r.requestDate}
+                      </TableCell>
 
-                    {/* Request Date */}
-                    <TableCell className="text-muted-foreground">
-                      {r.requestDate}
-                    </TableCell>
+                      {/* Status */}
+                      <TableCell className="text-center">
+                        <StatusBadge status={r.status} />
+                      </TableCell>
 
-                    {/* Status */}
-                    <TableCell className="text-center">
-                      <StatusBadge status={r.status} />
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
+                      {/* Action */}
+                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label="Edit withdrawal request"
+                            title="Edit withdrawal request"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenEdit(r)
+                            }}
+                          >
+                            <Pencil className="size-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            aria-label="Delete withdrawal request"
+                            title="Delete withdrawal request"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setRequestToDelete(r)
+                            }}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
-
-      {/* VIEW DETAILS MODAL */}
-      <Dialog
-        open={Boolean(selectedRequest)}
-        onOpenChange={(open) => !open && setSelectedRequest(null)}
-      >
-        <DialogContent size="md" className="max-w-xl">
-          {selectedRequest && (
-            <>
-              <DialogHeader>
-                <div className="flex items-center justify-between pr-6">
-                  <div className="flex items-center gap-2">
-                    <DialogTitle className="text-base font-semibold">
-                      Withdrawal Request Details
-                    </DialogTitle>
-                    <span className="font-mono text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground font-semibold">
-                      {selectedRequest.requestId}
-                    </span>
-                  </div>
-                  <StatusBadge status={selectedRequest.status} />
-                </div>
-                <DialogDescription className="text-xs text-muted-foreground mt-1">
-                  Submitted on {selectedRequest.requestDate}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4 py-2">
-                {/* Information Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 rounded-lg border bg-muted/20 text-xs">
-                  <div>
-                    <span className="text-muted-foreground block text-[11px] uppercase font-semibold">
-                      Request ID
-                    </span>
-                    <span className="font-semibold text-foreground mt-0.5 block">
-                      {selectedRequest.requestId}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block text-[11px] uppercase font-semibold">
-                      Withdrawal Type
-                    </span>
-                    <span className="font-semibold text-foreground mt-0.5 block">
-                      {selectedRequest.withdrawalType}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block text-[11px] uppercase font-semibold">
-                      Academic Year
-                    </span>
-                    <span className="font-semibold text-foreground mt-0.5 block">
-                      {selectedRequest.academicYear}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block text-[11px] uppercase font-semibold">
-                      Semester
-                    </span>
-                    <span className="font-semibold text-foreground mt-0.5 block">
-                      {selectedRequest.semester}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Stated Reason */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-foreground">
-                      Reason for Withdrawal
-                    </span>
-                    {selectedRequest.reasonCategory && (
-                      <span className="text-[11px] text-muted-foreground font-medium">
-                        Category: {selectedRequest.reasonCategory}
-                      </span>
-                    )}
-                  </div>
-                  <div className="p-3 rounded-md border bg-card text-xs leading-relaxed text-foreground whitespace-pre-wrap">
-                    {selectedRequest.reason}
-                  </div>
-                </div>
-
-                {/* Institutional Clearance Tracker */}
-                {selectedRequest.clearance && (
-                  <div className="space-y-2">
-                    <span className="text-xs font-semibold text-foreground block">
-                      Institutional Clearance Progress
-                    </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      <div className="p-2.5 rounded-md border bg-muted/30 text-center">
-                        <span className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">
-                          Department
-                        </span>
-                        <StatusBadge status={selectedRequest.clearance.department} />
-                      </div>
-                      <div className="p-2.5 rounded-md border bg-muted/30 text-center">
-                        <span className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">
-                          Library
-                        </span>
-                        <StatusBadge status={selectedRequest.clearance.library} />
-                      </div>
-                      <div className="p-2.5 rounded-md border bg-muted/30 text-center">
-                        <span className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">
-                          Housing / Dorm
-                        </span>
-                        <StatusBadge status={selectedRequest.clearance.housing} />
-                      </div>
-                      <div className="p-2.5 rounded-md border bg-muted/30 text-center">
-                        <span className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">
-                          Registrar
-                        </span>
-                        <StatusBadge status={selectedRequest.clearance.registrar} />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Administration Remarks */}
-                {selectedRequest.adminNotes && (
-                  <div className="space-y-1">
-                    <span className="text-xs font-semibold text-foreground block">
-                      Administrative Review Remarks
-                    </span>
-                    <div className="p-3 rounded-md border bg-muted/40 text-xs text-muted-foreground leading-relaxed">
-                      {selectedRequest.adminNotes}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <DialogFooter className="pt-2">
-                <Button variant="outline" size="sm" onClick={() => setSelectedRequest(null)}>
-                  Close
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* SUBMIT REQUEST MODAL */}
       <Dialog open={isSubmitOpen} onOpenChange={setIsSubmitOpen}>
@@ -383,15 +326,30 @@ export function WithdrawalRequestsPage() {
               <Select
                 value={newRequest.withdrawalType}
                 onValueChange={(val) =>
-                  setNewRequest((prev) => ({ ...prev, withdrawalType: val }))
+                  setNewRequest((prev) => {
+                    const updated = { ...prev, withdrawalType: val }
+                    if (val.includes('First Semester')) {
+                      updated.semester = 'First Semester'
+                      updated.academicYear = currentYear
+                    } else if (val.includes('Second Semester')) {
+                      updated.semester = 'Second Semester'
+                      updated.academicYear = currentYear
+                    } else {
+                      updated.semester = 'Full Year'
+                    }
+                    return updated
+                  })
                 }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select Withdrawal Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Semester Withdrawal">Semester Withdrawal</SelectItem>
-                  <SelectItem value="University Withdrawal">University Withdrawal</SelectItem>
+                  {withdrawalTypeOptions.map((opt) => (
+                    <SelectItem key={opt} value={opt}>
+                      {opt}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </FormField>
@@ -401,16 +359,26 @@ export function WithdrawalRequestsPage() {
               <Select
                 value={newRequest.academicYear}
                 onValueChange={(val) =>
-                  setNewRequest((prev) => ({ ...prev, academicYear: val }))
+                  setNewRequest((prev) => {
+                    const updated = { ...prev, academicYear: val }
+                    if (prev.withdrawalType.includes('First Semester')) {
+                      updated.withdrawalType = `${val} First Semester`
+                    } else if (prev.withdrawalType.includes('Second Semester')) {
+                      updated.withdrawalType = `${val} Second Semester`
+                    }
+                    return updated
+                  })
                 }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select Year" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2026">2026</SelectItem>
-                  <SelectItem value="2025">2025</SelectItem>
-                  <SelectItem value="2024">2024</SelectItem>
+                  {academicYearOptions.map((year) => (
+                    <SelectItem key={year} value={year}>
+                      {year}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </FormField>
@@ -430,24 +398,6 @@ export function WithdrawalRequestsPage() {
                   <SelectItem value="Regular">Regular</SelectItem>
                   <SelectItem value="Extension">Extension</SelectItem>
                   <SelectItem value="Weekend">Weekend</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormField>
-
-            {/* Semester Dropdown */}
-            <FormField label="Semester" required>
-              <Select
-                value={newRequest.semester}
-                onValueChange={(val) =>
-                  setNewRequest((prev) => ({ ...prev, semester: val }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Semester" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="First Semester">First Semester</SelectItem>
-                  <SelectItem value="Second Semester">Second Semester</SelectItem>
                 </SelectContent>
               </Select>
             </FormField>
@@ -481,6 +431,153 @@ export function WithdrawalRequestsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* EDIT REQUEST MODAL */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent size="md" className="max-w-xl">
+          <DialogTitle className="text-lg font-semibold">Edit Withdrawal Request</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            Update your withdrawal request details.
+          </DialogDescription>
+
+          <form
+            onSubmit={handleEditSubmit}
+            className="withdrawal-form"
+            style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', paddingTop: '1rem' }}
+          >
+            {/* Withdrawal Type Dropdown */}
+            <FormField label="Withdrawal Type" required>
+              <Select
+                value={editForm.withdrawalType}
+                onValueChange={(val) =>
+                  setEditForm((prev) => {
+                    const updated = { ...prev, withdrawalType: val }
+                    if (val.includes('First Semester')) {
+                      updated.semester = 'First Semester'
+                      updated.academicYear = currentYear
+                    } else if (val.includes('Second Semester')) {
+                      updated.semester = 'Second Semester'
+                      updated.academicYear = currentYear
+                    } else {
+                      updated.semester = 'Full Year'
+                    }
+                    return updated
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Withdrawal Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {withdrawalTypeOptions.map((opt) => (
+                    <SelectItem key={opt} value={opt}>
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            {/* Academic Year Dropdown */}
+            <FormField label="Academic Year" required>
+              <Select
+                value={editForm.academicYear}
+                onValueChange={(val) =>
+                  setEditForm((prev) => {
+                    const updated = { ...prev, academicYear: val }
+                    if (prev.withdrawalType.includes('First Semester')) {
+                      updated.withdrawalType = `${val} First Semester`
+                    } else if (prev.withdrawalType.includes('Second Semester')) {
+                      updated.withdrawalType = `${val} Second Semester`
+                    }
+                    return updated
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  {academicYearOptions.map((year) => (
+                    <SelectItem key={year} value={year}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            {/* Program Type Dropdown */}
+            <FormField label="Program Type" required>
+              <Select
+                value={editForm.programType}
+                onValueChange={(val) =>
+                  setEditForm((prev) => ({ ...prev, programType: val }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Program Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Regular">Regular</SelectItem>
+                  <SelectItem value="Extension">Extension</SelectItem>
+                  <SelectItem value="Weekend">Weekend</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            {/* Reason Text Input Field */}
+            <FormField label="Reason" required error={editFormError}>
+              <Textarea
+                rows={4}
+                value={editForm.reason}
+                onChange={(e) => {
+                  setEditForm((prev) => ({ ...prev, reason: e.target.value }))
+                  if (editFormError) setEditFormError('')
+                }}
+                placeholder="Enter the reason why you are requesting withdrawal in detail..."
+              />
+            </FormField>
+
+            <DialogFooter className="pt-2 gap-2" style={{ marginTop: '0.5rem' }}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsEditOpen(false)
+                  setEditingRequest(null)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" size="sm">
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* DELETE CONFIRMATION DIALOG */}
+      <ConfirmDialog
+        open={Boolean(requestToDelete)}
+        onOpenChange={(open) => !open && setRequestToDelete(null)}
+        title="Delete Withdrawal Request"
+        description={`Are you sure you want to delete withdrawal request ${requestToDelete?.requestId || ''}? This action cannot be undone.`}
+        confirmLabel="Delete Request"
+        variant="destructive"
+        onConfirm={async () => {
+          if (!requestToDelete) return
+          try {
+            await deleteRequest(requestToDelete.requestId || requestToDelete.id)
+            toast.success(`Withdrawal request ${requestToDelete.requestId} deleted successfully.`)
+          } catch {
+            toast.error('Failed to delete withdrawal request.')
+          }
+          setRequestToDelete(null)
+        }}
+      />
     </div>
   )
 }

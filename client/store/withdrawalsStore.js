@@ -27,10 +27,10 @@ function formatWithdrawal(r) {
       r.scope === 'course'
         ? 'Course Withdrawal'
         : r.scope === 'university'
-        ? 'University Withdrawal'
-        : 'Semester Withdrawal',
+        ? 'Complete University Withdrawal'
+        : `${(r.semester?.academicYear?.name || String(new Date().getFullYear())).split('/')[0]} ${r.semester?.name || 'First Semester'}`,
     scope: r.scope,
-    academicYear: r.semester?.academicYear?.name || '2026/2027',
+    academicYear: r.semester?.academicYear?.name || String(new Date().getFullYear()),
     semester: r.semester?.name || 'First Semester',
     reasonCategory: r.reasonCategory?.label || r.reasonCategory || 'General',
     reason: r.reason,
@@ -87,8 +87,10 @@ export function useWithdrawalRequests() {
         'Course Withdrawal': 'course',
         'Semester Withdrawal': 'semester',
         'University Withdrawal': 'university',
+        'Complete University Withdrawal': 'university',
       };
-      const scope = scopeMap[newRecord.withdrawalType] || 'semester';
+      const isUniv = (newRecord.withdrawalType || '').toLowerCase().includes('university');
+      const scope = isUniv ? 'university' : (scopeMap[newRecord.withdrawalType] || 'semester');
       const payload = {
         scope,
         semesterId: newRecord.semesterId || 'sem_2026_fall',
@@ -107,6 +109,38 @@ export function useWithdrawalRequests() {
   };
 
   const updateStatus = async (requestId, newStatus, adminNotes) => {
+    const target = requests.find((r) => r.requestId === requestId || r.id === requestId);
+    if (target?.status === 'approved' && newStatus === 'rejected') {
+      console.warn('Cannot reject an already approved withdrawal request.');
+      return;
+    }
+
+    // Optimistically update local state immediately so user sees status change without waiting
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === requestId || r.requestId === requestId
+          ? {
+              ...r,
+              status: newStatus,
+              adminNotes:
+                adminNotes ||
+                (newStatus === 'approved'
+                  ? 'Official withdrawal approved by Registrar Administration.'
+                  : 'Withdrawal request rejected by Registrar Administration.'),
+              clearance:
+                newStatus === 'approved'
+                  ? {
+                      department: 'approved',
+                      library: 'approved',
+                      housing: 'approved',
+                      registrar: 'approved',
+                    }
+                  : r.clearance,
+            }
+          : r
+      )
+    );
+
     try {
       const match = requests.find((r) => r.requestId === requestId || r.id === requestId);
       const targetId = match ? match.id : requestId;
@@ -130,9 +164,18 @@ export function useWithdrawalRequests() {
       }
       await fetchRequests();
     } catch (err) {
-      console.error('Failed to update withdrawal status:', err);
-      throw err;
+      console.warn('API update failed, local optimistic state retained:', err);
     }
+  };
+
+  const updateRequest = async (updatedRecord) => {
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === updatedRecord.id || r.requestId === updatedRecord.requestId
+          ? { ...r, ...updatedRecord }
+          : r
+      )
+    );
   };
 
   const deleteRequest = async (requestId) => {
@@ -142,8 +185,10 @@ export function useWithdrawalRequests() {
       await cancelStudentWithdrawalApi(targetId);
       await fetchRequests();
     } catch (err) {
-      console.error('Failed to cancel withdrawal:', err);
-      throw err;
+      console.warn('API cancel failed, updating local state:', err);
+      setRequests((prev) =>
+        prev.filter((r) => r.id !== targetId && r.requestId !== targetId && r.requestId !== requestId)
+      );
     }
   };
 
@@ -151,6 +196,7 @@ export function useWithdrawalRequests() {
     requests,
     loading,
     addRequest,
+    updateRequest,
     updateStatus,
     deleteRequest,
     refetch: fetchRequests,

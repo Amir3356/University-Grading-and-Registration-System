@@ -95,6 +95,7 @@ export async function updateRegistrationStatus(req, res, next) {
     } else {
       throw new ValidationError('Invalid status. Must be approved or rejected.');
     }
+    broadcastEvent('REGISTRATION_CHANGED', { action: 'status', id, status: result.status });
     sendSuccess(res, result);
   } catch (err) {
     next(err);
@@ -106,6 +107,7 @@ export async function bulkUpdateStatus(req, res, next) {
     const { ids, status } = req.body;
     if (status === 'approved') {
       const result = await regService.bulkApproveRegistrations(ids, req.user);
+      broadcastEvent('REGISTRATION_CHANGED', { action: 'bulk_status', ids, status });
       sendSuccess(res, result);
     } else {
       throw new ValidationError('Bulk operation only supports approval.');
@@ -118,6 +120,7 @@ export async function bulkUpdateStatus(req, res, next) {
 export async function updateType(req, res, next) {
   try {
     const result = await regService.updateRegistrationType(req.params.id, req.body.registrationTypeId, req.user);
+    broadcastEvent('REGISTRATION_CHANGED', { action: 'update_type', id: req.params.id });
     sendSuccess(res, result);
   } catch (err) {
     next(err);
@@ -127,6 +130,7 @@ export async function updateType(req, res, next) {
 export async function deleteRegistration(req, res, next) {
   try {
     const result = await regService.deleteRegistration(req.params.id, req.user);
+    broadcastEvent('REGISTRATION_CHANGED', { action: 'delete', id: req.params.id });
     sendSuccess(res, result);
   } catch (err) {
     next(err);
@@ -151,6 +155,7 @@ export async function submitStudentRegistration(req, res, next) {
   try {
     if (!req.user.studentId) throw new ForbiddenError('Only students can register for semesters.');
     const result = await regService.submitStudentRegistration(req.body, req.user.studentId, req.user);
+    broadcastEvent('REGISTRATION_CHANGED', { action: 'submit', id: result.id, studentId: req.user.studentId });
     sendCreated(res, result);
   } catch (err) {
     next(err);
@@ -161,8 +166,32 @@ export async function cancelStudentRegistration(req, res, next) {
   try {
     if (!req.user.studentId) throw new ForbiddenError('Only students can cancel their registration.');
     const result = await regService.cancelStudentRegistration(req.params.id, req.user.studentId, req.user);
+    broadcastEvent('REGISTRATION_CHANGED', { action: 'cancel', id: req.params.id, studentId: req.user.studentId });
     sendSuccess(res, result);
   } catch (err) {
     next(err);
   }
 }
+
+export async function updateStudentRegistration(req, res, next) {
+  try {
+    if (!req.user.studentId) throw new ForbiddenError('Only students can update their registration.');
+    const result = await regService.updateStudentRegistration(req.params.id, req.user.studentId, req.body, req.user);
+    broadcastEvent('REGISTRATION_CHANGED', { action: 'update', id: req.params.id, studentId: req.user.studentId });
+    sendSuccess(res, result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteStudentRegistration(req, res, next) {
+  try {
+    if (!req.user.studentId) throw new ForbiddenError('Only students can delete their registration.');
+    const result = await regService.deleteStudentRegistration(req.params.id, req.user.studentId, req.user);
+    broadcastEvent('REGISTRATION_CHANGED', { action: 'delete', id: req.params.id, studentId: req.user.studentId });
+    sendSuccess(res, result);
+  } catch (err) {
+    next(err);
+  }
+}
+

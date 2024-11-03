@@ -33,8 +33,26 @@ export async function createUser(req, res, next) {
 export async function updateUser(req, res, next) {
   try {
     const result = await userService.updateUser(req.params.id, req.body, req.user);
-    broadcastEvent('USER_UPDATED', { userId: req.params.id });
-    broadcastEvent('STUDENT_UPDATED', { userId: req.params.id });
+    const studentNumber = result?.profile?.student_number || result?.identifier || req.body?.identifier;
+    const programType = result?.profile?.program_type || result?.programType || req.body?.programType;
+
+    broadcastEvent('STUDENT_UPDATED', {
+      userId: req.params.id,
+      studentId: result?.profile?.id,
+      studentNumber,
+      programType,
+      user: result?.user || result,
+      profile: result?.profile,
+    });
+
+    broadcastEvent('USER_UPDATED', {
+      userId: req.params.id,
+      user: result?.user || result,
+      profile: result?.profile,
+      studentNumber,
+      programType,
+    });
+
     sendSuccess(res, result);
   } catch (err) {
     next(err);

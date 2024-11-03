@@ -284,10 +284,10 @@ export async function getWithdrawalById(id) {
 export async function updateClearance(requestId, office, status, remarks, user) {
   const res = await query(
     `UPDATE withdrawal_clearances
-     SET status = $3,
+     SET status = $3::varchar,
          remarks = $4,
          cleared_by = $5,
-         cleared_at = CASE WHEN $3 = 'approved' THEN now() ELSE NULL END
+         cleared_at = CASE WHEN $3::varchar = 'approved' THEN now() ELSE NULL END
      WHERE request_id = $1 AND office = $2
      RETURNING *`,
     [requestId, office, status, remarks || null, user.id]
@@ -305,19 +305,16 @@ export async function approveWithdrawal(id, adminNotes, user) {
       throw new ConflictError(`Cannot approve request with status ${wr.status}.`);
     }
 
-    // Check clearances for semester/university
-    if (wr.scope === 'semester' || wr.scope === 'university') {
-      const clearRes = await client.query(
-        `SELECT office, status FROM withdrawal_clearances WHERE request_id = $1`,
-        [id]
-      );
-      const pendingOffices = clearRes.rows.filter((c) => c.status !== 'approved');
-      if (pendingOffices.length > 0) {
-        throw new ConflictError(
-          `All university clearances must be approved first. Pending offices: ${pendingOffices.map((o) => o.office).join(', ')}`
-        );
-      }
-    }
+    // Auto-approve all institutional clearances upon registrar approval
+    await client.query(
+      `UPDATE withdrawal_clearances
+       SET status = 'approved',
+           cleared_by = $2,
+           cleared_at = COALESCE(cleared_at, now()),
+           remarks = COALESCE(remarks, 'Approved by Registrar')
+       WHERE request_id = $1 AND status != 'approved'`,
+      [id, user.id]
+    );
 
     // Update request
     await client.query(

@@ -1,27 +1,22 @@
-import { useState, useMemo } from 'react'
-import { Search, ChevronDown, CheckCircle2, XCircle, FileSpreadsheet, Trash2, UserCheck } from 'lucide-react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
+import { Search, CheckCircle2, XCircle, Trash2, UserCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/common/EmptyState'
 import {
   listSemesterRegistrationsApi,
   getRegistrationSummaryApi,
   reviewSemesterRegistrationApi,
-  updateSemesterRegistrationTypeApi,
   deleteSemesterRegistrationApi,
+  listRegistrationPeriodsApi,
 } from '@/api/registration'
 import { useLookups } from '@/context/lookups-context'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useQuery } from '@/hooks/useStore'
+import { useWebSocketEvent } from '@/lib/websocket'
+import { onRegistrationChange, onPeriodChange } from '@/lib/syncEvents'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { RegistrationStats } from './RegistrationStats'
+import { RegistrationCountdown } from '@/components/registration/RegistrationCountdown'
 import { formatDate, TYPE_BADGE_CLASS, errorMessage } from './registration-utils'
 
 const STUDENTS_PER_PAGE = 10
@@ -55,6 +50,23 @@ export function StudentRegistrationsPage() {
   const [rejecting, setRejecting] = useState(null)
 
 
+  // Dynamically increments for every year: displays only the current arrived year's semesters
+  // (e.g. 2026 First Semester and 2026 Second Semester in 2026; 2027 First and Second in 2027).
+  const availableSemesters = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    return semesters.filter((s) => {
+      if (s.id === studentSemFilter) return true
+      const yearMatch = (s.name || '').match(/\b(20\d{2})\b/) ||
+                        (s.academic_year?.name || '').match(/\b(20\d{2})\b/) ||
+                        (s.id || '').match(/\b(20\d{2})\b/)
+      if (yearMatch) {
+        const semYear = parseInt(yearMatch[1], 10)
+        return semYear === currentYear
+      }
+      return true
+    })
+  }, [semesters, studentSemFilter])
+
   const visiblePrograms = useMemo(
     () => (studentDeptFilter ? programs.filter((p) => p.department_id === studentDeptFilter) : programs),
     [programs, studentDeptFilter]
@@ -78,6 +90,51 @@ export function StudentRegistrationsPage() {
   const summaryQuery = useQuery(() => getRegistrationSummaryApi({ semesterId: studentSemFilter }), [studentSemFilter], {
     live: false,
   })
+  const periodsQuery = useQuery(() => listRegistrationPeriodsApi({ pageSize: 'all' }), [], { live: false })
+
+  const periods = periodsQuery.data?.items || []
+  const activeOrUpcomingPeriod = useMemo(() => {
+    return periods.find((p) => p.status === 'open') || periods.find((p) => p.status !== 'closed') || null
+  }, [periods])
+
+  const reloadData = useCallback(() => {
+    listQuery.refetch()
+    summaryQuery.refetch()
+    periodsQuery.refetch()
+  }, [listQuery, summaryQuery, periodsQuery])
+
+  // Real-time WebSocket sync across all users and admin tabs
+  useWebSocketEvent('REGISTRATION_CHANGED', reloadData)
+  useWebSocketEvent('PERIOD_CHANGED', reloadData)
+
+  // Cross-tab BroadcastChannel and storage sync (instant across tabs in same browser)
+  useEffect(() => {
+    const unsubReg = onRegistrationChange(reloadData)
+    const unsubPeriod = onPeriodChange(reloadData)
+    return () => {
+      unsubReg?.()
+      unsubPeriod?.()
+    }
+  }, [reloadData])
+
+  // Window focus & tab visibility listener (refreshes if admin switches back to this tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      reloadData()
+    }
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        reloadData()
+      }
+    }
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [reloadData])
+
   const rawItems = listQuery.data?.items || []
   // Without an explicit semester the API picks one (the semester whose registration is open),
   // so use the semester it reports for the Academic Year / Semester columns.
@@ -104,8 +161,7 @@ export function StudentRegistrationsPage() {
     try {
       await action()
       toast.success(successMessage)
-      listQuery.refetch()
-      summaryQuery.refetch()
+      reloadData()
       return true
     } catch (err) {
       toast.error(errorMessage(err, fallbackError))
@@ -118,13 +174,6 @@ export function StudentRegistrationsPage() {
       () => reviewSemesterRegistrationApi(student.registration.id, { status: 'approved' }),
       `Registration approved for ${student.name}.`,
       'Failed to approve registration.'
-    )
-
-  const handleChangeType = (student, typeId) =>
-    runAction(
-      () => updateSemesterRegistrationTypeApi(student.registration.id, typeId),
-      `Changed registration type to ${typeLabels[typeId] || typeId}.`,
-      'Failed to change registration type.'
     )
 
   const renderStatusBadge = (status) => {
@@ -152,7 +201,16 @@ export function StudentRegistrationsPage() {
         </p>
       </div>
 
-      <RegistrationStats summary={summary} />
+      <RegistrationStats summary={summary} showTotalPeriods={false} />
+
+      {activeOrUpcomingPeriod && (
+        <RegistrationCountdown
+          startDate={activeOrUpcomingPeriod.start_date}
+          deadline={activeOrUpcomingPeriod.deadline}
+          semesterName={activeOrUpcomingPeriod.semester?.name || activeOrUpcomingPeriod.semester_name}
+          academicYearName={activeOrUpcomingPeriod.semester?.academicYear?.name || activeOrUpcomingPeriod.academic_year_name}
+        />
+      )}
 
       {/* Student Registrations Card */}
       <section className="reg-card" style={{ marginTop: '0.25rem' }}>
@@ -180,7 +238,7 @@ export function StudentRegistrationsPage() {
             <label className="reg-filter-select-label">Semester</label>
             <select value={studentSemFilter} onChange={setFilter(setStudentSemFilter)} className="reg-filter-select">
               <option value="">Open Registration Semester</option>
-              {semesters.map((s) => (
+              {availableSemesters.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
@@ -269,7 +327,7 @@ export function StudentRegistrationsPage() {
                     <th>Registration Type</th>
                     <th>Status</th>
                     <th>Registration Date</th>
-                    <th>Action</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -288,11 +346,16 @@ export function StudentRegistrationsPage() {
                               <span className={`reg-badge ${TYPE_BADGE_CLASS[typeId] || 'reg-badge--regular'}`}>
                                 {typeLabels[typeId] || typeId}
                               </span>
-                              {reg?.cafeStatus && (
-                                <span className={`reg-badge ${reg.cafeStatus === 'cafe' ? 'reg-badge--cafe' : 'reg-badge--non-cafe'}`}>
-                                  {reg.cafeStatus === 'cafe' ? 'Cafe' : 'Non-cafe'}
-                                </span>
-                              )}
+                              {(() => {
+                                const cafeVal = (reg?.cafeStatus || reg?.cafe_status || '').toLowerCase()
+                                if (!cafeVal) return null
+                                const isCafe = cafeVal === 'cafe'
+                                return (
+                                  <span className={`reg-badge ${isCafe ? 'reg-badge--cafe' : 'reg-badge--non-cafe'}`}>
+                                    {isCafe ? 'Cafe' : 'Non-cafe'}
+                                  </span>
+                                )
+                              })()}
                             </div>
                           ) : (
                             <span>—</span>
@@ -303,49 +366,28 @@ export function StudentRegistrationsPage() {
                         <td>
                           {reg ? (
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <button type="button" className="reg-action-trigger">
-                                    <span>{student.status === 'pending' ? 'Review' : 'Manage'}</span>
-                                    <ChevronDown size={14} aria-hidden="true" />
-                                  </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-56">
-                                  <DropdownMenuLabel>
-                                    {student.name} ({student.student_number})
-                                  </DropdownMenuLabel>
-
-                                  {student.status === 'pending' && (
-                                    <>
-                                      <DropdownMenuItem onClick={() => handleApprove(student)}>
-                                        <CheckCircle2 size={14} className="mr-2 text-emerald-600" />
-                                        Approve Registration
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => setRejecting(student)}>
-                                        <XCircle size={14} className="mr-2 text-rose-600" />
-                                        Reject Registration
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                    </>
-                                  )}
-                                  {registrationTypes
-                                    .filter((t) => t.id !== typeId)
-                                    .map((t) => (
-                                      <DropdownMenuItem key={t.id} onClick={() => handleChangeType(student, t.id)}>
-                                        <FileSpreadsheet size={14} className="mr-2" />
-                                        Change to {t.label}
-                                      </DropdownMenuItem>
-                                    ))}
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/40"
-                                    onClick={() => setDeleting(student)}
+                              {student.status === 'pending' && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="reg-action-approve"
+                                    title="Approve registration"
+                                    aria-label={`Approve registration for ${student.name}`}
+                                    onClick={() => handleApprove(student)}
                                   >
-                                    <Trash2 size={14} className="mr-2 text-rose-600" />
-                                    Delete Registration
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                                    <CheckCircle2 size={15} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="reg-action-reject"
+                                    title="Reject registration"
+                                    aria-label={`Reject registration for ${student.name}`}
+                                    onClick={() => setRejecting(student)}
+                                  >
+                                    <XCircle size={15} />
+                                  </button>
+                                </>
+                              )}
 
                               <button
                                 type="button"

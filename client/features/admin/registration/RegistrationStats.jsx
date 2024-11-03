@@ -7,8 +7,12 @@ const CARDS = [
 ]
 
 /** Summary cards shared by the registration periods and student registrations pages. */
-export function RegistrationStats({ summary, showPending = true }) {
-  const visibleCards = showPending ? CARDS : CARDS.filter((c) => c.key !== 'pending')
+export function RegistrationStats({ summary, showPending = true, showTotalPeriods = true }) {
+  const visibleCards = CARDS.filter((c) => {
+    if (!showPending && c.key === 'pending') return false
+    if (!showTotalPeriods && c.key === 'totalPeriods') return false
+    return true
+  })
 
   return (
     <div className="semester-reg-stats">

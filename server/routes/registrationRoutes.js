@@ -28,4 +28,7 @@ semesterRegRouter.delete('/:id', requireRoles('admin'), regCtrl.deleteRegistrati
 studentRegRouter.use(authenticate, requireRoles('student'));
 studentRegRouter.get('/', regCtrl.getStudentRegistrations);
 studentRegRouter.post('/', regCtrl.submitStudentRegistration);
+studentRegRouter.patch('/:id', regCtrl.updateStudentRegistration);
+studentRegRouter.delete('/:id', regCtrl.deleteStudentRegistration);
 studentRegRouter.post('/:id/cancel', regCtrl.cancelStudentRegistration);
+

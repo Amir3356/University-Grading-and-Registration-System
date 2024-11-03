@@ -1,5 +1,5 @@
 import { api } from './client';
-import { notifyPeriodChange } from '@/lib/syncEvents';
+import { notifyPeriodChange, notifyRegistrationChange } from '@/lib/syncEvents';
 
 /**
  * Registration Periods & Requests API calls
@@ -43,15 +43,21 @@ export async function listSemesterRegistrations(params = {}) {
 
 /** data: { status: 'approved' | 'rejected', remarks? } */
 export async function reviewSemesterRegistration(id, data) {
-  return await api.post(`/semester-registrations/${id}/status`, data);
+  const result = await api.post(`/semester-registrations/${id}/status`, data);
+  notifyRegistrationChange();
+  return result;
 }
 
 export async function updateSemesterRegistrationType(id, registrationTypeId) {
-  return await api.patch(`/semester-registrations/${id}/type`, { registrationTypeId });
+  const result = await api.patch(`/semester-registrations/${id}/type`, { registrationTypeId });
+  notifyRegistrationChange();
+  return result;
 }
 
 export async function deleteSemesterRegistration(id) {
-  return await api.delete(`/semester-registrations/${id}`);
+  const result = await api.delete(`/semester-registrations/${id}`);
+  notifyRegistrationChange();
+  return result;
 }
 
 export async function getStudentRegistrations(params = {}) {
@@ -59,11 +65,27 @@ export async function getStudentRegistrations(params = {}) {
 }
 
 export async function submitStudentRegistration(data) {
-  return await api.post('/student/registrations', data);
+  const result = await api.post('/student/registrations', data);
+  notifyRegistrationChange();
+  return result;
 }
 
 export async function cancelStudentRegistration(id) {
-  return await api.post(`/student/registrations/${id}/cancel`);
+  const result = await api.post(`/student/registrations/${id}/cancel`);
+  notifyRegistrationChange();
+  return result;
+}
+
+export async function updateStudentRegistration(id, data) {
+  const result = await api.patch(`/student/registrations/${id}`, data);
+  notifyRegistrationChange();
+  return result;
+}
+
+export async function deleteStudentRegistration(id) {
+  const result = await api.delete(`/student/registrations/${id}`);
+  notifyRegistrationChange();
+  return result;
 }
 
 // Backward-compatible named aliases
@@ -79,4 +101,7 @@ export const updateSemesterRegistrationTypeApi = updateSemesterRegistrationType;
 export const deleteSemesterRegistrationApi = deleteSemesterRegistration;
 export const getStudentRegistrationsApi = getStudentRegistrations;
 export const submitStudentRegistrationApi = submitStudentRegistration;
+export const updateStudentRegistrationApi = updateStudentRegistration;
+export const deleteStudentRegistrationApi = deleteStudentRegistration;
 export const cancelStudentRegistrationApi = cancelStudentRegistration;
+

@@ -520,3 +520,25 @@ export async function cancelStudentRegistration(id, studentId) {
   );
   return res.rows[0] || null;
 }
+
+export async function updateStudentRegistration(id, studentId, { cafeStatus = 'cafe' }) {
+  const res = await query(
+    `UPDATE semester_registrations
+     SET cafe_status = $3, updated_at = now()
+     WHERE id = $1 AND student_id = $2 AND status = 'pending'
+     RETURNING *`,
+    [id, studentId, cafeStatus]
+  );
+  return res.rows[0] || null;
+}
+
+export async function deleteStudentRegistration(id, studentId) {
+  const res = await query(
+    `DELETE FROM semester_registrations
+     WHERE id = $1 AND student_id = $2 AND status = 'pending'
+     RETURNING *`,
+    [id, studentId]
+  );
+  return res.rows[0] || null;
+}
+
