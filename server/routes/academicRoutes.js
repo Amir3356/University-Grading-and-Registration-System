@@ -41,9 +41,9 @@ programRouter.put('/:id/curriculum', requireRoles('admin'), academicCtrl.updateP
 courseRouter.use(authenticate);
 courseRouter.get('/', academicCtrl.listCourses);
 courseRouter.get('/:id', academicCtrl.getCourse);
-courseRouter.post('/', requireRoles('admin'), validateRequest(createCourseSchema), academicCtrl.createCourse);
-courseRouter.put('/:id', requireRoles('admin'), validateRequest(updateCourseSchema), academicCtrl.updateCourse);
-courseRouter.delete('/:id', requireRoles('admin'), academicCtrl.deleteCourse);
+courseRouter.post('/', requireRoles('admin', 'dept_head'), validateRequest(createCourseSchema), academicCtrl.createCourse);
+courseRouter.put('/:id', requireRoles('admin', 'dept_head'), validateRequest(updateCourseSchema), academicCtrl.updateCourse);
+courseRouter.delete('/:id', requireRoles('admin', 'dept_head'), academicCtrl.deleteCourse);
 
 // Calendar
 calendarRouter.use(authenticate);

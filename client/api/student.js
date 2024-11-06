@@ -9,7 +9,12 @@ export async function getStudentDashboard() {
 }
 
 export async function listMyCourses(params = {}) {
-  return await api.get('/student/courses', params);
+  const res = await api.get('/student/courses', params);
+  const items = Array.isArray(res) ? res : (res?.items || res?.courses || []);
+  if (res && typeof res === 'object' && 'total' in res) {
+    items.total = res.total;
+  }
+  return items;
 }
 
 export async function getMyCourse(enrollmentId) {
@@ -17,7 +22,12 @@ export async function getMyCourse(enrollmentId) {
 }
 
 export async function listMyAssessments(params = {}) {
-  return await api.get('/student/assessments', params);
+  const res = await api.get('/student/assessments', params);
+  const items = Array.isArray(res) ? res : (res?.items || res?.assessments || []);
+  if (res && typeof res === 'object' && 'total' in res) {
+    items.total = res.total;
+  }
+  return items;
 }
 
 export async function getMyGrades(params = {}) {

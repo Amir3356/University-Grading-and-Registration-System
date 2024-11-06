@@ -28,6 +28,16 @@ async function startServer() {
       console.log(`[Server] Environment: ${NODE_ENV}`);
     });
 
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`[Server] Port ${PORT} is already in use.`);
+        console.error(`[Server] Stop the process using it, then restart: lsof -ti :${PORT} | xargs kill`);
+      } else {
+        console.error('[Server] HTTP server error:', err);
+      }
+      process.exit(1);
+    });
+
     // Initialize WebSocket server
     initWebSocketServer(server);
 

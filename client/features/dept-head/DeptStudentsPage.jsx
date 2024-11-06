@@ -10,15 +10,22 @@ import { useQuery } from '@/hooks/useStore'
 import { formatYearOfStudy } from '@/lib/format'
 import { store } from '@/store'
 import { UserActionDialogs } from '@/features/admin/users/UserActionDialogs'
-import { UserFormDialog } from '@/features/admin/users/UserFormDialog'
+import { UserFormDialog, DEPARTMENT_OPTIONS } from '@/features/admin/users/UserFormDialog'
 
 const STUDENT_ROLE_OPTIONS = [{ value: 'student', label: 'Student' }]
 
 export function DeptStudentsPage() {
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
   const lookups = useLookups()
   const dept =
-    (lookups?.departments ?? []).find((d) => d.headTeacherId === profile?.id || d.id === profile?.departmentId) ||
+    (lookups?.departments ?? []).find(
+      (d) =>
+        (d.headTeacherId && d.headTeacherId === profile?.id) ||
+        (d.head_teacher_id && d.head_teacher_id === profile?.id) ||
+        d.id === headDeptId,
+    ) ||
+    (headDeptId ? (lookups?.departments ?? []).find((d) => d.id === headDeptId) : null) ||
+    lookups?.departments?.find((d) => d.id === 'dep_cs') ||
     lookups?.departments?.[0]
   const deptId = dept?.id
 
@@ -101,7 +108,7 @@ export function DeptStudentsPage() {
         onOpenChange={setFormOpen}
         userId={editingUserId}
         defaultRole="student"
-        defaultDepartment={dept?.name}
+        defaultDepartment={dept?.id || dept?.name}
         roleOptions={STUDENT_ROLE_OPTIONS}
         onCreated={() => refetch()}
       />

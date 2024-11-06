@@ -42,13 +42,19 @@ export function getStoredRefreshToken() {
   return token;
 }
 
+let isClearingSession = false;
+let isSettingSession = false;
+
 export function getStoredUser() {
   try {
     const token = getStoredToken();
     const refreshToken = getStoredRefreshToken();
     // If access token is expired and no valid refresh token exists, clear session
-    if (isJwtExpired(token) && !refreshToken) {
+    if (token && isJwtExpired(token) && !refreshToken) {
       clearStoredSession();
+      return null;
+    }
+    if (!token && !refreshToken) {
       return null;
     }
     const raw = localStorage.getItem(USER_KEY);
@@ -68,36 +74,48 @@ export function getStoredProfile() {
 }
 
 export function setStoredSession(token, refreshToken, user, profile) {
-  // Store authentication tokens in cookies and sync with localStorage
-  if (token) {
-    setCookie(TOKEN_KEY, token, { expires: 1 });
-    localStorage.setItem(TOKEN_KEY, token);
-  }
-  if (refreshToken) {
-    setCookie(REFRESH_TOKEN_KEY, refreshToken, { expires: 7 });
-    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-  }
+  if (isSettingSession) return;
+  isSettingSession = true;
+  try {
+    // Store authentication tokens in cookies and sync with localStorage
+    if (token) {
+      setCookie(TOKEN_KEY, token, { expires: 1 });
+      localStorage.setItem(TOKEN_KEY, token);
+    }
+    if (refreshToken) {
+      setCookie(REFRESH_TOKEN_KEY, refreshToken, { expires: 7 });
+      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    }
 
-  if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
-  if (profile) localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+    if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+    if (profile) localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
 
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('ugs:session-changed', { detail: { user, profile } }));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ugs:session-changed', { detail: { user, profile } }));
+    }
+  } finally {
+    isSettingSession = false;
   }
 }
 
 export function clearStoredSession() {
-  // Clear authentication cookies
-  removeCookie(TOKEN_KEY);
-  removeCookie(REFRESH_TOKEN_KEY);
+  if (isClearingSession) return;
+  isClearingSession = true;
+  try {
+    // Clear authentication cookies
+    removeCookie(TOKEN_KEY);
+    removeCookie(REFRESH_TOKEN_KEY);
 
-  // Clear tokens and cached user state
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-  localStorage.removeItem(PROFILE_KEY);
+    // Clear tokens and cached user state
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(PROFILE_KEY);
 
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('ugs:session-changed', { detail: { user: null, profile: null } }));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ugs:session-changed', { detail: { user: null, profile: null } }));
+    }
+  } finally {
+    isClearingSession = false;
   }
 }

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
+    "predev": "node scripts/free-port.js",
     "dev": "nodemon server.js",
     "migrate": "node-pg-migrate up",
     "migrate:down": "node-pg-migrate down",

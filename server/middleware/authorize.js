@@ -37,7 +37,7 @@ export function defineAbilityFor(user) {
       can('read', 'Department', { id: user.departmentId });
       can('update', 'Department', { id: user.departmentId });
       can(['create', 'read', 'update'], 'Program');
-      can(['create', 'read', 'update'], 'Course');
+      can(['create', 'read', 'update', 'delete'], 'Course');
       can(['create', 'read', 'update'], 'CourseOffering');
       can(['create', 'read', 'update', 'delete'], 'User');
       can('read', 'Student');

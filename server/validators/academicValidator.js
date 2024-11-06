@@ -22,9 +22,9 @@ export const createProgramSchema = z.object({
 });
 
 export const createCourseSchema = z.object({
-  code: z.string().trim().min(2, 'Course code is required.').max(10),
+  code: z.string().trim().min(1, 'Course code is required.').max(10, 'Course code too long.'),
   title: z.string().trim().min(3, 'Course title is required.').max(160),
-  departmentId: z.string().trim().min(1, 'Department is required.'),
+  departmentId: z.string().trim().optional(),
   creditHours: z.coerce.number().int().min(1, 'Credit hours must be between 1 and 6.').max(6),
   level: z.coerce.number().int().min(100).max(900).default(100),
   description: z.string().trim().optional().nullable(),

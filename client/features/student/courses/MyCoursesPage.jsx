@@ -80,7 +80,8 @@ export function MyCoursesPage() {
   )
 
   const filteredData = useMemo(() => {
-    return (data ?? []).filter((r) => {
+    const list = Array.isArray(data) ? data : (data?.courses || data?.items || [])
+    return list.filter((r) => {
       if (academicYearChoice !== 'all') {
         const ayName = String(r.semester?.academicYear?.name ?? '')
         const semName = String(r.semester?.name ?? '')
@@ -192,6 +193,7 @@ export function MyCoursesPage() {
       <PageHeader
         title="My Courses"
         description="View your enrolled courses, schedules, teachers, and credit hours."
+        centered
       />
       <DataTable
         columns={columns}

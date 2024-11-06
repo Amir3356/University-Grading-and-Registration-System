@@ -8,7 +8,11 @@ import { listReasonCategories } from '../repositories/withdrawalRepository.js';
 
 export async function getLookups(user) {
   await ensureAcademicCalendarYears();
-  const deptsRes = await query(`SELECT * FROM departments ORDER BY name ASC`);
+  const deptsRes = await query(`
+    SELECT d.*, d.head_teacher_id as "headTeacherId"
+    FROM departments d
+    ORDER BY d.name ASC
+  `);
   const progsRes = await query(`SELECT * FROM programs WHERE status = 'active' ORDER BY name ASC`);
   const yearsRes = await query(`SELECT * FROM academic_years ORDER BY start_date DESC`);
   const semsRes = await query(`

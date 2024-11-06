@@ -12,7 +12,7 @@ import { PageHeader } from '@/components/common/PageHeader'
 import { useQuery } from '@/hooks/useStore'
 import { ROLE_LABELS } from '@/lib/format'
 import { store } from '@/store'
-import { UserActionDialogs } from './UserActionDialogs'
+import { UserActionDialogs, TempPasswordDialog } from './UserActionDialogs'
 import { UserFormDialog, DEPARTMENT_OPTIONS, ADMIN_ROLE_OPTIONS } from './UserFormDialog'
 
 const ROLE_BADGE = { admin: 'default', dept_head: 'primary', teacher: 'info', student: 'secondary' }
@@ -20,10 +20,10 @@ const ROLE_BADGE = { admin: 'default', dept_head: 'primary', teacher: 'info', st
 const COLUMNS = [
   { key: 'no', header: 'No' },
   { key: 'name', header: 'Full name' },
+  { key: 'username', header: 'Username' },
   { key: 'roleId', header: 'Role' },
   { key: 'identifier', header: 'Department Head ID' },
   { key: 'departmentName', header: 'Department' },
-  { key: 'password', header: 'Password' },
 ]
 
 export const ROLE_OPTIONS = ADMIN_ROLE_OPTIONS
@@ -60,6 +60,7 @@ export function UsersPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [action, setAction] = useState(null)
+  const [tempPassword, setTempPassword] = useState(null)
 
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
@@ -198,13 +199,16 @@ export function UsersPage() {
                   filteredItems.map((u, i) => {
                     const name = u.name || `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim()
                     const roleId = u.roleId || u.role_id
+                    const username = u.username || '—'
                     const identifier = u.identifier || u.employee_number || '—'
                     const departmentName = u.departmentName || u.department_name || '—'
-                    const passwordHash = u.passwordHash || u.password_hash || '—'
                     return (
                       <TableRow key={u.id} className="hover:bg-muted/50">
                         <TableCell className="tabular text-muted">{i + 1}</TableCell>
                         <TableCell className="font-medium">{name}</TableCell>
+                        <TableCell>
+                          <span className="font-mono text-xs text-muted-foreground">{username}</span>
+                        </TableCell>
                         <TableCell>
                           <Badge variant={ROLE_BADGE[roleId] || 'secondary'}>
                             {ROLE_LABELS[roleId] || roleId}
@@ -212,11 +216,6 @@ export function UsersPage() {
                         </TableCell>
                         <TableCell className="tabular font-medium">{identifier}</TableCell>
                         <TableCell>{departmentName}</TableCell>
-                        <TableCell className="tabular font-mono text-xs max-w-[150px]" title={passwordHash}>
-                          <span className="rounded bg-muted px-1.5 py-0.5 select-all truncate block" title={passwordHash}>
-                            {passwordHash}
-                          </span>
-                        </TableCell>
                         <TableCell>
                           <UserRowActions
                             user={{ ...u, name }}
@@ -240,9 +239,21 @@ export function UsersPage() {
         userId={editingId}
         roleOptions={ROLE_OPTIONS}
         defaultRole={roleFilter || 'dept_head'}
-        onCreated={() => refetch()}
+        onCreated={(result) => {
+          if (result?.temporaryPassword) {
+            setTempPassword({
+              name: result.user.name,
+              username: result.user.username,
+              password: result.temporaryPassword,
+              identifier: result.user.identifier,
+              roleId: result.user.roleId,
+            })
+          }
+          refetch()
+        }}
       />
       <UserActionDialogs action={action} onClose={() => setAction(null)} />
+      <TempPasswordDialog result={tempPassword} onClose={() => setTempPassword(null)} />
     </>
   )
 }

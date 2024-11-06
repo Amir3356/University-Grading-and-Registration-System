@@ -79,10 +79,12 @@ export const apiRateLimiter = createRateLimiter({
 });
 
 /**
- * Strict authentication rate limiter (15 requests per 15 minutes)
+ * Strict authentication rate limiter (configurable via env)
+ * Default: 100 requests per 15 minutes in development, 15 in production
  */
+const isDev = process.env.NODE_ENV !== 'production';
 export const authRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 15,
+  max: isDev ? 100 : 15,
   message: 'Too many login attempts. Please wait 15 minutes before trying again.',
 });

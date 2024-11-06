@@ -17,10 +17,10 @@ export function SelectTrigger({ className, children, ...props }) {
   )
 }
 
-export function SelectContent({ className, children, position = 'popper', ...props }) {
+export function SelectContent({ className, children, position = 'popper', sideOffset = 4, ...props }) {
   return (
     <SelectPrimitive.Portal>
-      <SelectPrimitive.Content className={cn('select-content', position === 'popper' && 'select-content--popper', className)} position={position} {...props}>
+      <SelectPrimitive.Content className={cn('select-content', position === 'popper' && 'select-content--popper', className)} position={position} sideOffset={sideOffset} {...props}>
         <SelectPrimitive.Viewport className="select-viewport">{children}</SelectPrimitive.Viewport>
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>

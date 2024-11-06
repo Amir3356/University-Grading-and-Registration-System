@@ -21,9 +21,30 @@ const STATUS_OPTIONS = [
 ]
 
 function CourseForm({ course, dept, deptId, onClose }) {
+  const { user, profile } = useAuth()
   const lookups = useLookups()
   const isEdit = Boolean(course)
-  const defaultDeptId = course?.departmentId ?? getDepartmentId(dept?.name) ?? dept?.id ?? 'dep_cs'
+
+  const headDeptId =
+    dept?.id ||
+    deptId ||
+    profile?.departmentId ||
+    profile?.department_id ||
+    profile?.department?.id ||
+    user?.departmentId ||
+    user?.department_id ||
+    'dep_cs'
+
+  const defaultDeptId = course?.departmentId ?? headDeptId
+
+  const deptOptions = useMemo(() => {
+    if (lookups?.departments?.length) {
+      return lookups.departments
+        .filter((d) => !d.status || d.status === 'active')
+        .map((d) => ({ value: d.id, label: d.name }))
+    }
+    return DEPARTMENT_OPTIONS
+  }, [lookups?.departments])
 
   const [form, setForm] = useState({
     code: course?.code ?? '',
@@ -49,12 +70,9 @@ function CourseForm({ course, dept, deptId, onClose }) {
         const codeNum = parseInt(form.code.replace(/\D/g, ''), 10)
         const autoLevel = Number.isFinite(codeNum) && codeNum >= 100 && codeNum <= 999 ? Math.floor(codeNum / 100) * 100 : (course?.level ?? 100)
 
-        const deptOption = DEPARTMENT_OPTIONS.find((d) => d.value === form.departmentId)
-        const selectedDept = (lookups?.departments ?? []).find(
-          (d) => d.id === form.departmentId || d.name.toLowerCase() === String(form.departmentId).trim().toLowerCase(),
-        )
-        const resolvedDeptId = deptOption?.value || selectedDept?.id || form.departmentId || deptId
-        const deptName = deptOption?.label || selectedDept?.name || getDepartmentName(form.departmentId) || 'Computer Science'
+        const resolvedDeptId = form.departmentId || defaultDeptId
+        const selectedDept = (lookups?.departments ?? []).find((d) => d.id === resolvedDeptId)
+        const deptName = selectedDept?.name || getDepartmentName(resolvedDeptId) || dept?.name || 'Department'
 
         const data = {
           code: form.code,
@@ -70,10 +88,10 @@ function CourseForm({ course, dept, deptId, onClose }) {
       }}
     >
       <div className="grid gap-4 sm:grid-cols-[9rem_1fr]">
-        <FormField label="Code" required error={fe.code} hint="e.g. CS101">
-          <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} maxLength={10} />
+        <FormField label="Code" required error={fe.code} hint="Letters and numbers (e.g. CS101, BIO1, 101)">
+          <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} maxLength={10} placeholder="e.g. CS101" />
         </FormField>
-        <FormField label="coursename" required error={fe.title || fe.courseName}>
+        <FormField label="Course Name" required error={fe.title || fe.courseName}>
           <Input value={form.title} onChange={set('title')} placeholder="e.g. Introduction to Programming" />
         </FormField>
       </div>
@@ -83,7 +101,7 @@ function CourseForm({ course, dept, deptId, onClose }) {
         required
         value={form.departmentId}
         onChange={(val) => setForm((f) => ({ ...f, departmentId: val }))}
-        options={DEPARTMENT_OPTIONS}
+        options={deptOptions}
         placeholder="Select department…"
         error={fe.department || fe.departmentId}
         hint="Department offering this course"
@@ -117,10 +135,25 @@ function CourseForm({ course, dept, deptId, onClose }) {
 }
 
 export function DeptCoursesPage() {
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
   const lookups = useLookups()
+
+  const headDeptId =
+    profile?.departmentId ??
+    profile?.department_id ??
+    profile?.department?.id ??
+    user?.departmentId ??
+    user?.department_id
+
   const dept =
-    (lookups?.departments ?? []).find((d) => d.headTeacherId === profile?.id || d.id === profile?.departmentId) ||
+    (lookups?.departments ?? []).find(
+      (d) =>
+        (d.headTeacherId && d.headTeacherId === profile?.id) ||
+        (d.head_teacher_id && d.head_teacher_id === profile?.id) ||
+        d.id === headDeptId,
+    ) ||
+    (headDeptId ? (lookups?.departments ?? []).find((d) => d.id === headDeptId) : null) ||
+    lookups?.departments?.find((d) => d.id === 'dep_cs') ||
     lookups?.departments?.[0]
   const deptId = dept?.id
 

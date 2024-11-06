@@ -8,15 +8,22 @@ import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
 import { store } from '@/store'
 import { TempPasswordDialog, UserActionDialogs } from '@/features/admin/users/UserActionDialogs'
-import { UserFormDialog } from '@/features/admin/users/UserFormDialog'
+import { UserFormDialog, DEPARTMENT_OPTIONS } from '@/features/admin/users/UserFormDialog'
 
 const TEACHER_ROLE_OPTIONS = [{ value: 'teacher', label: 'Teacher' }]
 
 export function DeptTeachersPage() {
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
   const lookups = useLookups()
   const dept =
-    (lookups?.departments ?? []).find((d) => d.headTeacherId === profile?.id || d.id === profile?.departmentId) ||
+    (lookups?.departments ?? []).find(
+      (d) =>
+        (d.headTeacherId && d.headTeacherId === profile?.id) ||
+        (d.head_teacher_id && d.head_teacher_id === profile?.id) ||
+        d.id === headDeptId,
+    ) ||
+    (headDeptId ? (lookups?.departments ?? []).find((d) => d.id === headDeptId) : null) ||
+    lookups?.departments?.find((d) => d.id === 'dep_cs') ||
     lookups?.departments?.[0]
   const deptId = dept?.id
 
@@ -124,7 +131,7 @@ export function DeptTeachersPage() {
         onOpenChange={setFormOpen}
         userId={editingUserId}
         defaultRole="teacher"
-        defaultDepartment={dept?.name}
+        defaultDepartment={dept?.id || dept?.name}
         roleOptions={TEACHER_ROLE_OPTIONS}
         onCreated={handleCreated}
       />

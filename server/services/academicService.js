@@ -145,13 +145,15 @@ export async function getCourseById(id) {
 
 export async function createCourse(data, user) {
   if (user?.roleId === 'dept_head') {
-    data.departmentId = user.departmentId;
+    data.departmentId = data.departmentId || user.departmentId;
   }
 
   const errors = {};
-  if (!data.code?.trim()) errors.code = 'Course code is required.';
-  else if (!/^[A-Z]{2,6}\d{3}[A-Z]?$/i.test(data.code.trim())) {
-    errors.code = 'Course code must match format like CS101 or SWE301.';
+  const code = data.code?.trim().toUpperCase();
+  if (!code) {
+    errors.code = 'Course code is required.';
+  } else if (!/^[A-Z0-9\s_-]{1,10}$/i.test(code)) {
+    errors.code = 'Course code accepts letters and numbers (up to 10 characters).';
   }
   if (!data.title?.trim()) errors.title = 'Course title is required.';
   if (!data.departmentId) errors.departmentId = 'Department is required.';
@@ -162,13 +164,17 @@ export async function createCourse(data, user) {
 
   if (Object.keys(errors).length > 0) throw new ValidationError('Invalid course input.', errors);
 
-  const existing = await courseRepo.findByCode(data.code.trim());
+  const existing = await courseRepo.findByCode(code);
   if (existing) throw new ValidationError('Course code already exists.', { code: 'Course code already exists.' });
 
-  const id = `crs_${data.code.trim().toLowerCase()}`;
+  let id = `crs_${code.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  const idExists = await courseRepo.findById(id);
+  if (idExists) {
+    id = `${id}_${Date.now().toString(36)}`;
+  }
   const course = await courseRepo.createCourse({
     id,
-    code: data.code.trim().toUpperCase(),
+    code,
     title: data.title.trim(),
     departmentId: data.departmentId,
     creditHours,

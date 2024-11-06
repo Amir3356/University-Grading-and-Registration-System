@@ -47,7 +47,7 @@ export function MyCoursesPage() {
       <PageHeader title="My courses" description="Course offerings assigned to you, by semester." centered />
       <DataTable
         columns={columns}
-        rows={data}
+        rows={Array.isArray(data) ? data : (data?.items || [])}
         loading={loading}
         error={error}
         onRetry={refetch}

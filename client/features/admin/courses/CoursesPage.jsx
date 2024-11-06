@@ -13,6 +13,7 @@ import { useQuery, useMutation } from '@/hooks/useStore'
 import { store } from '@/store'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SelectField } from '../users/SelectField'
+import { DEPARTMENT_OPTIONS } from '../users/UserFormDialog'
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
@@ -67,8 +68,8 @@ function CourseForm({ course, onClose }) {
       }}
     >
       <div className="grid gap-4 sm:grid-cols-[9rem_1fr]">
-        <FormField label="Code" required error={fe.code} hint="e.g. CS101">
-          <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} maxLength={10} />
+        <FormField label="Code" required error={fe.code} hint="Letters and numbers (e.g. CS101, BIO1, 101)">
+          <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} maxLength={10} placeholder="e.g. CS101" />
         </FormField>
         <FormField label="Course Name" required error={fe.title || fe.courseName}>
           <Input value={form.title} onChange={set('title')} placeholder="e.g. Introduction to Programming" />
@@ -81,13 +82,14 @@ function CourseForm({ course, onClose }) {
             <SelectValue placeholder="Select a department" />
           </SelectTrigger>
           <SelectContent>
-            {(lookups?.departments ?? [])
-              .filter((d) => d.status === 'active')
-              .map((d) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.name}
-                </SelectItem>
-              ))}
+            {(lookups?.departments?.length
+              ? lookups.departments.filter((d) => !d.status || d.status === 'active')
+              : DEPARTMENT_OPTIONS
+            ).map((d) => (
+              <SelectItem key={d.id || d.value} value={d.id || d.value}>
+                {d.name || d.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </FormField>
@@ -176,7 +178,7 @@ export function CoursesPage() {
       />
       <DataTable
         columns={columns}
-        rows={data?.items}
+        rows={Array.isArray(data) ? data : (data?.items || [])}
         loading={loading}
         error={error}
         onRetry={refetch}

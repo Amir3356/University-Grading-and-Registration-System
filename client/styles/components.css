@@ -222,8 +222,10 @@
   position: relative;
   z-index: 100;
   min-width: 8rem;
-  max-height: var(--radix-select-content-available-height);
-  overflow: hidden auto;
+  max-height: min(22rem, var(--radix-select-content-available-height, 22rem));
+  min-height: 8rem;
+  overflow-y: auto;
+  overflow-x: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--popover);
@@ -241,6 +243,8 @@
 
 .select-viewport {
   padding: 0.25rem;
+  max-height: 22rem;
+  overflow-y: auto;
 }
 
 .select-content--popper .select-viewport {

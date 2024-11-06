@@ -41,6 +41,9 @@ export const DEPARTMENT_OPTIONS = [
   { value: 'dep_psyc', label: 'Psychology' },
   { value: 'dep_spneed', label: 'Special Need' },
   { value: 'dep_eng', label: 'English' },
+  { value: 'dep_bus', label: 'Business Administration' },
+  { value: 'dep_ee', label: 'Electrical Engineering' },
+  { value: 'dep_ce', label: 'Civil Engineering' },
 ]
 
 export function getDepartmentId(value) {

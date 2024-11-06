@@ -9,7 +9,12 @@ export async function getTeacherDashboard() {
 }
 
 export async function listMyOfferings(params = {}) {
-  return await api.get('/teacher/offerings', params);
+  const res = await api.get('/teacher/offerings', params);
+  const items = Array.isArray(res) ? res : (res?.items || res?.offerings || []);
+  if (res && typeof res === 'object' && 'total' in res) {
+    items.total = res.total;
+  }
+  return items;
 }
 
 export async function getMyOffering(offeringId) {
@@ -17,7 +22,12 @@ export async function getMyOffering(offeringId) {
 }
 
 export async function listMyStudents(params = {}) {
-  return await api.get('/teacher/students', params);
+  const res = await api.get('/teacher/students', params);
+  const items = Array.isArray(res) ? res : (res?.items || res?.students || []);
+  if (res && typeof res === 'object' && 'total' in res) {
+    items.total = res.total;
+  }
+  return items;
 }
 
 export async function getStudentPerformance(offeringId, enrollmentId) {

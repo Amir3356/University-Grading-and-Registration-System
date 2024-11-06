@@ -13,7 +13,7 @@ import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
 import { store } from '@/store'
-import { UserActionDialogs } from '@/features/admin/users/UserActionDialogs'
+import { UserActionDialogs, TempPasswordDialog } from '@/features/admin/users/UserActionDialogs'
 import { UserFormDialog } from '@/features/admin/users/UserFormDialog'
 
 const COLUMNS = [
@@ -131,6 +131,7 @@ export function DeptAccountProvisionPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [action, setAction] = useState(null)
+  const [tempPassword, setTempPassword] = useState(null)
 
   const [search, setSearch] = useState('')
   const [programFilter, setProgramFilter] = useState('')
@@ -186,7 +187,16 @@ export function DeptAccountProvisionPage() {
     setFormOpen(true)
   }
 
-  const handleCreated = () => {
+  const handleCreated = (result) => {
+    if (result?.temporaryPassword) {
+      setTempPassword({
+        name: result.user.name,
+        username: result.user.username,
+        password: result.temporaryPassword,
+        identifier: result.user.identifier,
+        roleId: result.user.roleId,
+      })
+    }
     refetch()
   }
 
@@ -330,6 +340,7 @@ export function DeptAccountProvisionPage() {
         onCreated={handleCreated}
       />
       <UserActionDialogs action={action} onClose={() => { setAction(null); refetch() }} />
+      <TempPasswordDialog result={tempPassword} onClose={() => setTempPassword(null)} />
     </>
   )
 }

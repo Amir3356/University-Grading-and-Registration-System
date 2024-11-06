@@ -123,6 +123,9 @@ export async function getUserProfile(userId, roleId) {
     const res = await query(
       `SELECT t.id, t.employee_number, t.title, t.specialization, t.office_room,
               t.hire_date, t.department_id,
+              t.department_id as "departmentId",
+              t.employee_number as "employeeNumber",
+              t.office_room as "officeRoom",
               json_build_object('id', d.id, 'code', d.code, 'name', d.name) as department
        FROM teachers t
        LEFT JOIN departments d ON d.id = t.department_id

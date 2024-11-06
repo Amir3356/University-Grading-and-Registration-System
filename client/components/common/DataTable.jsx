@@ -51,20 +51,36 @@ export function DataTable({
 
   const getValue = (col, row) => (col.value ? col.value(row) : row[col.key])
 
+  const safeRows = useMemo(() => {
+    if (Array.isArray(rows)) return rows
+    if (rows && typeof rows === 'object') {
+      if (Array.isArray(rows.items)) return rows.items
+      if (Array.isArray(rows.data)) return rows.data
+      if (Array.isArray(rows.rows)) return rows.rows
+      if (Array.isArray(rows.courses)) return rows.courses
+      if (Array.isArray(rows.students)) return rows.students
+      if (Array.isArray(rows.teachers)) return rows.teachers
+    }
+    return []
+  }, [rows])
+
+  const safeColumns = useMemo(() => (Array.isArray(columns) ? columns : []), [columns])
+
   const filtered = useMemo(() => {
-    const list = rows ?? []
+    const list = safeRows
     const q = search.trim().toLowerCase()
     if (!q) return list
-    const cols = columns.filter((c) => c.searchable !== false)
+    const cols = safeColumns.filter((c) => c.searchable !== false)
     return list.filter((r) => cols.some((c) => {
       const v = getValue(c, r)
       return v != null && String(v).toLowerCase().includes(q)
     }))
-  }, [rows, search, columns])
+  }, [safeRows, search, safeColumns])
 
   const sorted = useMemo(() => {
+    if (!Array.isArray(filtered)) return []
     if (!sort) return filtered
-    const col = columns.find((c) => c.key === sort.key)
+    const col = safeColumns.find((c) => c.key === sort.key)
     if (!col) return filtered
     const dir = sort.dir === 'desc' ? -1 : 1
     return [...filtered].sort((a, b) => {
@@ -76,15 +92,15 @@ export function DataTable({
       if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
       return String(av).localeCompare(String(bv), undefined, { numeric: true }) * dir
     })
-  }, [filtered, sort, columns])
+  }, [filtered, sort, safeColumns])
 
-  const visible = sorted
+  const visible = Array.isArray(sorted) ? sorted : []
 
   const toggleSort = (key) => {
     setSort((s) => (!s || s.key !== key ? { key, dir: 'asc' } : s.dir === 'asc' ? { key, dir: 'desc' } : null))
   }
 
-  const exportColumns = columns.filter((c) => c.export !== false && c.header).map((c) => ({ header: c.header, value: (r) => getValue(c, r) }))
+  const exportColumns = safeColumns.filter((c) => c.export !== false && c.header).map((c) => ({ header: c.header, value: (r) => getValue(c, r) }))
 
   return (
     <div className={cn('data-table', className)}>
@@ -100,14 +116,14 @@ export function DataTable({
           {toolbar}
           {exportName && (
             <div className="data-table__export">
-              <ExportMenu filename={exportName} title={exportTitle ?? exportName} subtitle={exportSubtitle} columns={exportColumns} rows={sorted} university={university} disabled={loading || !sorted.length} />
+              <ExportMenu filename={exportName} title={exportTitle ?? exportName} subtitle={exportSubtitle} columns={exportColumns} rows={visible} university={university} disabled={loading || !visible.length} />
             </div>
           )}
         </div>
       )}
 
-      {loading && !rows ? (
-        <TableSkeleton cols={Math.min(columns.length, 6)} />
+      {loading && safeRows.length === 0 ? (
+        <TableSkeleton cols={Math.min(safeColumns.length || 4, 6)} />
       ) : error ? (
         <ErrorState error={error} onRetry={onRetry} />
       ) : (
@@ -115,7 +131,7 @@ export function DataTable({
           <Table className={dense ? 'table--dense' : undefined}>
             <TableHeader>
               <TableRow>
-                {columns.map((c) => {
+                {safeColumns.map((c) => {
                   const isSortable = sortable !== false && c.sortable !== false && c.header
                   const active = sort?.key === c.key
                   return (
@@ -143,7 +159,7 @@ export function DataTable({
             <TableBody>
               {visible.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="wrap">
+                  <TableCell colSpan={safeColumns.length || 1} className="wrap">
                     <EmptyState
                       compact
                       icon={emptyIcon}
@@ -162,7 +178,7 @@ export function DataTable({
                     tabIndex={onRowClick ? 0 : undefined}
                     className={cn(onRowClick && 'table__row--clickable')}
                   >
-                    {columns.map((c) => (
+                    {safeColumns.map((c) => (
                       <TableCell key={c.key} className={cn(c.align === 'right' && 'num', c.align === 'center' && 'center', c.className)}>
                         {c.cell ? c.cell(r) : (getValue(c, r) ?? '—')}
                       </TableCell>
