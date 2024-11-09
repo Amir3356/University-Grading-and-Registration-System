@@ -12,7 +12,7 @@ import { PageHeader } from '@/components/common/PageHeader'
 import { useQuery } from '@/hooks/useStore'
 import { ROLE_LABELS } from '@/lib/format'
 import { store } from '@/store'
-import { UserActionDialogs, TempPasswordDialog } from './UserActionDialogs'
+import { UserActionDialogs } from './UserActionDialogs'
 import { UserFormDialog, DEPARTMENT_OPTIONS, ADMIN_ROLE_OPTIONS } from './UserFormDialog'
 
 const ROLE_BADGE = { admin: 'default', dept_head: 'primary', teacher: 'info', student: 'secondary' }
@@ -60,7 +60,7 @@ export function UsersPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [action, setAction] = useState(null)
-  const [tempPassword, setTempPassword] = useState(null)
+
 
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
@@ -216,6 +216,7 @@ export function UsersPage() {
                         </TableCell>
                         <TableCell className="tabular font-medium">{identifier}</TableCell>
                         <TableCell>{departmentName}</TableCell>
+
                         <TableCell>
                           <UserRowActions
                             user={{ ...u, name }}
@@ -239,21 +240,10 @@ export function UsersPage() {
         userId={editingId}
         roleOptions={ROLE_OPTIONS}
         defaultRole={roleFilter || 'dept_head'}
-        onCreated={(result) => {
-          if (result?.temporaryPassword) {
-            setTempPassword({
-              name: result.user.name,
-              username: result.user.username,
-              password: result.temporaryPassword,
-              identifier: result.user.identifier,
-              roleId: result.user.roleId,
-            })
-          }
-          refetch()
-        }}
+        onCreated={() => refetch()}
       />
       <UserActionDialogs action={action} onClose={() => setAction(null)} />
-      <TempPasswordDialog result={tempPassword} onClose={() => setTempPassword(null)} />
+
     </>
   )
 }

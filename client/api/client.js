@@ -13,6 +13,7 @@ import {
   setStoredSession,
   clearStoredSession,
 } from '@/lib/storage';
+import { transformKeysToCamel } from '@/lib/caseTransform';
 
 // Re-export storage helpers for backward compatibility
 export {
@@ -153,6 +154,9 @@ apiClient.interceptors.response.use(
   (response) => {
     if (response.status === 204) {
       response.data = null;
+    } else if (response.data) {
+      // Transform snake_case keys to camelCase for all responses
+      response.data = transformKeysToCamel(response.data);
     }
     return response;
   },
