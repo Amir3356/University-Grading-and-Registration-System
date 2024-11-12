@@ -49,7 +49,7 @@ export function useQuery(fn, deps = [], { enabled = true, live = true } = {}) {
     return () => {
       cancelled = true
     }
-  }, [enabled, live ? version : nonce, ...deps])
+  }, [enabled, live ? version : 0, nonce, ...deps])
 
   const refetch = useCallback(() => {
     setState((s) => ({ ...s, loading: true }))

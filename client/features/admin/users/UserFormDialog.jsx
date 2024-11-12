@@ -25,6 +25,14 @@ export const PROGRAM_TYPE_OPTIONS = [
   { value: 'extension', label: 'Extension' },
 ]
 
+export const YEAR_OF_STUDY_OPTIONS = [
+  { value: '1', label: 'Year 1' },
+  { value: '2', label: 'Year 2' },
+  { value: '3', label: 'Year 3' },
+  { value: '4', label: 'Year 4' },
+  { value: '5', label: 'Year 5' },
+]
+
 export const DEPARTMENT_OPTIONS = [
   { value: 'dep_fresh', label: 'Fresh' },
   { value: 'dep_cs', label: 'Computer Science' },
@@ -91,7 +99,7 @@ function OtherFieldErrors({ fieldErrors, shown }) {
   )
 }
 
-const SHOWN_FIELDS = ['firstName', 'lastName', 'username', 'roleId', 'identifier', 'password', 'departmentId', 'programType']
+const SHOWN_FIELDS = ['firstName', 'lastName', 'username', 'roleId', 'identifier', 'password', 'departmentId', 'programType', 'yearOfStudy']
 
 /** Departments from the database, falling back to the static list until lookups load. */
 function useDepartmentOptions() {
@@ -118,6 +126,7 @@ function initialForm(user) {
     departmentId: user?.departmentId ?? p?.department_id ?? '',
     program: p?.program ?? user?.program ?? '',
     programType: (p?.programType ?? p?.program_type ?? user?.programType ?? user?.program_type ?? 'regular').toLowerCase().replace('extensions', 'extension'),
+    yearOfStudy: String(p?.yearOfStudy ?? p?.year_of_study ?? user?.yearOfStudy ?? user?.year_of_study ?? '1'),
     admissionYear: String(p?.admissionYear ?? p?.admission_year ?? new Date().getFullYear()),
     title: p?.title ?? user?.title ?? 'Prof.',
     specialization: p?.specialization ?? '',
@@ -146,6 +155,7 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
     identifier: '',
     departmentId: initialDeptId,
     programType: 'regular',
+    yearOfStudy: '1',
   })
   const lookupDeptOptions = useDepartmentOptions()
   const departmentOptions = customDepartmentOptions ?? lookupDeptOptions
@@ -153,6 +163,7 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
   const [usernameError, setUsernameError] = useState(null)
   const [identifierError, setIdentifierError] = useState(null)
   const [departmentError, setDepartmentError] = useState(null)
+  const [passwordError, setPasswordError] = useState(null)
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e?.target ? e.target.value : e }))
 
   const [save, { loading, fieldErrors }] = useMutation((data) => store.users.createUser(data), {
@@ -181,6 +192,15 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
       return
     }
     setUsernameError(null)
+    if (!form.password || !form.password.trim()) {
+      setPasswordError('Enter a password.')
+      return
+    }
+    if (form.password.trim().length < 6) {
+      setPasswordError('Password must be at least 6 characters.')
+      return
+    }
+    setPasswordError(null)
     const isAdmin = form.roleId === 'admin'
     if (!isAdmin && !form.identifier.trim()) {
       setIdentifierError(form.roleId === 'dept_head' ? 'Enter the Department Head ID.' : form.roleId === 'student' ? 'Enter the Student ID.' : 'Enter the Teacher ID.')
@@ -205,13 +225,13 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
       lastName: rest.join(' '),
       username: form.username.trim(),
       roleId: form.roleId,
-      password: form.password?.trim() ? form.password.trim() : undefined,
+      password: form.password.trim(),
       departmentId,
       department: departmentName,
       email,
       identifier: isAdmin ? `ADM-${form.username.trim()}` : form.identifier.trim(),
       admissionYear: form.roleId === 'student' ? new Date().getFullYear() : undefined,
-      yearOfStudy: form.roleId === 'student' ? 1 : undefined,
+      yearOfStudy: form.roleId === 'student' ? (parseInt(form.yearOfStudy, 10) || 1) : undefined,
       programType: form.roleId === 'student' ? (form.programType || 'regular').toLowerCase().replace('extensions', 'extension') : undefined,
     })
   }
@@ -263,12 +283,15 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
           />
         </FormField>
       )}
-      <FormField label="Password" error={fe.password} hint="Optional. Leave blank to use default 'Password123!'">
+      <FormField label="Password" required error={passwordError ?? fe.password}>
         <PasswordInput
           value={form.password}
-          onChange={set('password')}
+          onChange={(e) => {
+            set('password')(e)
+            if (passwordError) setPasswordError(null)
+          }}
           autoComplete="new-password"
-          placeholder="Enter password (default: Password123!)"
+          placeholder="Enter password"
         />
       </FormField>
       {needsDepartment && (
@@ -284,6 +307,16 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
           placeholder="Select department…"
           error={departmentError ?? fe.departmentId}
           disabled={lockDepartment}
+        />
+      )}
+      {form.roleId === 'student' && (
+        <SelectField
+          label="Current year"
+          required
+          value={String(form.yearOfStudy || '1')}
+          onChange={set('yearOfStudy')}
+          options={YEAR_OF_STUDY_OPTIONS}
+          error={fe.yearOfStudy}
         />
       )}
       {form.roleId === 'student' && (
@@ -310,7 +343,7 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
 }
 
 /** Edit an existing account: full name, username, role, department dropdown, and password. */
-function UserForm({ user, roleOptions: customRoleOptions, departmentOptions: customDepartmentOptions, lockDepartment, onClose }) {
+function UserForm({ user, roleOptions: customRoleOptions, departmentOptions: customDepartmentOptions, lockDepartment, onClose, onUpdated }) {
   const roleOptions =
     customRoleOptions ??
     (user.roleId === 'student'
@@ -348,6 +381,7 @@ function UserForm({ user, roleOptions: customRoleOptions, departmentOptions: cus
         profile: result?.profile,
         user: result?.user || result,
       })
+      onUpdated?.(result)
       onClose()
     },
   })
@@ -386,6 +420,7 @@ function UserForm({ user, roleOptions: customRoleOptions, departmentOptions: cus
       email: form.email?.trim() || undefined,
       phone: form.phone?.trim() || null,
       identifier: isAdmin ? form.identifier?.trim() || `ADM-${form.username.trim()}` : form.identifier?.trim() || undefined,
+      yearOfStudy: form.roleId === 'student' ? (parseInt(form.yearOfStudy, 10) || 1) : undefined,
       programType: form.roleId === 'student' ? (form.programType || 'regular').toLowerCase().replace('extensions', 'extension') : undefined,
       password: form.password?.trim() ? form.password.trim() : undefined,
     }
@@ -452,6 +487,16 @@ function UserForm({ user, roleOptions: customRoleOptions, departmentOptions: cus
       )}
       {form.roleId === 'student' && (
         <SelectField
+          label="Current year"
+          required
+          value={String(form.yearOfStudy || '1')}
+          onChange={set('yearOfStudy')}
+          options={YEAR_OF_STUDY_OPTIONS}
+          error={fe.yearOfStudy}
+        />
+      )}
+      {form.roleId === 'student' && (
+        <SelectField
           label="Program type"
           required
           value={form.programType}
@@ -478,19 +523,19 @@ function UserForm({ user, roleOptions: customRoleOptions, departmentOptions: cus
 }
 
 /** Loads the full user record (profile fields) before showing the edit form. */
-function EditUserForm({ userId, roleOptions, departmentOptions, lockDepartment, onClose }) {
+function EditUserForm({ userId, roleOptions, departmentOptions, lockDepartment, onClose, onUpdated }) {
   const { data, loading, error, refetch } = useQuery(() => store.users.getUser(userId), [userId], { live: false })
   if (loading && !data) return <Spinner label="Loading user…" />
   if (error) return <ErrorState error={error} onRetry={refetch} />
   const userObj = data?.user ? { ...data, ...data.user, profile: data.profile } : data
-  return <UserForm user={userObj} roleOptions={roleOptions} departmentOptions={departmentOptions} lockDepartment={lockDepartment} onClose={onClose} />
+  return <UserForm user={userObj} roleOptions={roleOptions} departmentOptions={departmentOptions} lockDepartment={lockDepartment} onClose={onClose} onUpdated={onUpdated} />
 }
 
 /**
  * Create / edit a user account.
  * userId: edit that user; omitted = create. onCreated({ user, temporaryPassword }) after create.
  */
-export function UserFormDialog({ open, onOpenChange, userId, defaultRole, defaultDepartment, roleOptions, departmentOptions, lockDepartment = false, onCreated }) {
+export function UserFormDialog({ open, onOpenChange, userId, defaultRole, defaultDepartment, roleOptions, departmentOptions, lockDepartment = false, onCreated, onUpdated }) {
   const close = () => onOpenChange(false)
   const isStudentOnly = roleOptions ? roleOptions.every((r) => r.value === 'student') : defaultRole === 'student'
   return (
@@ -507,7 +552,7 @@ export function UserFormDialog({ open, onOpenChange, userId, defaultRole, defaul
           </DialogDescription>
         </DialogHeader>
         {userId ? (
-          <EditUserForm userId={userId} roleOptions={roleOptions} departmentOptions={departmentOptions} lockDepartment={lockDepartment} onClose={close} />
+          <EditUserForm userId={userId} roleOptions={roleOptions} departmentOptions={departmentOptions} lockDepartment={lockDepartment} onClose={close} onUpdated={onUpdated} />
         ) : (
           <CreateUserForm
             defaultRole={defaultRole}

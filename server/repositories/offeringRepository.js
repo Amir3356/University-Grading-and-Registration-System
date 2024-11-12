@@ -217,18 +217,20 @@ export async function createOffering({ id, courseId, semesterId, teacherId, sect
   return res.rows[0];
 }
 
-export async function updateOffering(id, { teacherId, section, capacity, room, schedule }) {
+export async function updateOffering(id, { courseId, semesterId, teacherId, section, capacity, room, schedule }) {
   const res = await query(
     `UPDATE course_offerings
-     SET teacher_id = COALESCE($2, teacher_id),
-         section = COALESCE(UPPER($3), section),
-         capacity = COALESCE($4, capacity),
-         room = $5,
-         schedule = $6,
+     SET course_id = COALESCE($2, course_id),
+         semester_id = COALESCE($3, semester_id),
+         teacher_id = COALESCE($4, teacher_id),
+         section = COALESCE(UPPER($5), section),
+         capacity = COALESCE($6, capacity),
+         room = $7,
+         schedule = $8,
          updated_at = now()
      WHERE id = $1
      RETURNING *`,
-    [id, teacherId, section, capacity, room || null, schedule || null]
+    [id, courseId || null, semesterId || null, teacherId, section, capacity, room || null, schedule || null]
   );
   return res.rows[0] || null;
 }

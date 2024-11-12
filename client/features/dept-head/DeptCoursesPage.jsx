@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+import { FilterSelect } from '@/components/common/FilterSelect'
 import { FormField } from '@/components/common/FormField'
 import { PageHeader } from '@/components/common/PageHeader'
 import { StatusBadge } from '@/components/common/StatusBadge'
@@ -13,14 +14,14 @@ import { useLookups } from '@/context/lookups-context'
 import { useQuery, useMutation } from '@/hooks/useStore'
 import { store } from '@/store'
 import { SelectField } from '../admin/users/SelectField'
-import { DEPARTMENT_OPTIONS, getDepartmentId, getDepartmentName } from '../admin/users/UserFormDialog'
+import { DEPARTMENT_OPTIONS, getDepartmentName } from '../admin/users/UserFormDialog'
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
   { value: 'archived', label: 'Archived' },
 ]
 
-function CourseForm({ course, dept, deptId, onClose }) {
+function CourseForm({ course, dept, deptId, onClose, onCreated }) {
   const { user, profile } = useAuth()
   const lookups = useLookups()
   const isEdit = Boolean(course)
@@ -35,7 +36,11 @@ function CourseForm({ course, dept, deptId, onClose }) {
     user?.department_id ||
     'dep_cs'
 
-  const defaultDeptId = course?.departmentId ?? headDeptId
+  const defaultDeptId =
+    course?.departmentId ??
+    course?.department_id ??
+    lookups?.departments?.find((d) => d.id === course?.department || d.name === course?.department || d.name === course?.departmentName)?.id ??
+    headDeptId
 
   const deptOptions = useMemo(() => {
     if (lookups?.departments?.length) {
@@ -50,14 +55,22 @@ function CourseForm({ course, dept, deptId, onClose }) {
     code: course?.code ?? '',
     title: course?.title ?? '',
     departmentId: defaultDeptId,
-    creditHours: String(course?.creditHours ?? 3),
+    creditHours: String(course?.creditHours ?? course?.credit_hours ?? 3),
     status: course?.status ?? 'active',
   })
+
   const [save, { loading, fieldErrors }] = useMutation(
     (data) =>
       isEdit ? store.academics.updateCourse(course.id, data) : store.academics.createCourse(data),
-    { success: isEdit ? 'Course updated.' : 'Course created.', onSuccess: onClose },
+    {
+      success: isEdit ? 'Course updated.' : 'Course created.',
+      onSuccess: (result, data) => {
+        onCreated?.(data?.departmentId || form.departmentId || defaultDeptId)
+        onClose()
+      },
+    },
   )
+
   const fe = fieldErrors ?? {}
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e?.target ? e.target.value : e }))
 
@@ -68,15 +81,17 @@ function CourseForm({ course, dept, deptId, onClose }) {
       onSubmit={(e) => {
         e.preventDefault()
         const codeNum = parseInt(form.code.replace(/\D/g, ''), 10)
-        const autoLevel = Number.isFinite(codeNum) && codeNum >= 100 && codeNum <= 999 ? Math.floor(codeNum / 100) * 100 : (course?.level ?? 100)
+        const autoLevel = Number.isFinite(codeNum) && codeNum >= 100 && codeNum <= 999
+          ? Math.floor(codeNum / 100) * 100
+          : (course?.level ?? 100)
 
         const resolvedDeptId = form.departmentId || defaultDeptId
         const selectedDept = (lookups?.departments ?? []).find((d) => d.id === resolvedDeptId)
         const deptName = selectedDept?.name || getDepartmentName(resolvedDeptId) || dept?.name || 'Department'
 
         const data = {
-          code: form.code,
-          title: form.title,
+          code: form.code.trim().toUpperCase(),
+          title: form.title.trim(),
           department: deptName,
           departmentId: resolvedDeptId,
           creditHours: form.creditHours,
@@ -89,7 +104,12 @@ function CourseForm({ course, dept, deptId, onClose }) {
     >
       <div className="grid gap-4 sm:grid-cols-[9rem_1fr]">
         <FormField label="Code" required error={fe.code} hint="Letters and numbers (e.g. CS101, BIO1, 101)">
-          <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} maxLength={10} placeholder="e.g. CS101" />
+          <Input
+            value={form.code}
+            onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
+            maxLength={10}
+            placeholder="e.g. CS101"
+          />
         </FormField>
         <FormField label="Course Name" required error={fe.title || fe.courseName}>
           <Input value={form.title} onChange={set('title')} placeholder="e.g. Introduction to Programming" />
@@ -157,47 +177,90 @@ export function DeptCoursesPage() {
     lookups?.departments?.[0]
   const deptId = dept?.id
 
+  const [selectedDeptId, setSelectedDeptId] = useState('')
+
+  const deptOptions = useMemo(() => {
+    if (lookups?.departments?.length) {
+      return lookups.departments
+        .filter((d) => !d.status || d.status === 'active')
+        .map((d) => ({ value: d.id, label: d.name }))
+    }
+    return DEPARTMENT_OPTIONS
+  }, [lookups?.departments])
+
   const { data, loading, error, refetch } = useQuery(
-    () => store.academics.listCourses({ departmentId: deptId, pageSize: 100 }),
-    [deptId],
-    { enabled: Boolean(deptId) },
+    () =>
+      store.academics.listCourses(
+        selectedDeptId && selectedDeptId !== 'all'
+          ? { departmentId: selectedDeptId, pageSize: 100 }
+          : { departmentId: 'all', pageSize: 100 },
+      ),
+    [selectedDeptId],
   )
+
   const [dialog, setDialog] = useState({ open: false, course: null })
   const [deleting, setDeleting] = useState(null)
   const [remove] = useMutation((id) => store.academics.deleteCourse(id), { success: 'Course deleted.' })
+
+  const coursesList = useMemo(() => {
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data?.items)) return data.items
+    return []
+  }, [data])
+
+  const currentDept =
+    (lookups?.departments ?? []).find((d) => d.id === (selectedDeptId || deptId)) || dept
 
   const columns = useMemo(
     () => [
       {
         accessorKey: 'code',
         header: 'Course Code',
-        cell: (info) => <span className="font-medium text-foreground">{info.getValue()}</span>,
+        cell: (info) => (
+          <span className="font-medium text-foreground">
+            {info.getValue() || info.row.original.code}
+          </span>
+        ),
       },
       {
         accessorKey: 'title',
-        header: 'coursename',
-        cell: (info) => <span className="font-semibold text-foreground">{info.getValue()}</span>,
+        header: 'Course Name',
+        cell: (info) => (
+          <span className="font-semibold text-foreground">
+            {info.getValue() || info.row.original.title}
+          </span>
+        ),
       },
       {
         id: 'department',
         header: 'Department',
         accessorFn: (row) => {
-          const dId = row.departmentId || deptId
-          const department = (lookups?.departments ?? []).find((d) => d.id === dId) || dept
-          return department?.name ?? 'Computer Science'
+          const dId = row.departmentId || row.department_id || (selectedDeptId || deptId)
+          const matchedDept = (lookups?.departments ?? []).find((d) => d.id === dId)
+          return (
+            row.departmentName ||
+            row.department_name ||
+            matchedDept?.name ||
+            row.department?.name ||
+            (typeof row.department === 'string' ? row.department : null) ||
+            dept?.name ||
+            '—'
+          )
         },
         cell: (info) => <span className="text-muted-foreground">{info.getValue()}</span>,
       },
       {
-        accessorKey: 'creditHours',
+        id: 'creditHours',
         header: 'Credits',
+        accessorFn: (row) => row.creditHours ?? row.credit_hours ?? '',
         cell: (info) => info.getValue(),
         meta: { align: 'right' },
       },
       {
-        accessorKey: 'status',
+        id: 'status',
         header: 'Status',
-        cell: (info) => <StatusBadge status={info.getValue()} />,
+        accessorFn: (row) => row.status ?? 'active',
+        cell: (info) => <StatusBadge status={info.getValue() || 'active'} />,
       },
       {
         id: 'actions',
@@ -232,13 +295,13 @@ export function DeptCoursesPage() {
         },
       },
     ],
-    [dept, deptId, lookups?.departments],
+    [dept, deptId, selectedDeptId, lookups?.departments],
   )
 
   return (
     <>
       <PageHeader
-        title={`${dept?.name ?? 'Department'} — Courses`}
+        title={`${selectedDeptId && selectedDeptId !== 'all' ? (currentDept?.name ?? 'Department') : 'All Departments'} — Courses`}
         description="Courses offered and curriculum catalogue for this department."
         centered
         actions={
@@ -249,15 +312,25 @@ export function DeptCoursesPage() {
       />
       <TanStackTable
         columns={columns}
-        data={data?.items}
+        data={coursesList}
         loading={loading}
         error={error}
         onRetry={refetch}
-        searchPlaceholder="Search course code, coursename, or department…"
+        searchPlaceholder="Search course code, course name, or department…"
         initialSort={[{ id: 'code', desc: false }]}
         emptyIcon={BookOpen}
         emptyTitle="No courses found"
         emptyDescription="Add the first course to this department."
+        toolbar={
+          <FilterSelect
+            value={selectedDeptId}
+            onChange={(val) => setSelectedDeptId(val)}
+            options={deptOptions}
+            allLabel="All Departments"
+            placeholder="Department"
+            className="filter-select--dept"
+          />
+        }
       />
 
       <Dialog open={dialog.open} onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}>
@@ -265,7 +338,9 @@ export function DeptCoursesPage() {
           <DialogHeader>
             <DialogTitle>{dialog.course ? `Edit ${dialog.course.code}` : 'Add course'}</DialogTitle>
             <DialogDescription>
-              {dialog.course ? 'Credit hours cannot change after grades have been published for this course.' : 'Add a course to the department catalogue.'}
+              {dialog.course
+                ? 'Credit hours cannot change after grades have been published for this course.'
+                : 'Add a course to the department catalogue.'}
             </DialogDescription>
           </DialogHeader>
           <CourseForm
@@ -274,6 +349,12 @@ export function DeptCoursesPage() {
             dept={dept}
             deptId={deptId}
             onClose={() => setDialog((d) => ({ ...d, open: false }))}
+            onCreated={(newDeptId) => {
+              if (selectedDeptId && selectedDeptId !== 'all' && newDeptId && newDeptId !== selectedDeptId) {
+                setSelectedDeptId(newDeptId)
+              }
+              refetch()
+            }}
           />
         </DialogContent>
       </Dialog>

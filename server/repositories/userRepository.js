@@ -139,6 +139,10 @@ export async function getUserProfile(userId, roleId) {
     const res = await query(
       `SELECT s.id, s.student_number, s.department_id, s.program_id,
               s.program_type, s.admission_year, s.year_of_study, s.date_of_birth, s.academic_status,
+              s.year_of_study as "yearOfStudy",
+              s.program_type as "programType",
+              s.student_number as "studentNumber",
+              s.department_id as "departmentId",
               p.name as program,
               json_build_object('id', d.id, 'code', d.code, 'name', d.name) as department
        FROM students s
@@ -257,6 +261,8 @@ export async function listUsers({ search, role, status, departmentId, managedBy,
     departmentId: row.department_id,
     passwordHash: row.password_hash,
     isSeed: Boolean(row.is_seed),
+    yearOfStudy: row.year_of_study,
+    programType: row.program_type,
   }));
 
   return { items: formattedItems, total };
@@ -340,13 +346,23 @@ export async function listStudents({ search, departmentId, programId, programTyp
   return { items: dataRes.rows, total };
 }
 
-export async function listTeachers({ departmentId, currentSemesterId }) {
+export async function listTeachers({ departmentId, currentSemesterId, managedBy } = {}) {
   const params = [];
-  let deptCondition = '';
-  if (departmentId) {
+  const conditions = [];
+
+  if (managedBy) {
+    params.push(managedBy.departmentId);
+    const deptIdx = params.length;
+    params.push(managedBy.userId);
+    const userIdx = params.length;
+    conditions.push(`(t.department_id = $${deptIdx} OR u.created_by = $${userIdx})`);
+  } else if (departmentId) {
     params.push(departmentId);
-    deptCondition = `WHERE t.department_id = $${params.length}`;
+    conditions.push(`t.department_id = $${params.length}`);
   }
+
+  conditions.push(`u.status = 'active'`);
+  conditions.push(`u.role_id = 'teacher'`);
 
   let semParam = '';
   if (currentSemesterId) {
@@ -354,17 +370,19 @@ export async function listTeachers({ departmentId, currentSemesterId }) {
     semParam = `AND co.semester_id = $${params.length}`;
   }
 
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
   const sql = `
     SELECT t.id, t.employee_number, t.department_id, t.title, t.specialization, t.office_room, t.hire_date,
-           u.id as user_id, u.first_name, u.last_name, u.email, u.phone, u.status,
-           (t.title || ' ' || u.first_name || ' ' || u.last_name) as name,
+           u.id as user_id, u.first_name, u.last_name, u.email, u.phone, u.status, u.role_id,
+           (u.first_name || ' ' || u.last_name) as name,
            d.name as department_name, d.code as department_code,
            COUNT(co.id) FILTER (WHERE 1=1 ${semParam}) as offering_count
     FROM teachers t
     JOIN users u ON u.id = t.user_id
     LEFT JOIN departments d ON d.id = t.department_id
     LEFT JOIN course_offerings co ON co.teacher_id = t.id
-    ${deptCondition}
+    ${whereClause}
     GROUP BY t.id, u.id, d.id
     ORDER BY u.first_name ASC
   `;

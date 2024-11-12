@@ -78,11 +78,11 @@ export async function getLookups(user) {
     lookups.teachers = await listTeachers({ currentSemesterId: currentSemester?.id });
     const studentsRes = await listStudents({ status: 'active', pageSize: 'all' });
     lookups.students = studentsRes.items;
-  } else if (user?.roleId === 'dept_head' && user?.departmentId) {
+  } else if (user?.roleId === 'dept_head') {
     const { listCourses } = await import('../repositories/courseRepository.js');
     const { listTeachers, listStudents } = await import('../repositories/userRepository.js');
-    lookups.courses = await listCourses({ departmentId: user.departmentId });
-    lookups.teachers = await listTeachers({ departmentId: user.departmentId, currentSemesterId: currentSemester?.id });
+    lookups.courses = await listCourses();
+    lookups.teachers = await listTeachers({ currentSemesterId: currentSemester?.id });
     const studentsRes = await listStudents({ departmentId: user.departmentId, status: 'active', pageSize: 'all' });
     lookups.students = studentsRes.items;
   }

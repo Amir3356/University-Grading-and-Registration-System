@@ -35,12 +35,18 @@ export async function createOffering(data, caller) {
     throw new ValidationError('Capacity must be between 1 and 500.', { capacity: 'Must be between 1 and 500.' });
   }
 
+  let resolvedTeacherId = data.teacherId;
+  const tRes = await query(`SELECT id, user_id FROM teachers WHERE id = $1 OR user_id = $1 LIMIT 1`, [data.teacherId]);
+  if (tRes.rows.length > 0) {
+    resolvedTeacherId = tRes.rows[0].id;
+  }
+
   const id = newId('off');
   const offering = await offRepo.createOffering({
     id,
     courseId: data.courseId,
     semesterId: data.semesterId,
-    teacherId: data.teacherId,
+    teacherId: resolvedTeacherId,
     section: data.section.trim(),
     capacity,
     room: data.room,
@@ -48,13 +54,13 @@ export async function createOffering(data, caller) {
   });
 
   // Notify teacher of assignment
-  const tRes = await query(`SELECT user_id FROM teachers WHERE id = $1`, [data.teacherId]);
-  if (tRes.rows.length > 0) {
+  const teacherUserId = tRes.rows[0]?.user_id;
+  if (teacherUserId) {
     const notifId = newId('ntf');
     await query(
       `INSERT INTO notifications (id, user_id, title, message, type, link)
        VALUES ($1, $2, 'New Teaching Assignment', 'You have been assigned to teach a course offering this semester.', 'assignment', $3)`,
-      [notifId, tRes.rows[0].user_id, `/teacher/courses/${id}`]
+      [notifId, teacherUserId, `/teacher/courses/${id}`]
     );
   }
 
@@ -69,8 +75,16 @@ export async function updateOffering(id, data, caller) {
     throw new ForbiddenError('You can only update offerings in your department.');
   }
 
+  let resolvedTeacherId = data.teacherId;
+  if (data.teacherId) {
+    const tCheck = await query(`SELECT id FROM teachers WHERE id = $1 OR user_id = $1 LIMIT 1`, [data.teacherId]);
+    if (tCheck.rows.length > 0) {
+      resolvedTeacherId = tCheck.rows[0].id;
+    }
+  }
+
   // Teacher cannot change after grades submitted
-  if (data.teacherId && data.teacherId !== existing.teacher_id) {
+  if (resolvedTeacherId && resolvedTeacherId !== existing.teacher_id) {
     if (['submitted', 'approved', 'published'].includes(existing.grade_status)) {
       throw new ConflictError('Cannot change the assigned teacher after final grades have been submitted.');
     }
@@ -86,7 +100,7 @@ export async function updateOffering(id, data, caller) {
     }
   }
 
-  await offRepo.updateOffering(id, data);
+  await offRepo.updateOffering(id, { ...data, teacherId: resolvedTeacherId });
   return await offRepo.getOfferingById(id);
 }
 

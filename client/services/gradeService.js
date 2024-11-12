@@ -27,8 +27,8 @@ export {
   weightsAreValid,
   validateMark,
   computeWeightedTotal,
-  gradeForScore,
   isPassing,
+  gradeForScore,
   validateGradeScale,
   computeAcademicRecord,
 };

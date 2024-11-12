@@ -596,12 +596,15 @@ export async function deleteUser(id, caller) {
     await assertDeptHeadCanManage(caller, id, 'You can only delete users in your department or accounts you created.');
   }
 
-  const enrRes = await query(
-    `SELECT count(*) as count FROM course_enrollments ce JOIN students s ON s.id = ce.student_id WHERE s.user_id = $1`,
+  const finalGradesRes = await query(
+    `SELECT count(*) as count FROM final_grades fg
+     JOIN course_enrollments ce ON ce.id = fg.enrollment_id
+     JOIN students s ON s.id = ce.student_id
+     WHERE s.user_id = $1`,
     [id]
   );
-  if (parseInt(enrRes.rows[0]?.count || '0', 10) > 0) {
-    throw new ConflictError('Cannot delete user: student has active enrollment history. Deactivate the user instead.');
+  if (parseInt(finalGradesRes.rows[0]?.count || '0', 10) > 0) {
+    throw new ConflictError('Cannot delete user: student has finalized grades on academic record. Deactivate the user instead.');
   }
 
   const offRes = await query(
@@ -613,8 +616,60 @@ export async function deleteUser(id, caller) {
   }
 
   return await withTransaction(async (client) => {
+    // 1. Delete student withdrawal clearances & requests
+    await client.query(
+      `DELETE FROM withdrawal_clearances WHERE request_id IN (
+         SELECT id FROM withdrawal_requests WHERE student_id IN (SELECT id FROM students WHERE user_id = $1)
+       )`,
+      [id]
+    );
+    await client.query(
+      `DELETE FROM withdrawal_requests WHERE student_id IN (SELECT id FROM students WHERE user_id = $1)`,
+      [id]
+    );
+
+    // 2. Delete student assessments, grades, and enrollments
+    await client.query(
+      `DELETE FROM assessment_scores WHERE enrollment_id IN (
+         SELECT id FROM course_enrollments WHERE student_id IN (SELECT id FROM students WHERE user_id = $1)
+       )`,
+      [id]
+    );
+    await client.query(
+      `DELETE FROM final_grades WHERE enrollment_id IN (
+         SELECT id FROM course_enrollments WHERE student_id IN (SELECT id FROM students WHERE user_id = $1)
+       )`,
+      [id]
+    );
+    await client.query(
+      `DELETE FROM course_enrollments WHERE student_id IN (SELECT id FROM students WHERE user_id = $1)`,
+      [id]
+    );
+
+    // 3. Delete student semester registrations
+    await client.query(
+      `DELETE FROM semester_registrations WHERE student_id IN (SELECT id FROM students WHERE user_id = $1)`,
+      [id]
+    );
+
+    // 4. Delete student profile
     await client.query(`DELETE FROM students WHERE user_id = $1`, [id]);
+
+    // 5. Clean up teacher records if teacher
+    await client.query(
+      `UPDATE departments SET head_teacher_id = NULL WHERE head_teacher_id IN (SELECT id FROM teachers WHERE user_id = $1)`,
+      [id]
+    );
     await client.query(`DELETE FROM teachers WHERE user_id = $1`, [id]);
+
+    // 6. Nullify any audit/review references if present
+    await client.query(`UPDATE semester_registrations SET reviewed_by = NULL WHERE reviewed_by = $1`, [id]);
+    await client.query(`UPDATE withdrawal_requests SET decided_by = NULL WHERE decided_by = $1`, [id]);
+    await client.query(`UPDATE withdrawal_clearances SET cleared_by = NULL WHERE cleared_by = $1`, [id]);
+
+    // 7. Clean up notifications, refresh tokens, and user row
+    await client.query(`DELETE FROM notifications WHERE user_id = $1`, [id]);
+    await client.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [id]);
     await client.query(`DELETE FROM users WHERE id = $1`, [id]);
 
     return { ok: true };
@@ -702,6 +757,7 @@ export async function listTeachers(queryFilters = {}, user = null) {
   const query = { ...queryFilters };
   if (user?.roleId === 'dept_head') {
     query.departmentId = user.departmentId;
+    query.managedBy = { departmentId: user.departmentId, userId: user.id };
   }
   return await userRepo.listTeachers(query);
 }

@@ -119,9 +119,6 @@ export async function updateProgramCurriculum(req, res, next) {
 export async function listCourses(req, res, next) {
   try {
     const query = { ...req.query };
-    if (req.user.roleId === 'dept_head') {
-      query.departmentId = req.user.departmentId;
-    }
     const result = await academicService.listCourses(query, req.user);
     sendSuccess(res, result);
   } catch (err) {

@@ -80,3 +80,31 @@ export function PassFailBadge({ passed }) {
     </Badge>
   )
 }
+
+const PROGRAM_OPTIONS = [
+  { value: 'regular', label: 'Regular' },
+  { value: 'weekend', label: 'Weekend' },
+  { value: 'extension', label: 'Extension' },
+]
+
+const PROGRAM_BADGE_CLASS = {
+  regular: 'border-blue-200 text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/20',
+  extension: 'border-purple-200 text-purple-700 dark:text-purple-400 bg-purple-50/50 dark:bg-purple-950/20',
+  weekend: 'border-amber-200 text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20',
+}
+
+/** Program type badge (Regular, Extension, Weekend) */
+export function ProgramTypeBadge({ programType, className }) {
+  if (!programType) return <span className="text-muted-foreground">—</span>
+  const key = String(programType).toLowerCase()
+  const label = PROGRAM_OPTIONS.find((o) => o.value === key)?.label ?? programType
+  return (
+    <Badge
+      variant="outline"
+      className={cn('text-[11px] font-medium whitespace-nowrap', PROGRAM_BADGE_CLASS[key] ?? PROGRAM_BADGE_CLASS.weekend, className)}
+    >
+      {label}
+    </Badge>
+  )
+}
+

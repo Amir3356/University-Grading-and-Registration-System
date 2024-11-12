@@ -315,17 +315,16 @@ a.stat-card:hover {
 
 .toolbar--split__right {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
   gap: 0.5rem;
   width: 100%;
 }
 
 @media (min-width: 640px) {
   .toolbar--split__right {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
     margin-left: auto;
     width: auto;
   }
@@ -347,7 +346,8 @@ a.stat-card:hover {
 
 @media (min-width: 640px) {
   .filter-select--dept {
-    width: 13rem;
+    width: 15rem;
+    min-width: 13rem;
   }
 }
 
