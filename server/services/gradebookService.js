@@ -48,6 +48,21 @@ export async function saveScores(offeringId, { changes, reason }, caller) {
     enrMap[r.enrollmentId] = r;
   }
 
+  // Auto-resolve or create enrollment for students passed by studentId
+  for (const change of changes) {
+    if (!change.enrollmentId && change.studentId) {
+      const enr = await gbRepo.findOrCreateEnrollment(offeringId, change.studentId);
+      change.enrollmentId = enr.id;
+      if (!enrMap[enr.id]) {
+        enrMap[enr.id] = {
+          enrollmentId: enr.id,
+          enrollment: { status: enr.status, isRepeat: enr.is_repeat },
+          marks: {},
+        };
+      }
+    }
+  }
+
   // Field validation
   const fieldErrors = {};
   for (const change of changes) {

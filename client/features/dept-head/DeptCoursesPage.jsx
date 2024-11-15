@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { BookOpen, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -163,21 +163,36 @@ export function DeptCoursesPage() {
     profile?.department_id ??
     profile?.department?.id ??
     user?.departmentId ??
-    user?.department_id
+    user?.department_id ??
+    (lookups?.departments ?? []).find(
+      (d) =>
+        (d.headTeacherId && (d.headTeacherId === profile?.id || d.headTeacherId === user?.id)) ||
+        (d.head_teacher_id && (d.head_teacher_id === profile?.id || d.head_teacher_id === user?.id))
+    )?.id ??
+    (lookups?.teachers ?? []).find(
+      (t) => (t.userId && t.userId === user?.id) || (t.user_id && t.user_id === user?.id) || t.id === profile?.id
+    )?.departmentId ??
+    'dep_cs'
 
   const dept =
     (lookups?.departments ?? []).find(
       (d) =>
-        (d.headTeacherId && d.headTeacherId === profile?.id) ||
-        (d.head_teacher_id && d.head_teacher_id === profile?.id) ||
+        (d.headTeacherId && (d.headTeacherId === profile?.id || d.headTeacherId === user?.id)) ||
+        (d.head_teacher_id && (d.head_teacher_id === profile?.id || d.head_teacher_id === user?.id)) ||
         d.id === headDeptId,
     ) ||
     (headDeptId ? (lookups?.departments ?? []).find((d) => d.id === headDeptId) : null) ||
     lookups?.departments?.find((d) => d.id === 'dep_cs') ||
     lookups?.departments?.[0]
-  const deptId = dept?.id
+  const deptId = dept?.id || headDeptId
 
-  const [selectedDeptId, setSelectedDeptId] = useState('')
+  const [selectedDeptId, setSelectedDeptId] = useState(headDeptId || deptId || 'dep_cs')
+
+  useEffect(() => {
+    if (headDeptId && (!selectedDeptId || selectedDeptId === 'all')) {
+      setSelectedDeptId(headDeptId)
+    }
+  }, [headDeptId])
 
   const deptOptions = useMemo(() => {
     if (lookups?.departments?.length) {

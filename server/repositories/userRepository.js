@@ -440,7 +440,7 @@ export async function getStudentById(id) {
 
 export async function getTeacherById(id) {
   const res = await query(
-    `SELECT t.*, (t.title || ' ' || u.first_name || ' ' || u.last_name) as name, u.email, u.phone, u.status,
+    `SELECT t.*, (u.first_name || ' ' || u.last_name) as name, u.email, u.phone, u.status,
             d.name as department_name, d.code as department_code
      FROM teachers t
      JOIN users u ON u.id = t.user_id

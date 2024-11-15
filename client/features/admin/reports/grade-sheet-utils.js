@@ -11,7 +11,7 @@ export function gradeSheetExportColumns(assessments) {
   return [
     { header: 'Student ID', value: (r) => r.student?.studentNumber },
     { header: 'Name', value: (r) => r.student?.name },
-    ...assessments.map((a) => ({ header: `${a.name} (/${a.maxMarks}, ${a.weight}%)`, value: (r) => r.marks[a.id] ?? '' })),
+    ...assessments.map((a) => ({ header: `${a.name} (/${a.maxMarks}, ${a.weight}%)`, value: (r) => r.marks?.[a.id] ?? r.marks?.[a.id.replace(/_([a-z])/g, (_, l) => l.toUpperCase())] ?? '' })),
     { header: 'Total', value: (r) => (isWithdrawn(r) ? '' : r.total) },
     { header: 'Letter', value: (r) => r.letter ?? '' },
     { header: 'Points', value: (r) => (r.gradePoints != null ? r.gradePoints.toFixed(2) : '') },

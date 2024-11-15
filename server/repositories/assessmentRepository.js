@@ -14,6 +14,9 @@ export async function listAssessmentsByOffering(offeringId) {
   const res = await query(sql, [offeringId]);
   return res.rows.map((row) => ({
     ...row,
+    dueDate: row.due_date,
+    isReleased: row.is_released,
+    offeringId: row.offering_id,
     maxMarks: parseFloat(row.max_marks),
     weight: parseFloat(row.weight),
     scoreCount: parseInt(row.score_count || '0', 10),
@@ -22,7 +25,16 @@ export async function listAssessmentsByOffering(offeringId) {
 
 export async function findById(id) {
   const res = await query(`SELECT * FROM assessments WHERE id = $1`, [id]);
-  return res.rows[0] || null;
+  const row = res.rows[0];
+  if (!row) return null;
+  return {
+    ...row,
+    dueDate: row.due_date,
+    isReleased: row.is_released,
+    offeringId: row.offering_id,
+    maxMarks: parseFloat(row.max_marks),
+    weight: parseFloat(row.weight),
+  };
 }
 
 export async function createAssessment({ id, offeringId, name, type, maxMarks, weight, dueDate, description }) {
@@ -32,24 +44,49 @@ export async function createAssessment({ id, offeringId, name, type, maxMarks, w
      RETURNING *`,
     [id, offeringId, name, type, maxMarks, weight, dueDate, description || null]
   );
-  return res.rows[0];
+  const row = res.rows[0];
+  return {
+    ...row,
+    dueDate: row.due_date,
+    isReleased: row.is_released,
+    offeringId: row.offering_id,
+    maxMarks: parseFloat(row.max_marks),
+    weight: parseFloat(row.weight),
+  };
 }
 
 export async function updateAssessment(id, { name, type, maxMarks, weight, dueDate, description }) {
   const res = await query(
     `UPDATE assessments
-     SET name = COALESCE($2, name),
-         type = COALESCE($3, type),
-         max_marks = COALESCE($4, max_marks),
-         weight = COALESCE($5, weight),
-         due_date = COALESCE($6, due_date),
-         description = $7,
+     SET name = COALESCE($2::text, name),
+         type = COALESCE($3::text, type),
+         max_marks = COALESCE($4::numeric, max_marks),
+         weight = COALESCE($5::numeric, weight),
+         due_date = COALESCE($6::date, due_date),
+         description = CASE WHEN $7::text IS NULL THEN description ELSE NULLIF($7::text, '__CLEAR__') END,
          updated_at = now()
      WHERE id = $1
      RETURNING *`,
-    [id, name, type, maxMarks, weight, dueDate, description || null]
+    [
+      id,
+      name ?? null,
+      type ?? null,
+      maxMarks != null ? maxMarks : null,
+      weight != null ? weight : null,
+      dueDate ?? null,
+      description !== undefined ? (description || '__CLEAR__') : null,
+    ]
   );
-  return res.rows[0] || null;
+  const row = res.rows[0];
+  if (!row) return null;
+  return {
+    ...row,
+    dueDate: row.due_date,
+    isReleased: row.is_released,
+    offeringId: row.offering_id,
+    maxMarks: parseFloat(row.max_marks),
+    weight: parseFloat(row.weight),
+  };
 }
 
 export async function deleteAssessment(id) {
@@ -66,7 +103,16 @@ export async function setReleased(id, isReleased) {
      RETURNING *`,
     [id, isReleased]
   );
-  return res.rows[0] || null;
+  const row = res.rows[0];
+  if (!row) return null;
+  return {
+    ...row,
+    dueDate: row.due_date,
+    isReleased: row.is_released,
+    offeringId: row.offering_id,
+    maxMarks: parseFloat(row.max_marks),
+    weight: parseFloat(row.weight),
+  };
 }
 
 export async function hasScores(assessmentId) {

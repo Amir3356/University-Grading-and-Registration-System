@@ -30,7 +30,7 @@ export function ImportScoresDialog({ gb, onClose, onApplied }) {
     const columns = [
       { header: 'student_id', value: (r) => r.student.studentNumber },
       { header: 'name', value: (r) => r.student.name },
-      ...gb.assessments.map((a) => ({ header: a.name, value: (r) => r.marks[a.id] ?? '' })),
+      ...gb.assessments.map((a) => ({ header: a.name, value: (r) => r.marks?.[a.id] ?? r.marks?.[a.id.replace(/_([a-z])/g, (_, l) => l.toUpperCase())] ?? '' })),
     ]
     exportCsv(`${o.course.code}_marks_template`, columns, gb.rows.filter((r) => r.enrollment.status !== 'withdrawn'))
   }
@@ -59,7 +59,8 @@ export function ImportScoresDialog({ gb, onClose, onApplied }) {
   let modified = 0
   let unchanged = 0
   for (const c of preview?.changes ?? []) {
-    const orig = byEnrollment.get(c.enrollmentId)?.marks[c.assessmentId]
+    const origMarks = byEnrollment.get(c.enrollmentId)?.marks
+    const orig = origMarks?.[c.assessmentId] ?? origMarks?.[c.assessmentId?.replace(/_([a-z])/g, (_, l) => l.toUpperCase())]
     if (orig == null) added++
     else if (orig !== c.marks) modified++
     else unchanged++

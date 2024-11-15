@@ -327,7 +327,7 @@ export async function listStudentCourses(studentId, { academicYearId, semesterId
            s.id as semester_id, s.name as semester_name, s.term as semester_term, s.is_current as semester_is_current,
            ay.id as academic_year_id, ay.name as academic_year_name,
            t.id as teacher_id, t.office_room as teacher_office_room,
-           (t.title || ' ' || u.first_name || ' ' || u.last_name) as teacher_name,
+           (u.first_name || ' ' || u.last_name) as teacher_name,
            u.email as teacher_email,
            COALESCE(SUM(a.weight), 0) as weight_total,
            fg.id as final_grade_id, fg.total_score, fg.letter as final_letter,

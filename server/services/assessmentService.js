@@ -41,7 +41,7 @@ export async function createAssessment(offeringId, data, caller) {
     errors.weight = 'Weight must be between 0.5% and 100%.';
   }
 
-  if (!data.dueDate) errors.dueDate = 'Due date is required.';
+  const dueDate = data.dueDate || new Date().toISOString().slice(0, 10);
 
   if (Object.keys(errors).length > 0) throw new ValidationError('Invalid assessment data.', errors);
 
@@ -70,8 +70,8 @@ export async function createAssessment(offeringId, data, caller) {
     type: data.type,
     maxMarks,
     weight,
-    dueDate: data.dueDate,
-    description: data.description,
+    dueDate,
+    description: data.description || null,
   });
 
   return asm;
@@ -82,8 +82,23 @@ export async function updateAssessment(id, data, caller) {
   if (!existing) throw new NotFoundError('Assessment');
 
   const offering = await getOfferingById(existing.offering_id);
+  if (!offering) throw new NotFoundError('Course offering');
+
+  if (caller.roleId === 'teacher' && offering.teacher_id !== caller.teacherId) {
+    throw new ForbiddenError('You can only update assessments for offerings assigned to you.');
+  }
+
   if (['submitted', 'approved', 'published'].includes(offering.grade_status)) {
     throw new ConflictError('Cannot update assessments: final grades for this offering have already been submitted.');
+  }
+
+  if (data.name?.trim()) {
+    const existingList = await asmRepo.listAssessmentsByOffering(existing.offering_id);
+    if (existingList.some((a) => a.id !== id && a.name.toLowerCase() === data.name.trim().toLowerCase())) {
+      throw new ValidationError('An assessment with this name already exists in this course.', {
+        name: 'Assessment name must be unique.',
+      });
+    }
   }
 
   if (data.maxMarks) {
@@ -116,6 +131,12 @@ export async function deleteAssessment(id, caller) {
   if (!existing) throw new NotFoundError('Assessment');
 
   const offering = await getOfferingById(existing.offering_id);
+  if (!offering) throw new NotFoundError('Course offering');
+
+  if (caller.roleId === 'teacher' && offering.teacher_id !== caller.teacherId) {
+    throw new ForbiddenError('You can only delete assessments for offerings assigned to you.');
+  }
+
   if (['submitted', 'approved', 'published'].includes(offering.grade_status)) {
     throw new ConflictError('Cannot delete assessments: final grades for this offering have already been submitted.');
   }
@@ -132,6 +153,13 @@ export async function deleteAssessment(id, caller) {
 export async function releaseAssessment(id, isReleased, caller) {
   const existing = await asmRepo.findById(id);
   if (!existing) throw new NotFoundError('Assessment');
+
+  const offering = await getOfferingById(existing.offering_id);
+  if (!offering) throw new NotFoundError('Course offering');
+
+  if (caller.roleId === 'teacher' && offering.teacher_id !== caller.teacherId) {
+    throw new ForbiddenError('You can only release assessments for offerings assigned to you.');
+  }
 
   const updated = await asmRepo.setReleased(id, isReleased);
 

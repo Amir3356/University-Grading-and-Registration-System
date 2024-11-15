@@ -1,5 +1,6 @@
 import * as offeringService from '../services/offeringService.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
+import { broadcastEvent } from '../config/websocket.js';
 
 export async function listOfferings(req, res, next) {
   try {
@@ -22,6 +23,7 @@ export async function getOffering(req, res, next) {
 export async function createOffering(req, res, next) {
   try {
     const offering = await offeringService.createOffering(req.body, req.user);
+    broadcastEvent('OFFERING_CREATED', offering);
     sendCreated(res, offering);
   } catch (err) {
     next(err);
@@ -31,6 +33,7 @@ export async function createOffering(req, res, next) {
 export async function updateOffering(req, res, next) {
   try {
     const offering = await offeringService.updateOffering(req.params.id, req.body, req.user);
+    broadcastEvent('OFFERING_UPDATED', offering);
     sendSuccess(res, offering);
   } catch (err) {
     next(err);
@@ -40,6 +43,7 @@ export async function updateOffering(req, res, next) {
 export async function deleteOffering(req, res, next) {
   try {
     const result = await offeringService.deleteOffering(req.params.id, req.user);
+    broadcastEvent('OFFERING_DELETED', { id: req.params.id });
     sendSuccess(res, result);
   } catch (err) {
     next(err);
@@ -50,6 +54,7 @@ export async function assignTeacher(req, res, next) {
   try {
     const { teacherId } = req.body;
     const offering = await offeringService.updateOffering(req.params.id, { teacherId }, req.user);
+    broadcastEvent('OFFERING_UPDATED', offering);
     sendSuccess(res, offering);
   } catch (err) {
     next(err);

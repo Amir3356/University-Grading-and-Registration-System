@@ -1,16 +1,17 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Pencil, Plus, Trash2, UserCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { DataTable } from '@/components/common/DataTable'
+import { FilterSelect } from '@/components/common/FilterSelect'
 import { FormField } from '@/components/common/FormField'
 import { PageHeader } from '@/components/common/PageHeader'
 import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery, useMutation } from '@/hooks/useStore'
-import { formatSemesterTerm } from '@/lib/format'
+import { formatSemesterTerm, formatYearOfStudy, getCourseStudyYear } from '@/lib/format'
 import { onUserChange } from '@/lib/syncEvents'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
@@ -18,12 +19,117 @@ import { SelectField } from '../users/SelectField'
 
 const LOCKED = ['submitted', 'approved', 'published']
 
-const teacherLabel = (t) => {
-  const dept = t.departmentName || t.department_name || t.departmentCode || t.department_code || t.department?.name || t.department?.code
-  return dept ? `${t.name} — ${dept}` : t.name
+export const cleanTeacherName = (name) => {
+  if (!name) return ''
+  return name.replace(/^Dr\.?\s+/i, '').trim()
 }
 
-function OfferingForm({ offering, defaultSemesterId, onClose }) {
+export const formatSemesterOptionLabel = (s, academicYears = []) => {
+  if (!s) return '—'
+
+  const termLower = String(s.term || '').toLowerCase()
+  const nameLower = String(s.name || '').toLowerCase()
+  let termLabel = ''
+  if (termLower === 'first' || termLower === 'fall' || termLower === '1' || /first|fall|\b1st\b/i.test(nameLower)) {
+    termLabel = 'First Semester'
+  } else if (termLower === 'second' || termLower === 'spring' || termLower === '2' || /second|spring|\b2nd\b/i.test(nameLower)) {
+    termLabel = 'Second Semester'
+  } else if (s.term) {
+    termLabel = `${s.term} Semester`
+  } else {
+    termLabel = 'First Semester'
+  }
+
+  let year = ''
+  const nameMatch = String(s.name || '').match(/\b(20\d\d)\b/)
+  if (nameMatch) {
+    year = nameMatch[1]
+  }
+
+  if (!year) {
+    const ayId = s.academic_year_id ?? s.academicYearId ?? s.academic_year?.id
+    const ay = (academicYears ?? []).find((y) => y.id === ayId) || s.academic_year
+    const ayMatch = String(ay?.name || ay?.id || '').match(/\b(20\d\d)\b/)
+    if (ayMatch) year = ayMatch[1]
+  }
+
+  if (!year && (s.academic_year_id || s.academicYearId)) {
+    const ayIdMatch = String(s.academic_year_id || s.academicYearId).match(/\b(20\d\d)\b/)
+    if (ayIdMatch) year = ayIdMatch[1]
+  }
+
+  if (!year && (s.startDate || s.start_date)) {
+    const d = new Date(s.startDate || s.start_date)
+    let y = d.getFullYear()
+    if (termLabel === 'Second Semester' && d.getMonth() < 7) {
+      y -= 1
+    }
+    year = String(y)
+  }
+
+  if (!year && s.id) {
+    const idMatch = String(s.id).match(/\b(20\d\d)\b/)
+    if (idMatch) {
+      let y = parseInt(idMatch[1], 10)
+      if (termLabel === 'Second Semester' && String(s.id).includes('spring')) {
+        y -= 1
+      }
+      year = String(y)
+    }
+  }
+
+  if (!year) {
+    year = String(new Date().getFullYear())
+  }
+
+  return `${year} ${termLabel}`
+}
+
+export const YEAR_OF_STUDY_OPTIONS = [
+  { value: '', label: 'All Years' },
+  { value: '1', label: 'Year 1' },
+  { value: '2', label: 'Year 2' },
+  { value: '3', label: 'Year 3' },
+  { value: '4', label: 'Year 4' },
+  { value: '5', label: 'Year 5' },
+]
+
+export { getCourseStudyYear }
+
+export function matchesDepartment(c, deptId, lookups) {
+  if (!deptId || deptId === 'all') return true
+  const cDeptId =
+    c?.departmentId ||
+    c?.department_id ||
+    c?.department?.id ||
+    (typeof c?.department === 'string' ? c.department : null)
+  if (cDeptId && (cDeptId === deptId || String(cDeptId).toLowerCase() === String(deptId).toLowerCase())) {
+    return true
+  }
+  if (c?.departmentCode && c.departmentCode.toLowerCase() === String(deptId).toLowerCase()) {
+    return true
+  }
+  if (c?.departmentName && c.departmentName.toLowerCase() === String(deptId).toLowerCase()) {
+    return true
+  }
+  if (lookups?.departments) {
+    const targetDept = lookups.departments.find(
+      (d) => d.id === deptId || d.code?.toLowerCase() === String(deptId).toLowerCase() || d.name?.toLowerCase() === String(deptId).toLowerCase()
+    )
+    if (targetDept) {
+      if (cDeptId && (cDeptId === targetDept.id || String(cDeptId).toLowerCase() === targetDept.code?.toLowerCase() || String(cDeptId).toLowerCase() === targetDept.name?.toLowerCase())) return true
+      if (c?.departmentCode && c.departmentCode.toLowerCase() === targetDept.code?.toLowerCase()) return true
+      if (c?.departmentName && c.departmentName.toLowerCase() === targetDept.name?.toLowerCase()) return true
+    }
+  }
+  return false
+}
+
+const teacherLabel = (t) => {
+  return cleanTeacherName(t?.name || '')
+}
+
+function OfferingForm({ offering, defaultSemesterId, preloadedCourses, onClose, onSaved }) {
   const lookups = useLookups()
   const { profile, user } = useAuth()
   const isEdit = Boolean(offering)
@@ -31,12 +137,22 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
   const headDeptId =
     profile?.departmentId ??
     profile?.department_id ??
+    profile?.department?.id ??
     user?.departmentId ??
     user?.department_id ??
-    (lookups?.departments ?? []).find((d) => d.headTeacherId === profile?.id)?.id ??
+    (lookups?.departments ?? []).find(
+      (d) =>
+        (d.headTeacherId && (d.headTeacherId === profile?.id || d.headTeacherId === user?.id)) ||
+        (d.head_teacher_id && (d.head_teacher_id === profile?.id || d.head_teacher_id === user?.id))
+    )?.id ??
+    (lookups?.teachers ?? []).find(
+      (t) => (t.userId && t.userId === user?.id) || (t.user_id && t.user_id === user?.id) || t.id === profile?.id
+    )?.departmentId ??
     ''
 
   const initialDeptId =
+    offering?.teacher?.department?.id ??
+    offering?.teacher?.departmentId ??
     offering?.course?.department?.id ??
     offering?.course?.departmentId ??
     offering?.course?.department_id ??
@@ -47,6 +163,7 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
 
   const [form, setForm] = useState({
     departmentId: initialDeptId,
+    yearOfStudy: String(offering?.yearOfStudy ?? offering?.year_of_study ?? (offering?.course ? getCourseStudyYear(offering.course) : '') ?? ''),
     courseId: offering?.courseId ?? offering?.course_id ?? offering?.course?.id ?? '',
     semesterId: offering?.semesterId ?? offering?.semester_id ?? offering?.semester?.id ?? defaultSemesterId ?? '',
     teacherId: offering?.teacherId ?? offering?.teacher_id ?? offering?.teacher?.id ?? '',
@@ -56,17 +173,29 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
     schedule: offering?.schedule ?? '',
   })
 
-  // Live query for courses directly matching Department Courses sidebar
-  const { data: coursesData } = useQuery(
-    () => store.academics.listCourses({ pageSize: 100 }),
-    [],
-  )
+  // Preloaded or memory-cached courses for instant zero-latency rendering
   const coursesList = useMemo(() => {
+    if (Array.isArray(preloadedCourses) && preloadedCourses.length > 0) return preloadedCourses
+    if (Array.isArray(preloadedCourses?.items) && preloadedCourses.items.length > 0) return preloadedCourses.items
+    const cached = store.academics.getCachedCourses?.()
+    if (Array.isArray(cached) && cached.length > 0) return cached
+    if (Array.isArray(lookups?.courses) && lookups.courses.length > 0) return lookups.courses
+    return []
+  }, [preloadedCourses, lookups?.courses])
+
+  // Live query fallback only if courses are not yet loaded
+  const { data: coursesData } = useQuery(
+    () => (coursesList.length === 0 ? store.academics.listCourses({ pageSize: 100 }) : Promise.resolve(coursesList)),
+    [coursesList.length === 0],
+    { enabled: coursesList.length === 0 },
+  )
+
+  const activeCoursesList = useMemo(() => {
+    if (coursesList.length > 0) return coursesList
     if (Array.isArray(coursesData)) return coursesData
     if (Array.isArray(coursesData?.items)) return coursesData.items
-    if (Array.isArray(lookups?.courses)) return lookups.courses
     return []
-  }, [coursesData, lookups?.courses])
+  }, [coursesList, coursesData])
 
   // Live query for teachers matching Account Provision / Department Teachers
   const { data: usersData, refetch: refetchUsers } = useQuery(
@@ -74,7 +203,7 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
     [],
   )
   const { data: teachersData, refetch: refetchTeachers } = useQuery(
-    () => store.academics.listTeachers(),
+    () => store.academics.listTeachers({ all: true }),
     [],
   )
 
@@ -96,6 +225,20 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
     const seenTeacherIds = new Set()
     const seenNames = new Set()
 
+    const provisionedUsers = (usersData?.items ?? []).filter(
+      (u) => (u.roleId === 'teacher' || u.role_id === 'teacher') && u.status !== 'inactive',
+    )
+
+    // Helper to find latest edited user record from Account Provision
+    const findLiveUser = (uId, tId, nameKey) => {
+      return provisionedUsers.find(
+        (u) =>
+          (uId && u.id === uId) ||
+          (tId && (u.teacherProfileId === tId || u.teacher_profile_id === tId || u.teacherId === tId)) ||
+          (nameKey && (u.name || `${u.firstName || ''} ${u.lastName || ''}`).trim().toLowerCase() === nameKey),
+      )
+    }
+
     // 1. Teachers from listTeachers API (contains the proper tch_... IDs and department info)
     const rawTeachers = Array.isArray(teachersData)
       ? teachersData
@@ -112,33 +255,58 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
 
       const uId = t.userId || t.user_id
       const tId = t.id
-      const cleanName = (t.name || `${t.firstName || t.first_name || ''} ${t.lastName || t.last_name || ''}`).trim()
+      const cleanName = cleanTeacherName((t.name || `${t.firstName || t.first_name || ''} ${t.lastName || t.last_name || ''}`).trim())
       const nameKey = cleanName.toLowerCase()
 
       if (uId) seenUserIds.add(uId)
       if (tId) seenTeacherIds.add(tId)
       if (nameKey) seenNames.add(nameKey)
 
+      const liveUser = findLiveUser(uId, tId, nameKey)
+
+      const deptId =
+        liveUser?.departmentId ||
+        liveUser?.department_id ||
+        liveUser?.teacherDeptId ||
+        liveUser?.teacher_dept_id ||
+        t.departmentId ||
+        t.department_id ||
+        t.department?.id ||
+        (lookups?.departments ?? []).find((d) => d.headTeacherId === tId || d.headTeacherId === uId)?.id ||
+        ''
+      const deptName =
+        liveUser?.departmentName ||
+        liveUser?.department_name ||
+        t.departmentName ||
+        t.department_name ||
+        t.department?.name ||
+        (lookups?.departments ?? []).find((d) => d.id === deptId)?.name ||
+        ''
+      const deptCode =
+        liveUser?.departmentCode ||
+        liveUser?.department_code ||
+        t.departmentCode ||
+        t.department_code ||
+        t.department?.code ||
+        (lookups?.departments ?? []).find((d) => d.id === deptId)?.code ||
+        ''
+
       list.push({
         id: tId,
         userId: uId,
         name: cleanName,
-        departmentId: t.departmentId || t.department_id,
-        departmentName: t.departmentName || t.department_name,
-        departmentCode: t.departmentCode || t.department_code || t.department?.code,
-        employeeNumber: t.employeeNumber || t.employee_number,
+        departmentId: deptId,
+        departmentName: deptName,
+        departmentCode: deptCode,
+        employeeNumber: liveUser?.identifier || t.employeeNumber || t.employee_number,
       })
     }
 
     // 2. Teachers provisioned in Account Provision (role === 'teacher')
-    const provisionedTeachers = (usersData?.items ?? []).filter(
-      (u) => (u.roleId === 'teacher' || u.role_id === 'teacher') && u.status !== 'inactive',
-    )
-
-    for (const u of provisionedTeachers) {
+    for (const u of provisionedUsers) {
       const uId = u.id
       const tId = u.teacherProfileId || u.teacher_profile_id || u.teacherId || u.id
-      const cleanName = (u.name || `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`).trim()
+      const cleanName = cleanTeacherName((u.name || `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`).trim())
       const nameKey = cleanName.toLowerCase()
 
       // If already included via listTeachers by userId, teacherId, or matching name, skip to prevent duplicates
@@ -150,19 +318,40 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
       if (tId) seenTeacherIds.add(tId)
       if (nameKey) seenNames.add(nameKey)
 
+      const deptId =
+        u.departmentId ||
+        u.department_id ||
+        u.teacherDeptId ||
+        u.teacher_dept_id ||
+        u.department?.id ||
+        (lookups?.departments ?? []).find((d) => d.headTeacherId === tId || d.headTeacherId === uId)?.id ||
+        ''
+      const deptName =
+        u.departmentName ||
+        u.department_name ||
+        u.department?.name ||
+        (lookups?.departments ?? []).find((d) => d.id === deptId)?.name ||
+        ''
+      const deptCode =
+        u.departmentCode ||
+        u.department_code ||
+        u.department?.code ||
+        (lookups?.departments ?? []).find((d) => d.id === deptId)?.code ||
+        ''
+
       list.push({
         id: tId,
         userId: uId,
         name: cleanName,
-        departmentId: u.departmentId || u.department_id || u.teacherDeptId || u.teacher_dept_id,
-        departmentName: u.departmentName || u.department_name,
-        departmentCode: u.departmentCode || u.department_code,
+        departmentId: deptId,
+        departmentName: deptName,
+        departmentCode: deptCode,
         employeeNumber: u.identifier || u.employeeNumber || u.employee_number,
       })
     }
 
     return list
-  }, [usersData, teachersData, lookups?.teachers])
+  }, [usersData, teachersData, lookups?.teachers, lookups?.departments])
 
   const [save, { loading, fieldErrors }] = useMutation(
     (data) =>
@@ -171,13 +360,20 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
             courseId: data.courseId,
             semesterId: data.semesterId,
             teacherId: data.teacherId,
+            yearOfStudy: data.yearOfStudy,
             section: data.section,
             capacity: data.capacity,
             room: data.room,
             schedule: data.schedule,
           })
         : store.academics.createOffering(data),
-    { success: isEdit ? 'Offering updated.' : 'Course offering created and teacher notified.', onSuccess: onClose },
+    {
+      success: isEdit ? 'Offering updated.' : 'Course offering created and teacher notified.',
+      onSuccess: (result, data) => {
+        onSaved?.(result, data)
+        onClose?.(result, data)
+      },
+    },
   )
   const fe = fieldErrors ?? {}
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e?.target ? e.target.value : e }))
@@ -192,94 +388,154 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
 
   const handleDepartmentChange = (deptId) => {
     setForm((f) => {
-      const courseStillValid = coursesList.some(
-        (c) => c.id === f.courseId && (!deptId || (c.departmentId || c.department_id) === deptId),
+      const currentCourse = activeCoursesList.find((c) => c.id === f.courseId)
+      const courseBelongsToDept = currentCourse && (!deptId || deptId === 'all' || matchesDepartment(currentCourse, deptId, lookups))
+      return {
+        ...f,
+        departmentId: deptId === 'all' ? '' : deptId,
+        courseId: courseBelongsToDept ? f.courseId : '',
+      }
+    })
+  }
+
+  const handleYearOfStudyChange = (year) => {
+    setForm((f) => ({
+      ...f,
+      yearOfStudy: year,
+    }))
+  }
+
+  const handleCourseChange = (courseId) => {
+    const selectedCourse = activeCoursesList.find((c) => c.id === courseId) || (lookups?.courses ?? []).find((c) => c.id === courseId)
+    const cDept =
+      selectedCourse?.departmentId ||
+      selectedCourse?.department_id ||
+      selectedCourse?.department?.id ||
+      (typeof selectedCourse?.department === 'string' ? selectedCourse.department : null)
+    const cYear = getCourseStudyYear(selectedCourse)
+    setForm((f) => ({
+      ...f,
+      courseId,
+      departmentId: cDept || f.departmentId,
+      yearOfStudy: f.yearOfStudy && f.yearOfStudy !== 'all' ? f.yearOfStudy : (cYear || ''),
+    }))
+  }
+
+  const handleTeacherChange = (teacherId) => {
+    const selectedTeacher =
+      teachersList.find((t) => t.id === teacherId || t.userId === teacherId) ||
+      (lookups?.teachers ?? []).find((t) => t.id === teacherId || t.userId === teacherId || t.user_id === teacherId) ||
+      (usersData?.items ?? []).find((u) => u.id === teacherId || u.teacherProfileId === teacherId)
+
+    let tDeptId =
+      selectedTeacher?.departmentId ||
+      selectedTeacher?.department_id ||
+      selectedTeacher?.teacherDeptId ||
+      selectedTeacher?.teacher_dept_id ||
+      selectedTeacher?.department?.id ||
+      (lookups?.departments ?? []).find(
+        (d) => d.headTeacherId === teacherId || d.headTeacherId === selectedTeacher?.userId
+      )?.id
+
+    if (tDeptId && !(lookups?.departments ?? []).some((d) => d.id === tDeptId)) {
+      const match = (lookups?.departments ?? []).find(
+        (d) => d.code === tDeptId || d.name?.toLowerCase() === String(tDeptId).toLowerCase()
+      )
+      if (match) tDeptId = match.id
+    }
+
+    setForm((f) => {
+      const nextDeptId = f.courseId ? f.departmentId : (tDeptId || f.departmentId)
+      const courseStillValid = activeCoursesList.some(
+        (c) =>
+          c.id === f.courseId &&
+          (!nextDeptId || matchesDepartment(c, nextDeptId, lookups))
       )
       return {
         ...f,
-        departmentId: deptId,
+        teacherId,
+        departmentId: nextDeptId,
         courseId: courseStillValid ? f.courseId : '',
       }
     })
   }
 
-  const handleCourseChange = (courseId) => {
-    const selectedCourse = coursesList.find((c) => c.id === courseId)
-    const cDept = selectedCourse?.departmentId || selectedCourse?.department_id
-    setForm((f) => ({
-      ...f,
-      courseId,
-      departmentId: cDept || f.departmentId,
-    }))
-  }
-
-  const course = coursesList.find((c) => c.id === form.courseId) || (lookups?.courses ?? []).find((c) => c.id === form.courseId)
+  const course = activeCoursesList.find((c) => c.id === form.courseId) || (lookups?.courses ?? []).find((c) => c.id === form.courseId)
 
   const courseOptions = useMemo(() => {
-    const active = coursesList.filter((c) => !c.status || c.status === 'active')
-    const filtered = form.departmentId && form.departmentId !== 'all'
-      ? active.filter((c) => (c.departmentId || c.department_id) === form.departmentId)
-      : active
-    const list = filtered.length > 0 ? filtered : active
-    const opts = list
-      .sort((a, b) => (a.title || a.name || '').localeCompare(b.title || b.name || ''))
-      .map((c) => ({
-        value: c.id,
-        label: `${c.title || c.name} (${c.code})`,
-      }))
-    if (isEdit && offering?.course && !opts.some((o) => o.value === (offering.courseId || offering.course?.id))) {
-      const oc = offering.course
-      opts.unshift({
-        value: oc.id,
-        label: `${oc.title || oc.name} (${oc.code})`,
-      })
+    const active = activeCoursesList.filter((c) => !c.status || c.status === 'active')
+    let deptCourses = active
+    if (form.departmentId && form.departmentId !== 'all') {
+      deptCourses = deptCourses.filter((c) => matchesDepartment(c, form.departmentId, lookups))
+    }
+
+    // Sort: if yearOfStudy is selected, courses matching that year appear first, followed by other department courses
+    const sorted = [...deptCourses].sort((a, b) => {
+      if (form.yearOfStudy && form.yearOfStudy !== 'all') {
+        const aMatches = getCourseStudyYear(a) === String(form.yearOfStudy)
+        const bMatches = getCourseStudyYear(b) === String(form.yearOfStudy)
+        if (aMatches && !bMatches) return -1
+        if (!aMatches && bMatches) return 1
+      }
+      return (a.title || a.name || '').localeCompare(b.title || b.name || '')
+    })
+
+    const opts = sorted.map((c) => ({
+      value: c.id,
+      label: `${c.title || c.name} (${c.code})`,
+    }))
+
+    const currentCourseId = form.courseId || offering?.courseId || offering?.course?.id
+    if (currentCourseId && !opts.some((o) => o.value === currentCourseId)) {
+      const currentCourse =
+        activeCoursesList.find((c) => c.id === currentCourseId) ||
+        (lookups?.courses ?? []).find((c) => c.id === currentCourseId) ||
+        offering?.course
+      if (currentCourse) {
+        opts.unshift({
+          value: currentCourse.id,
+          label: `${currentCourse.title || currentCourse.name} (${currentCourse.code})`,
+        })
+      }
     }
     return opts
-  }, [coursesList, form.departmentId, isEdit, offering])
+  }, [activeCoursesList, form.departmentId, form.yearOfStudy, form.courseId, isEdit, offering, lookups])
 
   const semesterOptions = useMemo(() => {
-    const currentAyId =
-      lookups?.currentSemester?.academic_year_id ||
-      lookups?.currentSemester?.academicYearId ||
-      (lookups?.academicYears ?? []).find((ay) => ay.is_current || ay.isCurrent)?.id
-
     const allSemesters = lookups?.semesters ?? []
-    const currentYearSemesters = currentAyId
-      ? allSemesters.filter((s) => (s.academic_year_id ?? s.academicYearId) === currentAyId)
-      : []
+    const academicYears = lookups?.academicYears ?? []
 
-    const pool = currentYearSemesters.length > 0 ? currentYearSemesters : allSemesters
+    // Include non-closed (active and upcoming) semesters, or fallback to all
+    const available = allSemesters.filter((s) => s.status !== 'closed')
+    const pool = available.length > 0 ? available : allSemesters
 
-    const firstSem = pool.find((s) => {
-      const t = String(s.term || '').toLowerCase()
-      return t === 'first' || t === 'fall' || t === '1'
-    })
-    const secondSem = pool.find((s) => {
-      const t = String(s.term || '').toLowerCase()
-      return t === 'second' || t === 'spring' || t === '2'
-    })
+    // Sort chronologically by sort_order
+    const sorted = [...pool].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
 
-    const options = []
-    if (firstSem) {
-      options.push({ value: firstSem.id, label: 'First Semester' })
-    }
-    if (secondSem) {
-      options.push({ value: secondSem.id, label: 'Second Semester' })
-    }
-    if (isEdit && offering?.semester && !options.some((o) => o.value === (offering.semesterId || offering.semester?.id))) {
-      options.push({
-        value: offering.semesterId || offering.semester?.id,
-        label: offering.semester.name || 'Semester',
+    const options = sorted.map((s) => ({
+      value: s.id,
+      label: formatSemesterOptionLabel(s, academicYears),
+    }))
+
+    // If editing and the offering's semester is not in options, include it
+    const currentSemId = offering?.semesterId || offering?.semester_id || offering?.semester?.id
+    if (isEdit && currentSemId && !options.some((o) => o.value === currentSemId)) {
+      const existing = allSemesters.find((s) => s.id === currentSemId) || offering?.semester
+      options.unshift({
+        value: currentSemId,
+        label: formatSemesterOptionLabel(existing, academicYears),
       })
     }
+
     return options
-  }, [lookups?.semesters, lookups?.currentSemester, lookups?.academicYears, isEdit, offering])
+  }, [lookups?.semesters, lookups?.academicYears, isEdit, offering])
 
   useEffect(() => {
-    if (!isEdit && semesterOptions.length > 0 && !semesterOptions.some((o) => o.value === form.semesterId)) {
-      setForm((f) => ({ ...f, semesterId: semesterOptions[0].value }))
+    if (!isEdit && semesterOptions.length > 0 && (!form.semesterId || !semesterOptions.some((o) => o.value === form.semesterId))) {
+      const match = defaultSemesterId && semesterOptions.find((o) => o.value === defaultSemesterId)
+      setForm((f) => ({ ...f, semesterId: match ? match.value : semesterOptions[0].value }))
     }
-  }, [semesterOptions, form.semesterId, isEdit])
+  }, [semesterOptions, form.semesterId, defaultSemesterId, isEdit])
 
   // Teachers from the course's or selected department first.
   const targetDeptId = course?.departmentId || course?.department_id || form.departmentId
@@ -308,6 +564,7 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
           courseId: form.courseId,
           semesterId: form.semesterId,
           teacherId: form.teacherId,
+          yearOfStudy: form.yearOfStudy ? parseInt(form.yearOfStudy, 10) : undefined,
           section: form.section,
           capacity: form.capacity,
           room: form.room,
@@ -331,7 +588,19 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
           onChange={handleCourseChange}
           options={courseOptions}
           error={fe.courseId}
-          placeholder="Choose a course name"
+          placeholder={
+            form.departmentId && courseOptions.length === 0
+              ? 'No courses available in this department'
+              : 'Choose a course name'
+          }
+          className="sm:col-span-2"
+        />
+        <SelectField
+          label="Year of Study"
+          value={form.yearOfStudy}
+          onChange={handleYearOfStudyChange}
+          options={YEAR_OF_STUDY_OPTIONS}
+          placeholder="Choose Year of Study"
           className="sm:col-span-2"
         />
         <SelectField
@@ -349,7 +618,7 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
         label="Teacher"
         required
         value={form.teacherId}
-        onChange={set('teacherId')}
+        onChange={handleTeacherChange}
         options={teacherOptions}
         error={fe.teacherId}
         placeholder="Choose a teacher"
@@ -381,11 +650,17 @@ function OfferingForm({ offering, defaultSemesterId, onClose }) {
 
 export function AssignmentsPage() {
   const lookups = useLookups()
-  const semesterId = lookups?.currentSemester?.id ?? ''
+  const [createdOfferings, setCreatedOfferings] = useState([])
+  const [selectedCourseId, setSelectedCourseId] = useState('')
+
+  const { data: pageCourses } = useQuery(
+    () => store.academics.listCourses({ pageSize: 100 }),
+    [],
+  )
   const { data, loading, error, refetch } = useQuery(
-    () => store.academics.listOfferings({ semesterId, pageSize: 100 }),
-    [semesterId],
-    { enabled: Boolean(semesterId) },
+    () => store.academics.listOfferings({ pageSize: 100 }),
+    [],
+    { enabled: true },
   )
 
   useEffect(() => {
@@ -395,11 +670,48 @@ export function AssignmentsPage() {
   }, [refetch])
 
   useWebSocketEvent('USER_UPDATED', () => refetch())
+  useWebSocketEvent('TEACHER_UPDATED', () => refetch())
+  useWebSocketEvent('OFFERING_UPDATED', () => refetch())
+  useWebSocketEvent('OFFERING_CREATED', () => refetch())
+  useWebSocketEvent('OFFERING_DELETED', () => refetch())
 
   const [dialog, setDialog] = useState({ open: false, offering: null })
   const [deleting, setDeleting] = useState(null)
   const [remove] = useMutation((id) => store.academics.deleteOffering(id), { success: 'Offering deleted.' })
-  const semester = (lookups?.semesters ?? []).find((s) => s.id === semesterId)
+
+  const semesterFilterOptions = useMemo(() => {
+    const allSemesters = lookups?.semesters ?? []
+    const academicYears = lookups?.academicYears ?? []
+    const currentId = lookups?.currentSemester?.id
+
+    const sorted = [...allSemesters].sort((a, b) => (b.sort_order ?? 0) - (a.sort_order ?? 0))
+    return sorted.map((s) => {
+      const label = formatSemesterOptionLabel(s, academicYears)
+      const isCurrent = s.id === currentId || s.is_current || s.isCurrent
+      const isClosed = s.status === 'closed'
+      const tag = isCurrent ? ' (Current)' : isClosed ? ' (Closed)' : ' (Upcoming)'
+      return {
+        value: s.id,
+        label: `${label}${tag}`,
+      }
+    })
+  }, [lookups?.semesters, lookups?.academicYears, lookups?.currentSemester])
+
+  const displayRows = useMemo(() => {
+    const serverItems = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : [])
+    if (!createdOfferings.length) return serverItems
+
+    const serverIds = new Set(serverItems.map((o) => o.id))
+    const fresh = createdOfferings.filter((o) => !serverIds.has(o.id))
+    if (!fresh.length) return serverItems
+
+    const matchingFresh = fresh.filter((o) => {
+      if (!selectedSemesterId || selectedSemesterId === 'all') return true
+      const oSemId = o.semesterId || o.semester_id || o.semester?.id
+      return oSemId === selectedSemesterId
+    })
+    return [...matchingFresh, ...serverItems]
+  }, [data, createdOfferings, selectedSemesterId])
 
   const columns = [
     {
@@ -417,16 +729,55 @@ export function AssignmentsPage() {
     {
       key: 'department',
       header: 'Department',
+      value: (o) => {
+        const tDeptId = o.teacher?.departmentId || o.teacher?.department?.id
+        const tDeptName =
+          o.teacher?.department?.name ??
+          (lookups?.departments ?? []).find((d) => d.id === tDeptId)?.name
+        const cDeptName =
+          o.course?.department?.name ??
+          (lookups?.departments ?? []).find((d) => d.id === o.course?.departmentId)?.name
+        return tDeptName || cDeptName || '—'
+      },
+      cell: (o) => {
+        const tDeptId = o.teacher?.departmentId || o.teacher?.department?.id
+        const tDeptName =
+          o.teacher?.department?.name ??
+          (lookups?.departments ?? []).find((d) => d.id === tDeptId)?.name
+        const cDeptName =
+          o.course?.department?.name ??
+          (lookups?.departments ?? []).find((d) => d.id === o.course?.departmentId)?.name
+        return <span className="text-muted-foreground">{tDeptName || cDeptName || '—'}</span>
+      },
+    },
+    {
+      key: 'yearOfStudy',
+      header: 'Year of Study',
       value: (o) =>
-        o.course?.department?.name ??
-        (lookups?.departments ?? []).find((d) => d.id === o.course?.departmentId)?.name ??
-        o.teacher?.department?.name ??
+        formatYearOfStudy(
+          o.yearOfStudy ?? o.year_of_study ?? o.course?.yearOfStudy ?? o.course?.level ?? o.course?.code
+        ),
+      cell: (o) => (
+        <span className="tabular">
+          {formatYearOfStudy(
+            o.yearOfStudy ?? o.year_of_study ?? o.course?.yearOfStudy ?? o.course?.level ?? o.course?.code
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'semester',
+      header: 'Semester',
+      value: (o) =>
+        formatSemesterOptionLabel(o.semester, lookups?.academicYears) ||
+        o.semester?.name ||
+        (o.semester?.term ? formatSemesterTerm(o.semester.term) : '') ||
         '—',
       cell: (o) => (
         <span className="text-muted-foreground">
-          {o.course?.department?.name ??
-            (lookups?.departments ?? []).find((d) => d.id === o.course?.departmentId)?.name ??
-            o.teacher?.department?.name ??
+          {formatSemesterOptionLabel(o.semester, lookups?.academicYears) ||
+            o.semester?.name ||
+            (o.semester?.term ? formatSemesterTerm(o.semester.term) : '') ||
             '—'}
         </span>
       ),
@@ -435,13 +786,20 @@ export function AssignmentsPage() {
     {
       key: 'teacherName',
       header: 'Teacher',
-      value: (o) => o.teacher?.name ?? '',
-      cell: (o) => (
-        <div>
-          <p>{o.teacher?.name ?? 'Unassigned'}</p>
-          <p className="text-xs text-muted-foreground">{o.teacher?.department?.code}</p>
-        </div>
-      ),
+      value: (o) => cleanTeacherName(o.teacher?.name),
+      cell: (o) => {
+        const name = cleanTeacherName(o.teacher?.name)
+        const tDeptId = o.teacher?.departmentId || o.teacher?.department?.id
+        const deptCode =
+          o.teacher?.department?.code ??
+          (lookups?.departments ?? []).find((d) => d.id === tDeptId)?.code
+        return (
+          <div>
+            <p>{name || 'Unassigned'}</p>
+            {deptCode && <p className="text-xs text-muted-foreground">{deptCode}</p>}
+          </div>
+        )
+      },
     },
     {
       key: 'room',
@@ -501,39 +859,83 @@ export function AssignmentsPage() {
       />
       <DataTable
         columns={columns}
-        rows={semesterId ? data?.items : []}
+        rows={displayRows}
         loading={loading}
         error={error}
         onRetry={refetch}
-        searchable={false}
-        sortable={false}
+        searchable={true}
+        searchPlaceholder="Search course code, course name, or teacher…"
+        sortable={true}
+        toolbar={
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterSelect
+              value={selectedSemesterId}
+              onChange={(val) => setSelectedSemesterId(val || 'all')}
+              options={semesterFilterOptions}
+              allLabel="All Semesters"
+              placeholder="Filter by Semester"
+              className="w-64"
+            />
+          </div>
+        }
         emptyIcon={UserCheck}
-        emptyTitle="No courses offered in this semester"
+        emptyTitle={
+          selectedSemesterId && selectedSemesterId !== 'all'
+            ? 'No courses offered in this semester'
+            : 'No courses offered'
+        }
         emptyDescription="Create an offering to assign a teacher to a course."
       />
 
       <Dialog open={dialog.open} onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{dialog.offering ? `Edit ${dialog.offering.course.code} · Section ${dialog.offering.section}` : 'New course offering'}</DialogTitle>
-            <DialogDescription>{dialog.offering ? 'Reassign the teacher or update section details. Affected teachers are notified.' : 'The assigned teacher is notified of the new course.'}</DialogDescription>
+            <DialogTitle>
+              {dialog.offering ? `Edit ${dialog.offering.course?.code ?? 'offering'} · Section ${dialog.offering.section}` : 'New course offering'}
+            </DialogTitle>
+            <DialogDescription>
+              {dialog.offering ? 'Reassign the teacher or update section details. Affected teachers are notified.' : 'The assigned teacher is notified of the new course.'}
+            </DialogDescription>
           </DialogHeader>
-          <OfferingForm key={dialog.offering?.id ?? 'new'} offering={dialog.offering} defaultSemesterId={semester?.status !== 'closed' ? semesterId : lookups?.currentSemester?.id} onClose={() => setDialog((d) => ({ ...d, open: false }))} />
+          <OfferingForm
+            key={dialog.offering?.id ?? 'new'}
+            offering={dialog.offering}
+            preloadedCourses={pageCourses}
+            defaultSemesterId={selectedSemesterId && selectedSemesterId !== 'all' ? selectedSemesterId : lookups?.currentSemester?.id}
+            onClose={() => setDialog({ open: false, offering: null })}
+            onSaved={(savedOffering, formValues) => {
+              const newSemId = savedOffering?.semesterId || savedOffering?.semester_id || formValues?.semesterId
+              if (newSemId && selectedSemesterId && selectedSemesterId !== 'all' && selectedSemesterId !== newSemId) {
+                setSelectedSemesterId(newSemId)
+              }
+              if (savedOffering && savedOffering.id) {
+                setCreatedOfferings((prev) => [savedOffering, ...prev.filter((o) => o.id !== savedOffering.id)])
+              }
+              setDialog({ open: false, offering: null })
+              refetch()
+            }}
+          />
         </DialogContent>
       </Dialog>
 
       <ConfirmDialog
         open={Boolean(deleting)}
         onOpenChange={(v) => !v && setDeleting(null)}
-        title={`Delete ${deleting ? `${deleting.course.code} · Section ${deleting.section}` : 'offering'}?`}
+        title={`Delete ${deleting ? `${deleting.course?.code ?? 'offering'} · Section ${deleting.section}` : 'offering'}?`}
         description="Offerings with enrolled students cannot be deleted. Its assessments are removed as well. This cannot be undone."
         confirmLabel="Delete offering"
         variant="destructive"
         onConfirm={async () => {
           const res = await remove(deleting.id)
-          return res.ok ? undefined : false
+          if (res.ok) {
+            setCreatedOfferings((prev) => prev.filter((o) => o.id !== deleting.id))
+            refetch()
+            return undefined
+          }
+          return false
         }}
       />
     </>
   )
 }
+

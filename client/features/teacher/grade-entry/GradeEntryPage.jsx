@@ -94,7 +94,7 @@ function Gradebook({ gb, refetch, university }) {
     const dirty = {}
     for (const a of assessments) {
       const k = cellKey(row.enrollmentId, a.id)
-      const orig = row.marks[a.id] ?? null
+      const orig = row.marks?.[a.id] ?? row.marks?.[a.id.replace(/_([a-z])/g, (_, l) => l.toUpperCase())] ?? null
       if (!(k in edits) || withdrawn) {
         marks[a.id] = orig
         continue
@@ -354,7 +354,8 @@ function Gradebook({ gb, refetch, university }) {
                       </th>
                       {assessments.map((a, colIdx) => {
                         const k = cellKey(r.enrollmentId, a.id)
-                        const value = k in edits ? edits[k] : (r.marks[a.id] ?? '')
+                        const savedMark = r.marks?.[a.id] ?? r.marks?.[a.id.replace(/_([a-z])/g, (_, l) => l.toUpperCase())] ?? ''
+                        const value = k in edits ? edits[k] : savedMark
                         const err = c.errors[a.id]
                         const errId = `err-${k}`
                         return (

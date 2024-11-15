@@ -20,7 +20,7 @@ const GradeSubmissionPage = page(() => import('@/features/teacher/submission/Gra
 const PerformanceReportsPage = page(() => import('@/features/teacher/reports/PerformanceReportsPage'), 'PerformanceReportsPage');
 
 export const teacherRoutes = (
-  <Route element={<ProtectedRoute roles={['teacher']} />}>
+  <Route element={<ProtectedRoute roles={['teacher', 'dept_head']} />}>
     <Route path="/teacher" element={<TeacherDashboardPage />} />
     <Route path="/teacher/courses" element={<TeacherCoursesPage />} />
     <Route path="/teacher/courses/:offeringId" element={<TeacherCourseDetailPage />} />

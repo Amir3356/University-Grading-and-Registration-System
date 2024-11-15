@@ -85,6 +85,10 @@ export async function getLookups(user) {
     lookups.teachers = await listTeachers({ currentSemesterId: currentSemester?.id });
     const studentsRes = await listStudents({ departmentId: user.departmentId, status: 'active', pageSize: 'all' });
     lookups.students = studentsRes.items;
+  } else if (user?.roleId === 'teacher') {
+    const { listStudents } = await import('../repositories/userRepository.js');
+    const studentsRes = await listStudents({ departmentId: user.departmentId, status: 'active', pageSize: 'all' });
+    lookups.students = studentsRes.items;
   }
 
   return lookups;

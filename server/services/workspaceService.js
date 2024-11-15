@@ -17,6 +17,12 @@ export async function getTeacherDashboard(caller) {
 }
 
 export async function getTeacherOfferings(params, caller) {
+  if (caller.roleId === 'dept_head') {
+    return await offRepo.listOfferings({
+      ...params,
+      departmentId: caller.departmentId,
+    });
+  }
   const teacherId = caller.teacherId;
   if (!teacherId) {
     throw new ForbiddenError('You do not have a teacher profile.');
@@ -30,6 +36,10 @@ export async function getTeacherOfferingDetail(offeringId, caller) {
 
   if (caller.roleId === 'teacher' && detail.offering.teacher_id !== caller.teacherId) {
     throw new ForbiddenError('You can only view details for your assigned offerings.');
+  }
+
+  if (caller.roleId === 'dept_head' && detail.offering.course?.department?.id && detail.offering.course.department.id !== caller.departmentId) {
+    throw new ForbiddenError('You can only view details for offerings in your department.');
   }
 
   return detail;

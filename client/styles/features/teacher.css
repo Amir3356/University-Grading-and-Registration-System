@@ -1,1 +1,29 @@
 /* Teacher pages. Classes are prefixed with .tea- or scoped to a page root class. */
+
+.tea-dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  padding: 0.5rem 0;
+}
+
+.tea-dialog-grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .tea-dialog-grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.75rem;
+    align-items: start;
+  }
+}
+
+.tea-details-box {
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background: var(--muted);
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}

@@ -53,6 +53,16 @@ export async function updateUser(req, res, next) {
       programType,
     });
 
+    if (result?.role_id === 'teacher' || result?.user?.role_id === 'teacher' || result?.profile?.employee_number) {
+      broadcastEvent('TEACHER_UPDATED', {
+        userId: req.params.id,
+        teacherId: result?.profile?.id,
+        departmentId: result?.profile?.department_id,
+        user: result?.user || result,
+        profile: result?.profile,
+      });
+    }
+
     sendSuccess(res, result);
   } catch (err) {
     next(err);

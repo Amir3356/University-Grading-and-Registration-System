@@ -253,7 +253,7 @@ export async function listSubmissions({ status, semesterId, departmentId, search
            ) as offering,
            json_build_object(
              'id', t.id,
-             'name', (t.title || ' ' || u.first_name || ' ' || u.last_name),
+             'name', (u.first_name || ' ' || u.last_name),
              'employeeNumber', t.employee_number
            ) as teacher,
            (

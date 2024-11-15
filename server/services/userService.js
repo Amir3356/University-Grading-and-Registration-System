@@ -287,7 +287,7 @@ export async function createUser(data, caller) {
           userId,
           data.identifier.trim(),
           data.departmentId,
-          data.title || 'Dr.',
+          data.title || '',
           data.specialization || null,
           data.officeRoom || null,
           data.hireDate || new Date().toISOString().split('T')[0],
@@ -487,7 +487,7 @@ export async function updateUser(id, data, caller) {
             id,
             identifier,
             departmentId,
-            data.title || 'Dr.',
+            data.title || '',
             data.specialization || null,
             data.officeRoom || null,
             new Date().toISOString().split('T')[0],
@@ -738,8 +738,8 @@ export async function suggestIdentifier(roleId, departmentId) {
 
 export async function listStudents(queryFilters = {}, user = null) {
   const query = { ...queryFilters };
-  if (user?.roleId === 'dept_head') {
-    query.departmentId = user.departmentId;
+  if (user?.roleId === 'dept_head' || user?.roleId === 'teacher') {
+    query.departmentId = user.departmentId || query.departmentId;
   }
   return await userRepo.listStudents(query);
 }
@@ -747,7 +747,7 @@ export async function listStudents(queryFilters = {}, user = null) {
 export async function getStudentDetail(id, user = null) {
   const student = await userRepo.getStudentById(id);
   if (!student) throw new NotFoundError('Student');
-  if (user?.roleId === 'dept_head' && student.department_id !== user.departmentId) {
+  if ((user?.roleId === 'dept_head' || user?.roleId === 'teacher') && user.departmentId && student.department_id !== user.departmentId) {
     throw new ForbiddenError('You can only view students in your department.');
   }
   return student;
@@ -755,7 +755,7 @@ export async function getStudentDetail(id, user = null) {
 
 export async function listTeachers(queryFilters = {}, user = null) {
   const query = { ...queryFilters };
-  if (user?.roleId === 'dept_head') {
+  if (user?.roleId === 'dept_head' && !queryFilters.all && !queryFilters.allDepartments) {
     query.departmentId = user.departmentId;
     query.managedBy = { departmentId: user.departmentId, userId: user.id };
   }

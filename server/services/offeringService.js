@@ -35,6 +35,18 @@ export async function createOffering(data, caller) {
     throw new ValidationError('Capacity must be between 1 and 500.', { capacity: 'Must be between 1 and 500.' });
   }
 
+  // Check for duplicate offering (same course, semester, section)
+  const existingOff = await query(
+    `SELECT id FROM course_offerings WHERE course_id = $1 AND semester_id = $2 AND UPPER(section) = UPPER($3) LIMIT 1`,
+    [data.courseId, data.semesterId, data.section.trim()]
+  );
+  if (existingOff.rows.length > 0) {
+    throw new ConflictError(
+      `An offering for this course, semester, and Section '${data.section.trim().toUpperCase()}' already exists. Please choose a different section (e.g. B, C).`,
+      { section: `Section ${data.section.trim().toUpperCase()} already exists for this semester.` }
+    );
+  }
+
   let resolvedTeacherId = data.teacherId;
   const tRes = await query(`SELECT id, user_id FROM teachers WHERE id = $1 OR user_id = $1 LIMIT 1`, [data.teacherId]);
   if (tRes.rows.length > 0) {
@@ -51,6 +63,7 @@ export async function createOffering(data, caller) {
     capacity,
     room: data.room,
     schedule: data.schedule,
+    yearOfStudy: data.yearOfStudy || data.year_of_study,
   });
 
   // Notify teacher of assignment
@@ -100,7 +113,11 @@ export async function updateOffering(id, data, caller) {
     }
   }
 
-  await offRepo.updateOffering(id, { ...data, teacherId: resolvedTeacherId });
+  await offRepo.updateOffering(id, {
+    ...data,
+    teacherId: resolvedTeacherId,
+    yearOfStudy: data.yearOfStudy !== undefined ? data.yearOfStudy : data.year_of_study,
+  });
   return await offRepo.getOfferingById(id);
 }
 
