@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Pencil, Plus, Trash2, UserCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -679,24 +679,6 @@ export function AssignmentsPage() {
   const [deleting, setDeleting] = useState(null)
   const [remove] = useMutation((id) => store.academics.deleteOffering(id), { success: 'Offering deleted.' })
 
-  const semesterFilterOptions = useMemo(() => {
-    const allSemesters = lookups?.semesters ?? []
-    const academicYears = lookups?.academicYears ?? []
-    const currentId = lookups?.currentSemester?.id
-
-    const sorted = [...allSemesters].sort((a, b) => (b.sort_order ?? 0) - (a.sort_order ?? 0))
-    return sorted.map((s) => {
-      const label = formatSemesterOptionLabel(s, academicYears)
-      const isCurrent = s.id === currentId || s.is_current || s.isCurrent
-      const isClosed = s.status === 'closed'
-      const tag = isCurrent ? ' (Current)' : isClosed ? ' (Closed)' : ' (Upcoming)'
-      return {
-        value: s.id,
-        label: `${label}${tag}`,
-      }
-    })
-  }, [lookups?.semesters, lookups?.academicYears, lookups?.currentSemester])
-
   const displayRows = useMemo(() => {
     const serverItems = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : [])
     if (!createdOfferings.length) return serverItems
@@ -705,13 +687,30 @@ export function AssignmentsPage() {
     const fresh = createdOfferings.filter((o) => !serverIds.has(o.id))
     if (!fresh.length) return serverItems
 
-    const matchingFresh = fresh.filter((o) => {
-      if (!selectedSemesterId || selectedSemesterId === 'all') return true
-      const oSemId = o.semesterId || o.semester_id || o.semester?.id
-      return oSemId === selectedSemesterId
+    return [...fresh, ...serverItems]
+  }, [data, createdOfferings])
+
+  // Course Name filter options built from the courses behind the listed offerings
+  const courseFilterOptions = useMemo(() => {
+    const seen = new Map()
+    for (const o of displayRows) {
+      const c = o.course || {}
+      const id = c.id || o.courseId || o.course_id
+      if (!id || seen.has(id)) continue
+      const title = c.title || c.name || ''
+      const code = c.code || ''
+      seen.set(id, { value: String(id), label: code ? `${title} (${code})` : title })
+    }
+    return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label))
+  }, [displayRows])
+
+  const filteredRows = useMemo(() => {
+    if (!selectedCourseId) return displayRows
+    return displayRows.filter((o) => {
+      const id = o.course?.id || o.courseId || o.course_id
+      return String(id) === String(selectedCourseId)
     })
-    return [...matchingFresh, ...serverItems]
-  }, [data, createdOfferings, selectedSemesterId])
+  }, [displayRows, selectedCourseId])
 
   const columns = [
     {
@@ -859,7 +858,7 @@ export function AssignmentsPage() {
       />
       <DataTable
         columns={columns}
-        rows={displayRows}
+        rows={filteredRows}
         loading={loading}
         error={error}
         onRetry={refetch}
@@ -869,21 +868,17 @@ export function AssignmentsPage() {
         toolbar={
           <div className="flex flex-wrap items-center gap-2">
             <FilterSelect
-              value={selectedSemesterId}
-              onChange={(val) => setSelectedSemesterId(val || 'all')}
-              options={semesterFilterOptions}
-              allLabel="All Semesters"
-              placeholder="Filter by Semester"
+              value={selectedCourseId}
+              onChange={(val) => setSelectedCourseId(val || '')}
+              options={courseFilterOptions}
+              allLabel="All Courses"
+              placeholder="Filter by Course Name"
               className="w-64"
             />
           </div>
         }
         emptyIcon={UserCheck}
-        emptyTitle={
-          selectedSemesterId && selectedSemesterId !== 'all'
-            ? 'No courses offered in this semester'
-            : 'No courses offered'
-        }
+        emptyTitle={selectedCourseId ? 'No offerings for this course' : 'No courses offered'}
         emptyDescription="Create an offering to assign a teacher to a course."
       />
 
@@ -901,13 +896,9 @@ export function AssignmentsPage() {
             key={dialog.offering?.id ?? 'new'}
             offering={dialog.offering}
             preloadedCourses={pageCourses}
-            defaultSemesterId={selectedSemesterId && selectedSemesterId !== 'all' ? selectedSemesterId : lookups?.currentSemester?.id}
+            defaultSemesterId={lookups?.currentSemester?.id}
             onClose={() => setDialog({ open: false, offering: null })}
-            onSaved={(savedOffering, formValues) => {
-              const newSemId = savedOffering?.semesterId || savedOffering?.semester_id || formValues?.semesterId
-              if (newSemId && selectedSemesterId && selectedSemesterId !== 'all' && selectedSemesterId !== newSemId) {
-                setSelectedSemesterId(newSemId)
-              }
+            onSaved={(savedOffering) => {
               if (savedOffering && savedOffering.id) {
                 setCreatedOfferings((prev) => [savedOffering, ...prev.filter((o) => o.id !== savedOffering.id)])
               }

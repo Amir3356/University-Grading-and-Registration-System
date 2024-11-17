@@ -19,6 +19,7 @@ import { PageSkeleton } from '@/components/common/Loading'
 import { PageHeader } from '@/components/common/PageHeader'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
+import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
 import { defaultOfferingId, isLockedStatus, lockedExplanation, typeLabel } from '../lib'
 import { AssessmentFormDialog } from './AssessmentFormDialog'
@@ -36,10 +37,73 @@ export function AssessmentsPage() {
     refetch: refetchOfferings,
   } = useQuery(() => store.teacher.listMyOfferings({}), [])
 
+  useWebSocketEvent('OFFERING_UPDATED', () => refetchOfferings())
+  useWebSocketEvent('OFFERING_CREATED', () => refetchOfferings())
+  useWebSocketEvent('OFFERING_DELETED', () => refetchOfferings())
+
+  // Deduplicate courses so each assigned course appears only once in the dropdown
+  const uniqueCourses = useMemo(() => {
+    const list = offerings ?? []
+    const map = new Map()
+
+    for (const o of list) {
+      const cId = o.course?.id || o.courseId || o.course_id || o.course?.code || o.id
+      if (!cId) continue
+
+      if (!map.has(cId)) {
+        map.set(cId, o)
+      } else {
+        const existing = map.get(cId)
+        if (paramOfferingId && o.id === paramOfferingId) {
+          map.set(cId, o)
+        } else if (
+          (o.semester?.isCurrent || o.semester?.is_current || o.semesterId === currentSemesterId) &&
+          (!existing.semester?.isCurrent && !existing.semester?.is_current && existing.semesterId !== currentSemesterId)
+        ) {
+          map.set(cId, o)
+        }
+      }
+    }
+
+    return Array.from(map.values())
+  }, [offerings, paramOfferingId, currentSemesterId])
+
   // 2. Offering selection state
   const [selectedOfferingId, setSelectedOfferingId] = useState(null)
-  const activeOfferingId = selectedOfferingId ?? defaultOfferingId(offerings, paramOfferingId, currentSemesterId) ?? ''
-  const offering = offerings?.find((o) => o.id === activeOfferingId) ?? offerings?.[0] ?? null
+  const activeOfferingId =
+    selectedOfferingId ??
+    defaultOfferingId(offerings, paramOfferingId, currentSemesterId) ??
+    uniqueCourses[0]?.id ??
+    ''
+  const offering =
+    offerings?.find((o) => o.id === activeOfferingId) ??
+    uniqueCourses[0] ??
+    null
+
+  const activeCourseId = useMemo(() => {
+    return (
+      offering?.course?.id ||
+      offering?.courseId ||
+      offering?.course_id ||
+      offering?.course?.code ||
+      ''
+    )
+  }, [offering])
+
+  const handleCourseChange = (cId) => {
+    const matching = (offerings ?? []).filter((o) => {
+      const key = o.course?.id || o.courseId || o.course_id || o.course?.code || o.id
+      return key === cId
+    })
+    if (!matching.length) return
+    const target =
+      matching.find((o) => o.id === paramOfferingId) ||
+      matching.find((o) => o.semester?.isCurrent || o.semester?.is_current || o.semesterId === currentSemesterId) ||
+      matching[0]
+    if (target) {
+      setSelectedOfferingId(target.id)
+    }
+  }
 
   // 3. Fetch assessments for active offering
   const {
@@ -144,8 +208,6 @@ export function AssessmentsPage() {
     )
   }
 
-  const courseList = offerings ?? []
-
   return (
     <>
       <PageHeader
@@ -170,7 +232,7 @@ export function AssessmentsPage() {
         </Alert>
       )}
 
-      {courseList.length === 0 ? (
+      {uniqueCourses.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
           title="No courses assigned"
@@ -197,13 +259,16 @@ export function AssessmentsPage() {
             <div className="sm:ml-auto">
               <FilterSelect
                 label="Course"
-                value={activeOfferingId}
-                onChange={(id) => setSelectedOfferingId(id)}
+                value={activeCourseId}
+                onChange={handleCourseChange}
                 includeAll={false}
-                options={courseList.map((o) => ({
-                  value: o.id,
-                  label: `${o.course.code} — ${o.course.title} (${o.semester?.name ?? 'Current'})`,
-                }))}
+                options={uniqueCourses.map((o) => {
+                  const cId = o.course?.id || o.courseId || o.course_id || o.course?.code || o.id
+                  return {
+                    value: cId,
+                    label: `${o.course?.code} — ${o.course?.title || o.course?.name || o.course?.code}`,
+                  }
+                })}
                 className="w-full sm:w-80"
               />
             </div>
