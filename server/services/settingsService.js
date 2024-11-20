@@ -36,10 +36,8 @@ export async function getGradingConfig() {
 }
 
 export async function updateGradeScale({ entries }, caller) {
-  if (!entries || !Array.isArray(entries) || entries.length === 0) {
-    throw new ValidationError('Grade scale entries are required.', {
-      scale: ['At least one scale entry is required.'],
-    });
+  if (!entries || !Array.isArray(entries)) {
+    throw new ValidationError('Grade scale entries are required.');
   }
 
   const scaleErrors = [];
@@ -85,9 +83,10 @@ export async function updateGradeScale({ entries }, caller) {
     for (let i = 0; i < norm.length - 1; i++) {
       const current = norm[i];
       const next = norm[i + 1];
-      if (current.max < next.min) {
+      const gap = Math.round((next.min - current.max) * 100) / 100;
+      if (gap > 0.01) {
         scaleErrors.push(`Gap detected between ${current.letter} (ends at ${current.max}) and ${next.letter} (starts at ${next.min}).`);
-      } else if (current.max > next.min) {
+      } else if (gap < 0) {
         scaleErrors.push(`Overlap detected between ${current.letter} (max ${current.max}) and ${next.letter} (min ${next.min}).`);
       }
     }

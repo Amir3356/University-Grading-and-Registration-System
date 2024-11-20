@@ -27,6 +27,8 @@ export function sumWeights(assessments) {
 export function weightsAreValid(assessments) {
   return assessments.length > 0 && Math.abs(sumWeights(assessments) - 100) < 0.001
 }
+export const weightsValid = weightsAreValid
+
 
 /**
  * Validate a mark against an assessment. Returns an error string or null.
@@ -91,7 +93,7 @@ export function isPassing(score, passMark) {
  */
 export function validateGradeScale(entries) {
   const errors = []
-  if (!entries.length) return ['The scale must contain at least one grade.']
+  if (!entries || !entries.length) return []
   const letters = new Set()
   for (const e of entries) {
     if (!String(e.letter || '').trim()) errors.push('Every grade needs a letter.')
@@ -254,3 +256,15 @@ export function gradeDistribution(letters, scale = DEFAULT_GRADE_SCALE) {
   for (const l of letters) if (l in counts) counts[l] += 1
   return sortScale(scale).map((e) => ({ letter: e.letter, count: counts[e.letter] }))
 }
+
+/**
+ * Format grade points for display. If the decimal portion has duplicate zeros (e.g. 4.00),
+ * one zero is removed so it displays as 4.0. Values with distinct decimals like 3.75 remain intact.
+ */
+export function formatGradePoints(points) {
+  if (points == null || points === '') return '—'
+  const num = Number(points)
+  if (Number.isNaN(num)) return String(points)
+  return num.toFixed(2).replace(/\.00$/, '.0')
+}
+

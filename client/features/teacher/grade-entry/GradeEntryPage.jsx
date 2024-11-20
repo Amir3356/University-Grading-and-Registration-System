@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, ClipboardList, FileUp, Info, Lock, Save, Send, Undo2 } from 'lucide-react'
+import { AlertTriangle, ClipboardList, FileUp, Info, Lock, Save, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -20,6 +20,7 @@ import { useLookups } from '@/context/lookups-context'
 import { useQuery, useMutation } from '@/hooks/useStore'
 import { formatDateTime, formatNumber, formatPercent } from '@/lib/format'
 import { computeWeightedTotal, gradeForScore, validateMark } from '@/lib/grading'
+import { useWebSocketEvent } from '@/lib/websocket'
 import { average, cn } from '@/lib/utils'
 import { store } from '@/store'
 import { gradeSheetColumns, lockedExplanation } from '../lib'
@@ -99,8 +100,9 @@ function Gradebook({ gb, refetch, university }) {
         marks[a.id] = orig
         continue
       }
+      const maxAllowed = Number(a.weight ?? a.maxMarks ?? 100)
       const raw = String(edits[k]).trim()
-      const err = validateMark(raw, a.maxMarks)
+      const err = validateMark(raw, maxAllowed)
       const next = err ? undefined : toMarks(raw)
       if (err) {
         errors[a.id] = err
@@ -113,6 +115,7 @@ function Gradebook({ gb, refetch, university }) {
     }
     const calc = computeWeightedTotal(assessments, marks)
     const grade = calc.complete ? gradeForScore(calc.total, scale) : null
+    const points = grade != null ? (grade.points ?? grade.gradePoints ?? 0) : null
     computed.push({
       row,
       withdrawn,
@@ -120,6 +123,7 @@ function Gradebook({ gb, refetch, university }) {
       dirty,
       calc,
       letter: withdrawn ? 'W' : (grade?.letter ?? null),
+      points: withdrawn || !calc.complete ? null : points,
       passed: withdrawn || !calc.complete ? null : calc.total >= passMark,
     })
   }
@@ -208,13 +212,6 @@ function Gradebook({ gb, refetch, university }) {
               university={university}
               disabled={!gb.rows.length}
             />
-            {!locked && (
-              <Button size="sm" asChild>
-                <Link to={`/teacher/grade-submission?offering=${o.id}`}>
-                  <Send /> Submit grades
-                </Link>
-              </Button>
-            )}
           </>
         }
       >
@@ -317,7 +314,7 @@ function Gradebook({ gb, refetch, university }) {
                     <th key={a.id} scope="col" className="sticky top-0 z-20 min-w-28 border-b bg-muted px-2 py-2 text-right align-bottom">
                       <span className="block text-xs font-semibold text-foreground">{a.name}</span>
                       <span className="block text-[11px] font-normal text-muted-foreground tabular">
-                        /{a.maxMarks} · {a.weight}%
+                        /{Number(a.weight ?? a.maxMarks ?? 100)} · {a.weight}%
                       </span>
                     </th>
                   ))}
@@ -327,6 +324,9 @@ function Gradebook({ gb, refetch, university }) {
                   <th scope="col" className="sticky top-0 z-20 border-b bg-muted px-3 py-2 text-center text-xs font-medium text-muted-foreground uppercase">
                     Grade
                   </th>
+                  <th scope="col" className="sticky top-0 z-20 border-b bg-muted px-3 py-2 text-center text-xs font-medium text-muted-foreground uppercase">
+                    Grade Points
+                  </th>
                   <th scope="col" className="sticky top-0 z-20 border-b bg-muted px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
                     Result
                   </th>
@@ -335,7 +335,7 @@ function Gradebook({ gb, refetch, university }) {
               <tbody>
                 {visible.length === 0 && (
                   <tr>
-                    <td colSpan={assessments.length + 4} className="px-3 py-10 text-center text-sm text-muted-foreground">
+                    <td colSpan={assessments.length + 5} className="px-3 py-10 text-center text-sm text-muted-foreground">
                       No students match the current filters.
                     </td>
                   </tr>
@@ -372,10 +372,24 @@ function Gradebook({ gb, refetch, university }) {
                                   autoComplete="off"
                                   value={value}
                                   disabled={locked}
-                                  onChange={(e) => setCell(r.enrollmentId, a.id, e.target.value)}
+                                  onChange={(e) => {
+                                    const maxAllowed = Number(a.weight ?? a.maxMarks ?? 100)
+                                    const val = e.target.value
+                                    if (val !== '' && val !== null) {
+                                      const num = Number(val)
+                                      if (!Number.isNaN(num) && num > maxAllowed) {
+                                        toast.error(`Cannot insert mark above ${maxAllowed} for ${a.name}.`, { id: `cap-${a.id}` })
+                                        return
+                                      }
+                                      if (!Number.isNaN(num) && num < 0) {
+                                        return
+                                      }
+                                    }
+                                    setCell(r.enrollmentId, a.id, val)
+                                  }}
                                   onKeyDown={(e) => onCellKeyDown(e, rowIdx, colIdx)}
                                   onFocus={(e) => e.target.select()}
-                                  aria-label={`${a.name} marks for ${r.student.name}, out of ${a.maxMarks}`}
+                                  aria-label={`${a.name} marks for ${r.student.name}, out of ${a.weight ?? a.maxMarks}`}
                                   aria-invalid={err ? true : undefined}
                                   aria-describedby={err ? errId : undefined}
                                   title={err ?? undefined}
@@ -407,6 +421,9 @@ function Gradebook({ gb, refetch, university }) {
                       </td>
                       <td className="border-b px-3 py-1.5 text-center group-hover:bg-muted/50">
                         <GradeBadge letter={c.letter} passed={c.passed} />
+                      </td>
+                      <td className="border-b px-3 py-1.5 text-center font-mono font-semibold text-sm tabular group-hover:bg-muted/50">
+                        {c.points != null ? Number(c.points).toFixed(2) : '—'}
                       </td>
                       <td className="border-b px-3 py-1.5 group-hover:bg-muted/50">
                         {c.withdrawn ? <span className="text-xs">Withdrawn</span> : c.calc.complete ? <PassFailBadge passed={c.passed} /> : <span className="text-xs text-muted-foreground">Incomplete</span>}
@@ -481,6 +498,25 @@ export function GradeEntryPage() {
   const { offeringId } = useParams()
   const lookups = useLookups()
   const { data, loading, error, refetch } = useQuery(() => store.grades.getGradebook(offeringId), [offeringId])
+
+  useWebSocketEvent('GRADING_POLICY_UPDATED', () => {
+    refetch()
+    toast.info('Grading policy updated by Admin — grades updated in real time.', {
+      id: 'grading-policy-toast',
+    })
+  })
+  useWebSocketEvent('GRADE_SCALE_UPDATED', () => {
+    refetch()
+  })
+  useWebSocketEvent('ASSESSMENT_CREATED', () => {
+    refetch()
+  })
+  useWebSocketEvent('ASSESSMENT_UPDATED', () => {
+    refetch()
+  })
+  useWebSocketEvent('ASSESSMENT_DELETED', () => {
+    refetch()
+  })
 
   if (loading && !data) return <PageSkeleton />
   if (error) {

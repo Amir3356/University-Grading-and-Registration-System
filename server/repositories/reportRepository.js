@@ -854,14 +854,3 @@ export async function getStudentPerformanceReport(studentId) {
     })),
   };
 }
-
-export async function getCourseGradeSheet(offeringId) {
-  const gradebook = await getGradebookData(offeringId);
-  const university = await getUniversitySettings();
-
-  return {
-    ...gradebook,
-    university,
-    generatedAt: new Date().toISOString(),
-  };
-}

@@ -8,7 +8,7 @@ import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
 import { store } from '@/store'
 import { UserActionDialogs } from '@/features/admin/users/UserActionDialogs'
-import { UserFormDialog, DEPARTMENT_OPTIONS } from '@/features/admin/users/UserFormDialog'
+import { UserFormDialog } from '@/features/admin/users/UserFormDialog'
 
 const TEACHER_ROLE_OPTIONS = [{ value: 'teacher', label: 'Teacher' }]
 

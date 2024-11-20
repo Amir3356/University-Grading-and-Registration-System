@@ -1,32 +1,5 @@
 import * as subRepo from '../repositories/submissionRepository.js';
-import { getOfferingById } from '../repositories/offeringRepository.js';
 import { ForbiddenError, NotFoundError, ValidationError } from '../utils/errors.js';
-
-export async function submitGrades(offeringId, { note } = {}, caller) {
-  const offering = await getOfferingById(offeringId);
-  if (!offering) throw new NotFoundError('Course offering');
-
-  if (caller.roleId === 'teacher' && offering.teacher_id !== caller.teacherId) {
-    throw new ForbiddenError('You can only submit grades for your own course offerings.');
-  }
-
-  return await subRepo.submitGrades(offeringId, note, caller);
-}
-
-export async function getOfferingSubmissions(offeringId, caller) {
-  const offering = await getOfferingById(offeringId);
-  if (!offering) throw new NotFoundError('Course offering');
-
-  if (caller.roleId === 'teacher' && offering.teacher_id !== caller.teacherId) {
-    throw new ForbiddenError('You can only view submission history for your own course offerings.');
-  }
-
-  if (caller.roleId === 'dept_head' && offering.department_id !== caller.departmentId) {
-    throw new ForbiddenError('You can only view submissions for courses within your department.');
-  }
-
-  return await subRepo.getOfferingSubmissionHistory(offeringId);
-}
 
 export async function listSubmissions(params, caller) {
   const queryParams = { ...params };

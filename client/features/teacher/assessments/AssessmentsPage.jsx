@@ -40,6 +40,18 @@ export function AssessmentsPage() {
   useWebSocketEvent('OFFERING_UPDATED', () => refetchOfferings())
   useWebSocketEvent('OFFERING_CREATED', () => refetchOfferings())
   useWebSocketEvent('OFFERING_DELETED', () => refetchOfferings())
+  useWebSocketEvent('ASSESSMENT_CREATED', () => {
+    refetchAssessments()
+    refetchOfferings()
+  })
+  useWebSocketEvent('ASSESSMENT_UPDATED', () => {
+    refetchAssessments()
+    refetchOfferings()
+  })
+  useWebSocketEvent('ASSESSMENT_DELETED', () => {
+    refetchAssessments()
+    refetchOfferings()
+  })
 
   // Deduplicate courses so each assigned course appears only once in the dropdown
   const uniqueCourses = useMemo(() => {
@@ -130,8 +142,10 @@ export function AssessmentsPage() {
     if (!deleting) return
     try {
       await store.grades.deleteAssessment(deleting.id)
-      toast.success(`Assessment "${deleting.name}" deleted.`)
+      toast.success(`Assessment "${deleting.name}" deleted successfully.`)
       refetchAssessments()
+      refetchOfferings()
+      setDeleting(null)
       return true
     } catch (err) {
       toast.error(err.message || 'Failed to delete assessment.')
@@ -162,8 +176,23 @@ export function AssessmentsPage() {
     {
       key: 'weight',
       header: 'Weight',
-      align: 'right',
-      cell: (a) => <span className="tabular font-medium">{a.weight}%</span>,
+      align: 'center',
+      cell: (a) => (
+        <div className="inline-flex items-center gap-1.5 font-semibold font-mono text-sm">
+          <span className="tabular">{a.weight}%</span>
+          <span className="text-xs font-normal text-muted-foreground">of course</span>
+        </div>
+      ),
+    },
+    {
+      key: 'maxMarks',
+      header: 'Max Marks',
+      align: 'center',
+      cell: (a) => (
+        <span className="font-mono text-sm tabular font-medium">
+          {a.maxMarks ?? a.weight ?? 100} marks
+        </span>
+      ),
     },
     {
       key: 'actions',
@@ -178,6 +207,7 @@ export function AssessmentsPage() {
             variant="ghost"
             size="icon-sm"
             title="Edit Assessment"
+            aria-label="Edit Assessment"
             disabled={isLocked}
             onClick={() => setDialog({ open: true, assessment: a })}
           >
@@ -188,6 +218,7 @@ export function AssessmentsPage() {
             size="icon-sm"
             className="text-destructive hover:text-destructive hover:bg-destructive/10"
             title="Delete Assessment"
+            aria-label="Delete Assessment"
             disabled={isLocked}
             onClick={() => setDeleting(a)}
           >
@@ -231,6 +262,7 @@ export function AssessmentsPage() {
           <AlertDescription>{lockedExplanation(offering?.gradeStatus)}</AlertDescription>
         </Alert>
       )}
+
 
       {uniqueCourses.length === 0 ? (
         <EmptyState
@@ -283,7 +315,10 @@ export function AssessmentsPage() {
         assessment={dialog.assessment}
         offering={offering}
         existingAssessments={safeAssessments}
-        onSaved={refetchAssessments}
+        onSaved={() => {
+          refetchAssessments()
+          refetchOfferings()
+        }}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -293,7 +328,7 @@ export function AssessmentsPage() {
         title={`Delete "${deleting?.name}"?`}
         description={
           deleting?.scoreCount > 0
-            ? `This assessment has ${deleting.scoreCount} student score(s) entered. Deleting it cannot proceed until student scores are cleared.`
+            ? `This assessment has ${deleting.scoreCount} student score(s) entered. Deleting it will permanently remove the assessment and its student marks from the course gradebook. Are you sure you want to proceed?`
             : `Are you sure you want to delete this assessment? This will remove it from the course syllabus and gradebook.`
         }
         confirmLabel="Delete Assessment"
