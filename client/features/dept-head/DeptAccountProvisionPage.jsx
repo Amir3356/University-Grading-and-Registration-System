@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
-import { FilterSelect } from '@/components/common/FilterSelect'
 import { SearchInput } from '@/components/common/SearchInput'
 import { TableSkeleton } from '@/components/common/Loading'
 import { PageHeader } from '@/components/common/PageHeader'
@@ -25,7 +24,6 @@ const COLUMNS = [
   { key: 'username', header: 'Username' },
   { key: 'role', header: 'Role' },
   { key: 'identifier', header: 'ID' },
-  { key: 'department', header: 'Department' },
   { key: 'currentYear', header: 'Current Year' },
   { key: 'programType', header: 'Program Type' },
   { key: 'actions', header: 'Action' },
@@ -38,18 +36,6 @@ const DEPT_ROLE_OPTIONS = [
 ]
 const MANAGED_ROLES = DEPT_ROLE_OPTIONS.map((r) => r.value)
 const ROLE_BADGE_LABELS = Object.fromEntries(DEPT_ROLE_OPTIONS.map((r) => [r.value, r.label]))
-
-const PROGRAM_OPTIONS = [
-  { value: 'regular', label: 'Regular' },
-  { value: 'weekend', label: 'Weekend' },
-  { value: 'extension', label: 'Extension' },
-]
-
-const STATUS_OPTIONS = [
-  { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
-]
-
 
 function UserRowActions({ user, onEdit, onAction }) {
   const active = user.status === 'active'
@@ -98,45 +84,45 @@ export function DeptAccountProvisionPage() {
     enabled: Boolean(user?.id),
     live: false,
   })
-  const headDeptId = profile?.department_id ?? profile?.departmentId ?? self?.departmentId
+  const headDeptId =
+    profile?.department_id ??
+    profile?.departmentId ??
+    profile?.department?.id ??
+    self?.departmentId ??
+    self?.department_id ??
+    self?.profile?.departmentId ??
+    self?.profile?.department_id ??
+    user?.departmentId ??
+    user?.department_id
   const headDept =
     departments.find(
-      (d) => d.id === headDeptId || (profile?.id && (d.head_teacher_id ?? d.headTeacherId) === profile.id),
-    ) || null
+      (d) =>
+        d.id === headDeptId ||
+        (profile?.id && (d.head_teacher_id ?? d.headTeacherId) === profile.id) ||
+        (user?.id && (d.head_teacher_id ?? d.headTeacherId) === user.id) ||
+        (self?.profile?.id && (d.head_teacher_id ?? d.headTeacherId) === self.profile.id) ||
+        (self?.user?.id && (d.head_teacher_id ?? d.headTeacherId) === self.user.id),
+    ) || (headDeptId ? departments.find((d) => d.id === headDeptId) : null) || null
 
-  const deptOptions = useMemo(() => {
-    const opts = [{ value: 'dep_fresh', label: 'Fresh' }]
-    if (headDept && headDept.id !== 'dep_fresh') {
-      opts.push({ value: headDept.id, label: headDept.name })
-    }
-    const seen = new Set(opts.map((o) => o.value))
-    for (const d of departments) {
-      if (!seen.has(d.id)) {
-        opts.push({ value: d.id, label: d.name })
-        seen.add(d.id)
-      }
-    }
-    return opts
-  }, [headDept, departments])
+
 
   const [formOpen, setFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [action, setAction] = useState(null)
 
   const [search, setSearch] = useState('')
-  const [programFilter, setProgramFilter] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
 
+  const activeDeptId = headDept?.id || headDeptId
   // Query student and teacher accounts for this department (excluding seed/mock data).
   // Both roles are loaded so an account stays visible after its role is changed.
   const { data, loading, error, refetch } = useQuery(
     () =>
       store.users.listUsers({
-        departmentId: headDept?.id,
+        departmentId: activeDeptId,
         pageSize: null,
         excludeSeed: true,
       }),
-    [headDept?.id],
+    [activeDeptId],
   )
 
   useEffect(() => {
@@ -159,10 +145,6 @@ export function DeptAccountProvisionPage() {
       const identifier = u.identifier || u.student_number || ''
       const programType = u.roleId === 'student' ? (u.program_type || u.programType || 'regular').toLowerCase() : ''
       const currentYear = u.roleId === 'student' ? formatYearOfStudy(u.yearOfStudy || u.year_of_study || 1).toLowerCase() : ''
-      const status = u.status || 'active'
-
-      if (statusFilter && status !== statusFilter) return false
-      if (programFilter && programType !== programFilter.toLowerCase()) return false
 
       if (search.trim()) {
         const q = search.trim().toLowerCase()
@@ -176,7 +158,7 @@ export function DeptAccountProvisionPage() {
       }
       return true
     })
-  }, [items, search, programFilter, statusFilter])
+  }, [items, search])
 
   const openCreate = () => {
     setEditingId(null)
@@ -206,7 +188,7 @@ export function DeptAccountProvisionPage() {
       />
 
       <div className="stack stack--md">
-        {/* Search Box Filter on left, Dropdown Filters flush at the far right edge */}
+        {/* Search Box Filter */}
         <div className="toolbar--split">
           <div className="toolbar--split__left">
             <SearchInput
@@ -215,29 +197,11 @@ export function DeptAccountProvisionPage() {
               placeholder="Search by name, username, or ID…"
             />
           </div>
-          <div className="toolbar--split__right">
-            <FilterSelect
-              value={programFilter}
-              onChange={setProgramFilter}
-              options={PROGRAM_OPTIONS}
-              allLabel="All program types"
-              label="Program Type"
-              className="filter-select--program"
-            />
-            <FilterSelect
-              value={statusFilter}
-              onChange={setStatusFilter}
-              options={STATUS_OPTIONS}
-              allLabel="All statuses"
-              label="Status"
-              className="filter-select--status"
-            />
-          </div>
         </div>
 
         {/* Content Table */}
         {loading && !data ? (
-          <TableSkeleton cols={7} />
+          <TableSkeleton cols={COLUMNS.length} />
         ) : error ? (
           <ErrorState error={error} onRetry={refetch} />
         ) : (
@@ -296,9 +260,6 @@ export function DeptAccountProvisionPage() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className="text-foreground">{u.departmentName || headDept?.name || '—'}</span>
-                      </TableCell>
-                      <TableCell>
                         {u.roleId === 'student' ? (
                           <span className="text-foreground font-medium">
                             {formatYearOfStudy(u.yearOfStudy || u.year_of_study || 1)}
@@ -335,9 +296,9 @@ export function DeptAccountProvisionPage() {
         onOpenChange={setFormOpen}
         userId={editingId}
         defaultRole="student"
-        defaultDepartment="dep_fresh"
+        defaultDepartment={headDept?.id || headDeptId || ''}
         roleOptions={DEPT_ROLE_OPTIONS}
-        departmentOptions={deptOptions}
+        hideDepartment={true}
         onCreated={handleCreated}
         onUpdated={() => refetch()}
       />

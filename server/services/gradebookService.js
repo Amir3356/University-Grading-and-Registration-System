@@ -69,7 +69,7 @@ export async function saveScores(offeringId, { changes, reason }, caller) {
     const key = `${change.enrollmentId}:${change.assessmentId}`;
     const enr = enrMap[change.enrollmentId];
     if (!enr) {
-      fieldErrors[key] = 'Enrollment not found.';
+      fieldErrors[key] = 'Cannot record marks: student does not match the assigned department and year of study.';
       continue;
     }
     if (enr.enrollment.status === 'withdrawn') {

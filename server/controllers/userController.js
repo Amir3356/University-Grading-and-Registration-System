@@ -108,7 +108,11 @@ export async function suggestEmail(req, res, next) {
 
 export async function suggestIdentifier(req, res, next) {
   try {
-    const { roleId, departmentId } = req.query;
+    const { roleId } = req.query;
+    let departmentId = req.query.departmentId;
+    if (req.user?.roleId === 'dept_head' && req.user.departmentId) {
+      departmentId = req.user.departmentId;
+    }
     const result = await userService.suggestIdentifier(roleId, departmentId);
     sendSuccess(res, result);
   } catch (err) {

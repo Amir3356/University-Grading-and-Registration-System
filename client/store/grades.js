@@ -10,6 +10,7 @@ import {
   getGradebookApi,
   saveScoresApi,
   importScoresApi,
+  submitGradesApi,
   listApprovalRequestsApi,
   getApprovalRequestApi,
   approveGradesApi,
@@ -77,6 +78,12 @@ export async function saveScores(offeringId, { changes, reason } = {}) {
 export async function importScores(offeringId, { records, dryRun = true, reason } = {}) {
   const result = await importScoresApi(offeringId, { records, dryRun, reason });
   if (!dryRun) bumpVersion();
+  return result;
+}
+
+export async function submitGrades(offeringId, { note } = {}) {
+  const result = await submitGradesApi(offeringId, { note });
+  bumpVersion();
   return result;
 }
 

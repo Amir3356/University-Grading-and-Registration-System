@@ -47,10 +47,27 @@ export async function createOffering(data, caller) {
     );
   }
 
+  if (caller.roleId === 'dept_head') {
+    const cRes = await query(`SELECT department_id FROM courses WHERE id = $1`, [data.courseId]);
+    if (cRes.rows.length === 0 || cRes.rows[0].department_id !== caller.departmentId) {
+      throw new ForbiddenError('You can only create course offerings for courses in your department.');
+    }
+  }
+
   let resolvedTeacherId = data.teacherId;
   const tRes = await query(`SELECT id, user_id FROM teachers WHERE id = $1 OR user_id = $1 LIMIT 1`, [data.teacherId]);
   if (tRes.rows.length > 0) {
     resolvedTeacherId = tRes.rows[0].id;
+  }
+
+  let yearOfStudy = data.yearOfStudy || data.year_of_study;
+  if (!yearOfStudy && data.courseId) {
+    const cRes = await query(`SELECT level FROM courses WHERE id = $1`, [data.courseId]);
+    if (cRes.rows.length > 0) {
+      const lvl = cRes.rows[0].level;
+      if (lvl >= 100) yearOfStudy = Math.floor(lvl / 100);
+      else if (lvl >= 1 && lvl <= 5) yearOfStudy = lvl;
+    }
   }
 
   const id = newId('off');
@@ -63,7 +80,7 @@ export async function createOffering(data, caller) {
     capacity,
     room: data.room,
     schedule: data.schedule,
-    yearOfStudy: data.yearOfStudy || data.year_of_study,
+    yearOfStudy,
   });
 
   // Notify teacher of assignment

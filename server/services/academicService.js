@@ -131,7 +131,9 @@ export async function updateProgramCurriculum(programId, coursesList, user) {
 
 export async function listCourses(filters = {}, user) {
   const queryFilters = { ...filters };
-  if (queryFilters.departmentId === 'all') {
+  if (user?.roleId === 'dept_head') {
+    queryFilters.departmentId = user.departmentId;
+  } else if (queryFilters.departmentId === 'all') {
     delete queryFilters.departmentId;
   }
   return await courseRepo.listCourses(queryFilters);
@@ -146,7 +148,10 @@ export async function getCourseById(id) {
 
 export async function createCourse(data, user) {
   if (user?.roleId === 'dept_head') {
-    data.departmentId = data.departmentId || user.departmentId;
+    if (!user.departmentId) {
+      throw new ForbiddenError('Department head does not have an assigned department.');
+    }
+    data.departmentId = user.departmentId;
   }
 
   const errors = {};
@@ -190,6 +195,13 @@ export async function updateCourse(id, data, user) {
   const existing = await courseRepo.findById(id);
   if (!existing) throw new NotFoundError('Course');
 
+  if (user?.roleId === 'dept_head') {
+    if (existing.department_id && user.departmentId && existing.department_id !== user.departmentId) {
+      throw new ForbiddenError('You can only update courses in your department.');
+    }
+    data.departmentId = user.departmentId || existing.department_id;
+  }
+
   // If credit hours changed, check if published grades exist
   if (data.creditHours && parseInt(data.creditHours, 10) !== existing.credit_hours) {
     const hasPub = await courseRepo.hasPublishedGrades(id);
@@ -222,6 +234,12 @@ export async function updateCourse(id, data, user) {
 export async function deleteCourse(id, user) {
   const existing = await courseRepo.findById(id);
   if (!existing) throw new NotFoundError('Course');
+
+  if (user?.roleId === 'dept_head') {
+    if (existing.department_id && user.departmentId && existing.department_id !== user.departmentId) {
+      throw new ForbiddenError('You can only delete courses in your department.');
+    }
+  }
 
   const hasOff = await courseRepo.hasOfferings(id);
   if (hasOff) {

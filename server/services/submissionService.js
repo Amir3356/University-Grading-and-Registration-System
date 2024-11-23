@@ -54,3 +54,10 @@ export async function publishSubmission(id, caller) {
 
   return await subRepo.publishSubmission(id, caller);
 }
+
+export async function submitGrades(offeringId, { note } = {}, caller) {
+  if (!offeringId) {
+    throw new ValidationError('Offering ID is required to submit grades.');
+  }
+  return await subRepo.submitGradesForOffering(offeringId, { note }, caller);
+}

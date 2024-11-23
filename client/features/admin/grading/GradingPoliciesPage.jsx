@@ -283,11 +283,14 @@ export function GradingPoliciesPage() {
       await store.grades.updateGradeScale(payloadEntries)
       toast.success('Grading scale successfully saved and applied.', {
         description: 'The updated scale is now active across the university system.',
+        duration: 3000,
       })
       refetch()
       return true
     } catch (err) {
-      toast.error(err?.message || 'Failed to save grading scale.')
+      toast.error(err?.message || 'Failed to save grading scale.', {
+        duration: 3000,
+      })
       return false
     } finally {
       setSavingScale(false)

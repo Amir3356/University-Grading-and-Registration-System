@@ -399,10 +399,15 @@ function OfferingForm({ offering, defaultSemesterId, preloadedCourses, onClose, 
   }
 
   const handleYearOfStudyChange = (year) => {
-    setForm((f) => ({
-      ...f,
-      yearOfStudy: year,
-    }))
+    setForm((f) => {
+      const currentCourse = activeCoursesList.find((c) => c.id === f.courseId) || (lookups?.courses ?? []).find((c) => c.id === f.courseId)
+      const matchesYear = !year || year === 'all' || !currentCourse || getCourseStudyYear(currentCourse) === String(year)
+      return {
+        ...f,
+        yearOfStudy: year,
+        courseId: matchesYear ? f.courseId : '',
+      }
+    })
   }
 
   const handleCourseChange = (courseId) => {
@@ -469,16 +474,13 @@ function OfferingForm({ offering, defaultSemesterId, preloadedCourses, onClose, 
       deptCourses = deptCourses.filter((c) => matchesDepartment(c, form.departmentId, lookups))
     }
 
-    // Sort: if yearOfStudy is selected, courses matching that year appear first, followed by other department courses
-    const sorted = [...deptCourses].sort((a, b) => {
-      if (form.yearOfStudy && form.yearOfStudy !== 'all') {
-        const aMatches = getCourseStudyYear(a) === String(form.yearOfStudy)
-        const bMatches = getCourseStudyYear(b) === String(form.yearOfStudy)
-        if (aMatches && !bMatches) return -1
-        if (!aMatches && bMatches) return 1
-      }
-      return (a.title || a.name || '').localeCompare(b.title || b.name || '')
-    })
+    if (form.yearOfStudy && form.yearOfStudy !== 'all') {
+      deptCourses = deptCourses.filter((c) => getCourseStudyYear(c) === String(form.yearOfStudy))
+    }
+
+    const sorted = [...deptCourses].sort((a, b) =>
+      (a.title || a.name || '').localeCompare(b.title || b.name || '')
+    )
 
     const opts = sorted.map((c) => ({
       value: c.id,
@@ -538,13 +540,18 @@ function OfferingForm({ offering, defaultSemesterId, preloadedCourses, onClose, 
   }, [semesterOptions, form.semesterId, defaultSemesterId, isEdit])
 
   // Teachers from the course's or selected department first.
-  const targetDeptId = course?.departmentId || course?.department_id || form.departmentId
+  const targetDeptId = form.departmentId || course?.departmentId || course?.department_id
   const teacherOptions = useMemo(() => {
-    const teachers = [...teachersList].sort(
-      (a, b) =>
-        Number((b.departmentId || b.department_id) === targetDeptId) - Number((a.departmentId || a.department_id) === targetDeptId) ||
-        (a.name || '').localeCompare(b.name || ''),
-    )
+    let teachers = [...teachersList]
+    if (targetDeptId && targetDeptId !== 'all') {
+      const deptTeachers = teachers.filter(
+        (t) => (t.departmentId || t.department_id) === targetDeptId
+      )
+      if (deptTeachers.length > 0) {
+        teachers = deptTeachers
+      }
+    }
+    teachers.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
     const opts = teachers.map((t) => ({ value: t.id, label: teacherLabel(t) }))
     if (isEdit && offering?.teacher && !opts.some((t) => t.value === offering.teacherId)) {
       opts.push({ value: offering.teacherId, label: `${teacherLabel(offering.teacher)} (inactive)`, disabled: true })
@@ -573,12 +580,22 @@ function OfferingForm({ offering, defaultSemesterId, preloadedCourses, onClose, 
       }}
     >
       <div className="grid gap-4 sm:grid-cols-2">
+        {!(user?.roleId === 'dept_head' || Boolean(headDeptId)) && (
+          <SelectField
+            label="Department"
+            value={form.departmentId}
+            onChange={handleDepartmentChange}
+            options={departmentOptions}
+            placeholder="Choose a department"
+            className="sm:col-span-2"
+          />
+        )}
         <SelectField
-          label="Department"
-          value={form.departmentId}
-          onChange={handleDepartmentChange}
-          options={departmentOptions}
-          placeholder="Choose a department"
+          label="Year of Study"
+          value={form.yearOfStudy}
+          onChange={handleYearOfStudyChange}
+          options={YEAR_OF_STUDY_OPTIONS}
+          placeholder="Choose Year of Study"
           className="sm:col-span-2"
         />
         <SelectField
@@ -590,17 +607,9 @@ function OfferingForm({ offering, defaultSemesterId, preloadedCourses, onClose, 
           error={fe.courseId}
           placeholder={
             form.departmentId && courseOptions.length === 0
-              ? 'No courses available in this department'
+              ? 'No courses available for this department and year of study'
               : 'Choose a course name'
           }
-          className="sm:col-span-2"
-        />
-        <SelectField
-          label="Year of Study"
-          value={form.yearOfStudy}
-          onChange={handleYearOfStudyChange}
-          options={YEAR_OF_STUDY_OPTIONS}
-          placeholder="Choose Year of Study"
           className="sm:col-span-2"
         />
         <SelectField
@@ -652,6 +661,7 @@ export function AssignmentsPage() {
   const lookups = useLookups()
   const [createdOfferings, setCreatedOfferings] = useState([])
   const [selectedCourseId, setSelectedCourseId] = useState('')
+  const [selectedYearOfStudy, setSelectedYearOfStudy] = useState('')
 
   const { data: pageCourses } = useQuery(
     () => store.academics.listCourses({ pageSize: 100 }),
@@ -705,12 +715,20 @@ export function AssignmentsPage() {
   }, [displayRows])
 
   const filteredRows = useMemo(() => {
-    if (!selectedCourseId) return displayRows
     return displayRows.filter((o) => {
-      const id = o.course?.id || o.courseId || o.course_id
-      return String(id) === String(selectedCourseId)
+      if (selectedCourseId) {
+        const id = o.course?.id || o.courseId || o.course_id
+        if (String(id) !== String(selectedCourseId)) return false
+      }
+      if (selectedYearOfStudy) {
+        const yos = String(
+          o.yearOfStudy ?? o.year_of_study ?? (o.course ? getCourseStudyYear(o.course) : '')
+        )
+        if (yos !== String(selectedYearOfStudy)) return false
+      }
+      return true
     })
-  }, [displayRows, selectedCourseId])
+  }, [displayRows, selectedCourseId, selectedYearOfStudy])
 
   const columns = [
     {
@@ -724,30 +742,6 @@ export function AssignmentsPage() {
       header: 'Course Name',
       value: (o) => o.course?.title ?? '',
       cell: (o) => <span className="font-semibold text-foreground">{o.course?.title ?? '—'}</span>,
-    },
-    {
-      key: 'department',
-      header: 'Department',
-      value: (o) => {
-        const tDeptId = o.teacher?.departmentId || o.teacher?.department?.id
-        const tDeptName =
-          o.teacher?.department?.name ??
-          (lookups?.departments ?? []).find((d) => d.id === tDeptId)?.name
-        const cDeptName =
-          o.course?.department?.name ??
-          (lookups?.departments ?? []).find((d) => d.id === o.course?.departmentId)?.name
-        return tDeptName || cDeptName || '—'
-      },
-      cell: (o) => {
-        const tDeptId = o.teacher?.departmentId || o.teacher?.department?.id
-        const tDeptName =
-          o.teacher?.department?.name ??
-          (lookups?.departments ?? []).find((d) => d.id === tDeptId)?.name
-        const cDeptName =
-          o.course?.department?.name ??
-          (lookups?.departments ?? []).find((d) => d.id === o.course?.departmentId)?.name
-        return <span className="text-muted-foreground">{tDeptName || cDeptName || '—'}</span>
-      },
     },
     {
       key: 'yearOfStudy',
@@ -874,6 +868,14 @@ export function AssignmentsPage() {
               allLabel="All Courses"
               placeholder="Filter by Course Name"
               className="w-64"
+            />
+            <FilterSelect
+              value={selectedYearOfStudy}
+              onChange={(val) => setSelectedYearOfStudy(val || '')}
+              options={YEAR_OF_STUDY_OPTIONS.filter((o) => o.value !== '')}
+              allLabel="All Years of Study"
+              placeholder="Filter by Year of Study"
+              className="w-48"
             />
           </div>
         }

@@ -107,8 +107,8 @@ export async function createUser(data, caller) {
     if (!['student', 'teacher'].includes(data.roleId)) {
       throw new ForbiddenError('Department heads can only create student and teacher accounts.');
     }
-    // Department heads may place accounts in any department; default to their own.
-    if (!data.departmentId && !data.department) data.departmentId = caller.departmentId;
+    // Department heads can only create accounts in their assigned department.
+    data.departmentId = caller.departmentId;
   }
 
   // Validation
@@ -359,6 +359,7 @@ export async function updateUser(id, data, caller) {
     if (!deptHeadCanManage(caller, { departmentId: profile?.department_id, createdBy: user.created_by })) {
       throw new ForbiddenError('You can only update users in your department or accounts you created.');
     }
+    data.departmentId = caller.departmentId;
   }
 
   // Prevent role change if academic records exist
@@ -524,8 +525,13 @@ export async function updateUser(id, data, caller) {
       );
     }
 
-    // Promotion to department head: demote the previous head and take over the department.
-    if (newRole === 'dept_head' && user.role_id !== 'dept_head') {
+    // Promotion or reassignment to department head: demote the previous head and take over the department.
+    if (newRole === 'dept_head') {
+      await client.query(
+        `UPDATE departments SET head_teacher_id = NULL
+         WHERE head_teacher_id IN (SELECT id FROM teachers WHERE user_id = $1) AND id != $2`,
+        [id, departmentId]
+      );
       const prevHeadRes = await client.query(
         `SELECT t.user_id FROM departments d JOIN teachers t ON t.id = d.head_teacher_id WHERE d.id = $1`,
         [departmentId]

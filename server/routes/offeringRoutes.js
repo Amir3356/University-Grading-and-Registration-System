@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as offCtrl from '../controllers/offeringController.js';
 import * as asmCtrl from '../controllers/assessmentController.js';
 import * as gbCtrl from '../controllers/gradebookController.js';
+import * as subCtrl from '../controllers/submissionController.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireRoles } from '../middleware/authorize.js';
 import { validateRequest } from '../middleware/validate.js';
@@ -47,5 +48,6 @@ router.get('/:id/grade-history', requireRoles('admin', 'dept_head', 'teacher'), 
 router.get('/:id/gradebook/export', requireRoles('admin', 'dept_head', 'teacher'), gbCtrl.exportGradebook);
 router.post('/:id/gradebook/import', requireRoles('admin', 'dept_head', 'teacher'), gbCtrl.importScores);
 router.get('/:id/performance', requireRoles('admin', 'dept_head', 'teacher'), gbCtrl.getOfferingPerformance);
+router.post('/:id/submit-grades', requireRoles('admin', 'dept_head', 'teacher'), subCtrl.submitGrades);
 
 export default router;
