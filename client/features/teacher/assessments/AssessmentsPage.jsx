@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   AlertCircle,
   ClipboardList,
@@ -19,6 +19,7 @@ import { PageSkeleton } from '@/components/common/Loading'
 import { PageHeader } from '@/components/common/PageHeader'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
+import { formatYearOfStudy, getCourseStudyYear } from '@/lib/format'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
 import { defaultOfferingId, isLockedStatus, lockedExplanation, typeLabel } from '../lib'
@@ -80,15 +81,56 @@ export function AssessmentsPage() {
     return Array.from(map.values())
   }, [offerings, paramOfferingId, currentSemesterId])
 
-  // 2. Offering selection state
+  // Distinct years of study that the teacher teaches
+  const teacherYearOptions = useMemo(() => {
+    const list = offerings ?? []
+    const yearSet = new Set()
+    for (const o of list) {
+      const y = o?.yearOfStudy ?? o?.year_of_study ?? (o?.course ? getCourseStudyYear(o.course) : null)
+      if (y != null && y !== '') {
+        yearSet.add(String(y))
+      }
+    }
+    const sorted = Array.from(yearSet).sort((a, b) => Number(a) - Number(b))
+    if (sorted.length === 0) {
+      return [
+        { value: '1', label: 'Year 1' },
+        { value: '2', label: 'Year 2' },
+        { value: '3', label: 'Year 3' },
+        { value: '4', label: 'Year 4' },
+        { value: '5', label: 'Year 5' },
+      ]
+    }
+    return sorted.map((y) => ({
+      value: String(y),
+      label: `Year ${y}`,
+    }))
+  }, [offerings])
+
+  // 2. Year and Offering selection state
+  const [selectedYearOfStudy, setSelectedYearOfStudy] = useState('')
   const [selectedOfferingId, setSelectedOfferingId] = useState(null)
+
+  // Filter courses by selected Year of Study
+  const filteredCourses = useMemo(() => {
+    if (!uniqueCourses) return []
+    if (!selectedYearOfStudy || selectedYearOfStudy === 'all') return uniqueCourses
+    return uniqueCourses.filter((o) => {
+      const y = o?.yearOfStudy ?? o?.year_of_study ?? (o?.course ? getCourseStudyYear(o.course) : null)
+      return String(y) === String(selectedYearOfStudy)
+    })
+  }, [uniqueCourses, selectedYearOfStudy])
+
   const activeOfferingId =
     selectedOfferingId ??
-    defaultOfferingId(offerings, paramOfferingId, currentSemesterId) ??
+    defaultOfferingId(filteredCourses, paramOfferingId, currentSemesterId) ??
+    filteredCourses[0]?.id ??
     uniqueCourses[0]?.id ??
     ''
+
   const offering =
     offerings?.find((o) => o.id === activeOfferingId) ??
+    filteredCourses[0] ??
     uniqueCourses[0] ??
     null
 
@@ -101,6 +143,33 @@ export function AssessmentsPage() {
       ''
     )
   }, [offering])
+
+  const handleYearOfStudyChange = (year) => {
+    const val = year || ''
+    setSelectedYearOfStudy(val)
+    if (val && val !== 'all') {
+      const matching = uniqueCourses.filter((o) => {
+        const y = o?.yearOfStudy ?? o?.year_of_study ?? (o?.course ? getCourseStudyYear(o.course) : null)
+        return String(y) === String(val)
+      })
+      if (matching.length > 0) {
+        const currentMatches = matching.some((o) => o.id === activeOfferingId)
+        if (!currentMatches) {
+          setSelectedOfferingId(matching[0].id)
+        }
+      }
+    }
+  }
+
+  // Ensure active offering belongs to the selected year of study if one is selected
+  useEffect(() => {
+    if (selectedYearOfStudy && selectedYearOfStudy !== 'all' && filteredCourses.length > 0) {
+      const currentMatches = filteredCourses.some((o) => o.id === activeOfferingId)
+      if (!currentMatches) {
+        setSelectedOfferingId(filteredCourses[0].id)
+      }
+    }
+  }, [selectedYearOfStudy, filteredCourses, activeOfferingId])
 
   const handleCourseChange = (cId) => {
     const matching = (offerings ?? []).filter((o) => {
@@ -170,6 +239,25 @@ export function AssessmentsPage() {
               <p className="text-xs text-muted-foreground capitalize">{label}</p>
             )}
           </div>
+        )
+      },
+    },
+    {
+      key: 'yearOfStudy',
+      header: 'Year of Study',
+      align: 'center',
+      value: (a) => {
+        const targetOff = (offerings ?? []).find((o) => o.id === a.offeringId) || offering
+        const y = targetOff?.yearOfStudy ?? targetOff?.year_of_study ?? (targetOff?.course ? getCourseStudyYear(targetOff.course) : null)
+        return formatYearOfStudy(y)
+      },
+      cell: (a) => {
+        const targetOff = (offerings ?? []).find((o) => o.id === a.offeringId) || offering
+        const y = targetOff?.yearOfStudy ?? targetOff?.year_of_study ?? (targetOff?.course ? getCourseStudyYear(targetOff.course) : null)
+        return (
+          <span className="tabular font-medium">
+            {formatYearOfStudy(y)}
+          </span>
         )
       },
     },
@@ -288,20 +376,31 @@ export function AssessmentsPage() {
           emptyTitle="No assessments created"
           emptyDescription="Use the Create Assessment button above to define assignments, quizzes, and exams for this course."
           toolbar={
-            <div className="sm:ml-auto">
+            <div className="cluster cluster--end push-end">
+              <FilterSelect
+                label="Year of Study"
+                value={selectedYearOfStudy}
+                onChange={handleYearOfStudyChange}
+                options={teacherYearOptions}
+                allLabel="All Years of Study"
+                placeholder="Filter by Year of Study"
+                className="filter-select--year w-48"
+                align="end"
+              />
               <FilterSelect
                 label="Course"
                 value={activeCourseId}
                 onChange={handleCourseChange}
                 includeAll={false}
-                options={uniqueCourses.map((o) => {
+                options={filteredCourses.map((o) => {
                   const cId = o.course?.id || o.courseId || o.course_id || o.course?.code || o.id
                   return {
                     value: cId,
                     label: `${o.course?.code} — ${o.course?.title || o.course?.name || o.course?.code}`,
                   }
                 })}
-                className="w-full sm:w-80"
+                className="filter-select--course w-80"
+                align="end"
               />
             </div>
           }
@@ -314,8 +413,17 @@ export function AssessmentsPage() {
         onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
         assessment={dialog.assessment}
         offering={offering}
+        offerings={offerings ?? []}
         existingAssessments={safeAssessments}
-        onSaved={() => {
+        onSaved={(savedOfferingId) => {
+          if (savedOfferingId && savedOfferingId !== activeOfferingId) {
+            setSelectedOfferingId(savedOfferingId)
+            const savedOff = (offerings ?? []).find((o) => o.id === savedOfferingId)
+            const y = savedOff?.yearOfStudy ?? savedOff?.year_of_study ?? (savedOff?.course ? getCourseStudyYear(savedOff.course) : null)
+            if (y && selectedYearOfStudy && selectedYearOfStudy !== String(y)) {
+              setSelectedYearOfStudy(String(y))
+            }
+          }
           refetchAssessments()
           refetchOfferings()
         }}

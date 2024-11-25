@@ -346,11 +346,14 @@ export async function submitGradesForOffering(offeringId, { note } = {}, user) {
   return await withTransaction(async (client) => {
     // 1. Verify offering
     const offRes = await client.query(
-      `SELECT co.*, c.code, c.title, c.department_id, d.head_id, u.id as head_user_id
+      `SELECT co.*, c.code, c.title, c.department_id,
+              d.head_teacher_id,
+              COALESCE(ht.user_id, u_dh.id) as head_user_id
        FROM course_offerings co
        JOIN courses c ON c.id = co.course_id
        LEFT JOIN departments d ON d.id = c.department_id
-       LEFT JOIN users u ON u.id = d.head_id
+       LEFT JOIN teachers ht ON ht.id = d.head_teacher_id
+       LEFT JOIN users u_dh ON u_dh.role_id = 'dept_head' AND u_dh.department_id = c.department_id
        WHERE co.id = $1`,
       [offeringId]
     );
@@ -367,6 +370,7 @@ export async function submitGradesForOffering(offeringId, { note } = {}, user) {
     }
 
     const targetDeptId =
+      offering.department_id ||
       offering.teacher?.departmentId ||
       offering.teacher?.department?.id ||
       offering.course?.department?.id ||
@@ -429,7 +433,12 @@ export async function submitGradesForOffering(offeringId, { note } = {}, user) {
       );
     }
 
-    // 5. Create grade_submissions record
+    // 5. Create grade_submissions record (retire any previous pending record to avoid unique index collisions)
+    await client.query(
+      `UPDATE grade_submissions SET status = 'rejected' WHERE offering_id = $1 AND status = 'pending'`,
+      [offeringId]
+    );
+
     const subId = newId('sub');
     await client.query(
       `INSERT INTO grade_submissions (id, offering_id, submitted_by, submitted_at, note, student_count, status)

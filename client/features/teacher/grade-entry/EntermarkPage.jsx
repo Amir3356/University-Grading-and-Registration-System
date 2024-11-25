@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   AlertCircle,
+  CheckCircle2,
+  Clock,
+  FileCheck,
+  Info,
   NotebookPen,
   Save,
+  Send,
+  Undo2,
 } from 'lucide-react'
 import {
   flexRender,
@@ -15,6 +21,7 @@ import { toast } from 'sonner'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -24,6 +31,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useParams } from 'react-router-dom'
 import {
   Select,
@@ -43,7 +52,7 @@ import { GradeBadge } from '@/components/common/StatusBadge'
 import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
-import { formatYearOfStudy, getCourseStudyYear } from '@/lib/format'
+import { formatNumber, formatYearOfStudy, getCourseStudyYear } from '@/lib/format'
 import { DEFAULT_GRADE_SCALE, computeWeightedTotal, gradeForScore, isPassing, validateMark } from '@/lib/grading'
 import { cn } from '@/lib/utils'
 import { useWebSocketEvent } from '@/lib/websocket'
@@ -92,7 +101,8 @@ export function EntermarkPage() {
     refetchGradebook()
   })
 
-  // 2. Offering selection state
+  // 2. Offering and Year selection state
+  const [selectedYearOfStudy, setSelectedYearOfStudy] = useState('')
   const [selectedOfferingId, setSelectedOfferingId] = useState(null)
   const activeOfferingId = selectedOfferingId ?? defaultOfferingId(offerings, paramOfferingId, currentSemesterId) ?? ''
 
@@ -162,6 +172,9 @@ export function EntermarkPage() {
   const [sorting, setSorting] = useState([])
   const [savingGrid, setSavingGrid] = useState(false)
   const [editModalData, setEditModalData] = useState(null) // { row, isNew?: boolean }
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
+  const [submittingGrades, setSubmittingGrades] = useState(false)
+  const [showIncompleteList, setShowIncompleteList] = useState(false)
 
   // Offering metadata
   const currentOffering = offerings?.find((o) => o.id === activeOfferingId)
@@ -169,15 +182,20 @@ export function EntermarkPage() {
   const isLocked = Boolean(isLockedStatus(currentOffering?.gradeStatus))
   const gbRows = gradebook?.rows
 
-  const targetDeptId =
-    currentOffering?.teacher?.departmentId ||
-    currentOffering?.teacher?.department?.id ||
+  const courseDeptId =
     currentOffering?.course?.department?.id ||
+    currentOffering?.course?.departmentId ||
     currentOffering?.departmentId
 
+  const teacherDeptId =
+    currentOffering?.teacher?.departmentId ||
+    currentOffering?.teacher?.department?.id
+
+  const targetDeptId = courseDeptId || teacherDeptId
+
   const targetDeptName =
-    currentOffering?.teacher?.department?.name ||
     currentOffering?.course?.department?.name ||
+    currentOffering?.teacher?.department?.name ||
     (lookups?.departments ?? []).find((d) => d.id === targetDeptId)?.name ||
     'Department'
 
@@ -186,23 +204,67 @@ export function EntermarkPage() {
     currentOffering?.year_of_study ??
     (currentOffering?.course ? getCourseStudyYear(currentOffering.course) : null)
 
+  const validDeptSet = useMemo(() => {
+    const set = new Set()
+    if (courseDeptId) set.add(courseDeptId)
+    if (teacherDeptId) set.add(teacherDeptId)
+    if (currentOffering?.course?.department?.code) set.add(currentOffering.course.department.code)
+    if (currentOffering?.teacher?.department?.code) set.add(currentOffering.teacher.department.code)
+    return set
+  }, [courseDeptId, teacherDeptId, currentOffering])
+
   // Strictly filter rows to students whose department and current year of study match the assigned course offering
   const matchingGbRows = useMemo(() => {
     if (!gbRows) return []
     return gbRows.filter((r) => {
       const sDept = r.student?.departmentId || r.student?.department_id
       const sYear = r.student?.yearOfStudy ?? r.student?.year_of_study
-      if (targetDeptId && sDept && sDept !== targetDeptId) return false
+      if (validDeptSet.size > 0 && sDept && !validDeptSet.has(sDept)) {
+        const deptObj = (lookups?.departments ?? []).find((d) => d.id === sDept || d.code === sDept)
+        if (deptObj && !validDeptSet.has(deptObj.id) && !validDeptSet.has(deptObj.code)) {
+          return false
+        }
+      }
       if (targetYearOfStudy != null && sYear != null && Number(sYear) !== Number(targetYearOfStudy)) return false
+      if (selectedYearOfStudy && selectedYearOfStudy !== 'all' && sYear != null && String(sYear) !== String(selectedYearOfStudy)) return false
       return true
     })
-  }, [gbRows, targetDeptId, targetYearOfStudy])
+  }, [gbRows, validDeptSet, targetYearOfStudy, selectedYearOfStudy, lookups?.departments])
 
   const scale = useMemo(
     () => (gradebook?.scale && gradebook.scale.length > 0 ? gradebook.scale : DEFAULT_GRADE_SCALE),
     [gradebook?.scale]
   )
   const passMark = gradebook?.passMark ?? 50
+
+  // Distinct years of study that this teacher teaches across their course offerings
+  const teacherYearOptions = useMemo(() => {
+    if (!offerings || offerings.length === 0) return []
+    const yearSet = new Set()
+    for (const o of offerings) {
+      const y =
+        o.yearOfStudy ??
+        o.year_of_study ??
+        (o.course ? getCourseStudyYear(o.course) : null)
+      if (y != null && y !== '') {
+        yearSet.add(String(y))
+      }
+    }
+    const sorted = Array.from(yearSet).sort((a, b) => Number(a) - Number(b))
+    if (sorted.length === 0) {
+      return [
+        { value: '1', label: 'Year 1' },
+        { value: '2', label: 'Year 2' },
+        { value: '3', label: 'Year 3' },
+        { value: '4', label: 'Year 4' },
+        { value: '5', label: 'Year 5' },
+      ]
+    }
+    return sorted.map((y) => ({
+      value: String(y),
+      label: `Year ${y}`,
+    }))
+  }, [offerings])
 
   // Deduplicated offerings for course filter dropdown
   const uniqueCourseOfferings = useMemo(() => {
@@ -216,6 +278,52 @@ export function EntermarkPage() {
     }
     return Array.from(map.values())
   }, [offerings])
+
+  // Filter course offerings by the selected Year of Study
+  const filteredCourseOfferings = useMemo(() => {
+    if (!uniqueCourseOfferings) return []
+    if (!selectedYearOfStudy || selectedYearOfStudy === 'all') return uniqueCourseOfferings
+    return uniqueCourseOfferings.filter((o) => {
+      const y =
+        o.yearOfStudy ??
+        o.year_of_study ??
+        (o.course ? getCourseStudyYear(o.course) : null)
+      return String(y) === String(selectedYearOfStudy)
+    })
+  }, [uniqueCourseOfferings, selectedYearOfStudy])
+
+  // Change handler for Year of Study filter
+  const handleYearOfStudyChange = (year) => {
+    const val = year || ''
+    setSelectedYearOfStudy(val)
+    setGridEdits({})
+
+    if (val && val !== 'all') {
+      const matching = uniqueCourseOfferings.filter((o) => {
+        const y =
+          o.yearOfStudy ??
+          o.year_of_study ??
+          (o.course ? getCourseStudyYear(o.course) : null)
+        return String(y) === String(val)
+      })
+      if (matching.length > 0) {
+        const currentMatches = matching.some((o) => o.id === activeOfferingId)
+        if (!currentMatches) {
+          setSelectedOfferingId(matching[0].id)
+        }
+      }
+    }
+  }
+
+  // Ensure active offering belongs to the selected year of study if one is selected
+  useEffect(() => {
+    if (selectedYearOfStudy && selectedYearOfStudy !== 'all' && filteredCourseOfferings.length > 0) {
+      const currentMatches = filteredCourseOfferings.some((o) => o.id === activeOfferingId)
+      if (!currentMatches) {
+        setSelectedOfferingId(filteredCourseOfferings[0].id)
+      }
+    }
+  }, [selectedYearOfStudy, filteredCourseOfferings, activeOfferingId])
 
   // Reset grid edits when active offering changes
   useEffect(() => {
@@ -362,21 +470,38 @@ export function EntermarkPage() {
           effectiveMarks[a.id] = saved
         }
       }
+      const isWithdrawn = r.enrollment?.status === 'withdrawn'
       const calc = computeWeightedTotal(assessments, effectiveMarks)
       const grade = calc.complete ? gradeForScore(calc.total, scale) : null
       const points = grade != null ? (grade.points ?? grade.gradePoints ?? 0) : null
-      const passed = calc.complete && calc.total != null ? isPassing(calc.total, passMark) : null
-      const isWithdrawn = r.enrollment?.status === 'withdrawn'
+      const isF = (grade?.letter || '').toUpperCase() === 'F'
+      const passed = isWithdrawn
+        ? null
+        : isF
+          ? false
+          : calc.complete && calc.total != null
+            ? isPassing(calc.total, passMark)
+            : null
+
+      const studentYear =
+        r.student?.yearOfStudy ??
+        r.student?.year_of_study ??
+        currentOffering?.yearOfStudy ??
+        currentOffering?.year_of_study ??
+        (currentOffering?.course ? getCourseStudyYear(currentOffering.course) : null)
 
       return {
         enrollmentId: r.enrollmentId,
-        studentId: r.student?.studentNumber || '',
-        studentName: r.student?.name || '',
+        studentId: r.student?.studentNumber || r.student?.student_number || r.student?.id || '',
+        studentName: r.student?.name || (r.student?.firstName ? `${r.student.firstName} ${r.student.lastName || ''}`.trim() : '') || 'Student',
+        yearOfStudy: studentYear,
         section: r.section || currentOffering?.section || 'A',
         student: r.student,
         effectiveMarks,
         calc,
         grade,
+        totalScore: calc.total,
+        letter: grade?.letter || null,
         points: isWithdrawn ? null : points,
         passed,
         withdrawn: isWithdrawn,
@@ -384,6 +509,99 @@ export function EntermarkPage() {
       }
     })
   }, [matchingGbRows, assessments, gridEdits, currentOffering, scale, passMark])
+
+  // Grade submission metrics & handler
+  const weightTotal = useMemo(() => {
+    return assessments.reduce((acc, a) => acc + Number(a.weight ?? a.maxMarks ?? 0), 0)
+  }, [assessments])
+  const weightsValid = assessments.length === 0 || Math.round(weightTotal) === 100
+
+  const summaryStats = useMemo(() => {
+    const total = tableData.length
+    const active = tableData.filter((t) => !t.withdrawn)
+    const complete = active.filter((t) => t.calc?.complete).length
+    const incomplete = active.filter((t) => !t.calc?.complete).length
+    const passed = active.filter((t) => t.passed === true && (t.grade?.letter || '').toUpperCase() !== 'F').length
+    const failed = active.filter((t) => t.passed === false || (t.grade?.letter || '').toUpperCase() === 'F').length
+    const withdrawn = tableData.filter((t) => t.withdrawn).length
+
+    // Average score across active students with computed totals
+    const validScores = active
+      .map((t) => t.calc?.total ?? t.calc?.totalScore)
+      .filter((s) => typeof s === 'number' && !isNaN(s))
+    const averageScore =
+      validScores.length > 0
+        ? (validScores.reduce((a, b) => a + b, 0) / validScores.length).toFixed(1)
+        : null
+
+    // Grade distribution counts (A, B, C, D, F)
+    const distribution = { A: 0, B: 0, C: 0, D: 0, F: 0 }
+    active.forEach((t) => {
+      const letter = String(t.grade?.letter || t.letter || (t.calc?.total != null ? gradeForScore(t.calc.total, scale)?.letter : '')).toUpperCase()
+      if (letter.startsWith('A')) distribution.A++
+      else if (letter.startsWith('B')) distribution.B++
+      else if (letter.startsWith('C')) distribution.C++
+      else if (letter.startsWith('D')) distribution.D++
+      else if (letter.startsWith('F')) distribution.F++
+    })
+
+    return {
+      total,
+      activeCount: active.length,
+      complete,
+      incomplete,
+      passed,
+      failed,
+      withdrawn,
+      averageScore,
+      distribution,
+    }
+  }, [tableData, scale])
+
+  const incompleteStudents = useMemo(() => {
+    return tableData
+      .filter((t) => !t.calc?.complete && !t.withdrawn)
+      .map((t) => {
+        const missing = assessments
+          .filter((a) => t.effectiveMarks?.[a.id] == null || t.effectiveMarks?.[a.id] === '')
+          .map((a) => a.name)
+        const currentTotal = t.calc?.total ?? t.calc?.totalScore
+        return {
+          id: t.studentId,
+          name: t.studentName,
+          missing,
+          currentTotal: currentTotal != null ? Number(currentTotal).toFixed(1) : '0.0',
+        }
+      })
+  }, [tableData, assessments])
+
+  const handleSubmitGrades = async () => {
+    if (!activeOfferingId) return
+    setSubmittingGrades(true)
+    try {
+      if (gridChanges.length > 0) {
+        if (invalidCount > 0) {
+          toast.error(`Please fix ${invalidCount} invalid mark(s) before submitting.`)
+          setSubmittingGrades(false)
+          return
+        }
+        await handleSaveGrid()
+      }
+
+      await store.grades.submitGrades(activeOfferingId)
+      toast.success('Grades submitted successfully to Department Head for review.')
+      setSubmitDialogOpen(false)
+      setShowIncompleteList(false)
+      await refetchOfferings()
+      await refetchGradebook()
+    } catch (err) {
+      toast.error(err.message || 'Failed to submit grades.')
+    } finally {
+      setSubmittingGrades(false)
+    }
+  }
+
+  const submissionStudents = tableData
 
   // 6. TanStack Table Column Definitions with generous spacing between headers
   const tableColumns = useMemo(() => {
@@ -410,6 +628,18 @@ export function EntermarkPage() {
         ),
         meta: {
           colClass: 'tea-col-student-name',
+        },
+      },
+      {
+        accessorKey: 'yearOfStudy',
+        header: 'Year of Study',
+        cell: ({ row }) => (
+          <span className="tabular text-xs font-medium whitespace-nowrap text-muted-foreground">
+            {formatYearOfStudy(row.original.yearOfStudy)}
+          </span>
+        ),
+        meta: {
+          colClass: 'tea-col-year',
         },
       },
       {
@@ -546,7 +776,9 @@ export function EntermarkPage() {
           <Badge variant={row.original.calc.complete ? 'success' : 'warning'} className="px-2.5 py-0.5">
             {row.original.calc.complete
               ? 'Complete'
-              : `${row.original.calc.enteredCount}/${row.original.calc.expectedCount} Entered`}
+              : row.original.calc.expectedCount === 0
+                ? 'No assessments'
+                : `${row.original.calc.enteredCount}/${row.original.calc.expectedCount} Entered`}
           </Badge>
         ),
         meta: {
@@ -577,11 +809,13 @@ export function EntermarkPage() {
       const sNum = String(orig.studentId || '').toLowerCase()
       const sName = String(orig.studentName || '').toLowerCase()
       const sec = String(orig.section || '').toLowerCase()
+      const yr = formatYearOfStudy(orig.yearOfStudy).toLowerCase()
       return (
         sNum.includes(q) ||
         sName.includes(q) ||
         sec.includes(q) ||
-        `section ${sec}`.includes(q)
+        `section ${sec}`.includes(q) ||
+        yr.includes(q)
       )
     },
   })
@@ -596,15 +830,18 @@ export function EntermarkPage() {
         description="Enter and manage student assessment marks across courses."
         centered
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               size="sm"
+              variant="outline"
               onClick={() => handleSaveGrid()}
-              disabled={savingGrid || gridChanges.length === 0 || invalidCount > 0}
+              disabled={savingGrid || isLocked || gridChanges.length === 0 || invalidCount > 0}
               title={
-                gridChanges.length === 0
-                  ? 'No unsaved marks to save'
-                  : `Save ${gridChanges.length} unsaved mark(s)`
+                isLocked
+                  ? 'Marks are locked'
+                  : gridChanges.length === 0
+                    ? 'No unsaved marks to save'
+                    : `Save ${gridChanges.length} unsaved mark(s)`
               }
             >
               <Save className="size-4 mr-1.5" />
@@ -614,9 +851,83 @@ export function EntermarkPage() {
                   ? `Save All Marks (${gridChanges.length})`
                   : 'Save All Marks'}
             </Button>
+
+            {currentOffering && (
+              <>
+                {currentOffering.gradeStatus === 'submitted' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled
+                    className="gap-1.5 opacity-90 border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 cursor-default"
+                  >
+                    <Clock className="size-4" />
+                    Submitted for Review
+                  </Button>
+                )}
+                {currentOffering.gradeStatus === 'approved' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled
+                    className="gap-1.5 opacity-90 border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400 cursor-default"
+                  >
+                    <CheckCircle2 className="size-4" />
+                    Grades Approved
+                  </Button>
+                )}
+                {currentOffering.gradeStatus === 'published' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled
+                    className="gap-1.5 opacity-90 border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 cursor-default"
+                  >
+                    <CheckCircle2 className="size-4" />
+                    Grades Published
+                  </Button>
+                )}
+                {!['submitted', 'approved', 'published'].includes(currentOffering.gradeStatus) && (
+                  <Button
+                    size="sm"
+                    variant={currentOffering.gradeStatus === 'rejected' ? 'destructive' : 'default'}
+                    onClick={() => setSubmitDialogOpen(true)}
+                    disabled={savingGrid || assessments.length === 0 || tableData.length === 0}
+                    title={
+                      assessments.length === 0
+                        ? 'Configure assessments before submitting grades'
+                        : tableData.length === 0
+                          ? 'No eligible students enrolled'
+                          : currentOffering.gradeStatus === 'rejected'
+                            ? 'Resubmit revised grades to Department Head'
+                            : 'Submit final grades to Department Head for review'
+                    }
+                  >
+                    <Send className="size-4 mr-1.5" />
+                    {currentOffering.gradeStatus === 'rejected' ? 'Resubmit Grades' : 'Submit Grades'}
+                  </Button>
+                )}
+              </>
+            )}
           </div>
         }
       />
+
+      {currentOffering?.gradeStatus === 'rejected' && (
+        <Alert variant="destructive" className="mb-4">
+          <Undo2 className="size-4" />
+          <AlertTitle>Grades Returned for Revision</AlertTitle>
+          <AlertDescription className="flex items-center justify-between gap-4 flex-wrap">
+            <span>
+              The Department Head reviewed these grades and returned them for revision. Please review feedback, adjust marks, and resubmit.
+            </span>
+            <Button size="sm" variant="outline" className="bg-background text-foreground" onClick={() => setSubmitDialogOpen(true)}>
+              <Send className="size-3.5 mr-1.5" />
+              Resubmit Grades
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {isLocked && (
         <Alert variant="warning" className="mb-4">
@@ -634,7 +945,7 @@ export function EntermarkPage() {
         />
       ) : (
         <div className="space-y-4">
-          {/* Grid Toolbar: Search on left, Target Info badge, Dropdown option on right edge */}
+          {/* Grid Toolbar: Search on left, Dropdown options on right */}
           <div className="tea-grid-toolbar">
             <div className="tea-grid-toolbar-left flex items-center gap-2.5">
               <SearchInput
@@ -643,14 +954,19 @@ export function EntermarkPage() {
                 placeholder="Search student by name, ID, or section…"
                 className="w-72"
               />
-              {currentOffering && (
-                <Badge variant="outline" className="text-xs px-2.5 py-1 font-medium text-muted-foreground border-border/80">
-                  {targetDeptName} · {formatYearOfStudy(targetYearOfStudy)}
-                </Badge>
-              )}
             </div>
 
-            <div className="tea-grid-toolbar-right">
+            <div className="tea-grid-toolbar-right flex flex-wrap items-center gap-2.5">
+              <FilterSelect
+                label="Year of Study"
+                value={selectedYearOfStudy}
+                onChange={handleYearOfStudyChange}
+                options={teacherYearOptions}
+                allLabel="All Years of Study"
+                placeholder="Filter by Year of Study"
+                className="w-48"
+                align="end"
+              />
               <FilterSelect
                 label="Course"
                 value={activeOfferingId}
@@ -659,7 +975,7 @@ export function EntermarkPage() {
                   setGridEdits({})
                 }}
                 includeAll={false}
-                options={uniqueCourseOfferings.map((o) => ({
+                options={filteredCourseOfferings.map((o) => ({
                   value: o.id,
                   label: `${o.course.code} — ${o.course.title} (${o.semester.name})`,
                 }))}
@@ -670,13 +986,16 @@ export function EntermarkPage() {
           </div>
 
           {/* TanStack Spreadsheet Table */}
-          {assessments.length === 0 ? (
-            <EmptyState
-              icon={NotebookPen}
-              title="No assessment types configured"
-              description="Please create assessments under Assessment Management before entering marks for this course."
-            />
-          ) : table.getRowModel().rows.length === 0 ? (
+          {assessments.length === 0 && (
+            <Alert className="mb-4">
+              <Info className="size-4" />
+              <AlertDescription>
+                No assessments configured yet for this course offering. You can configure assessments under Assessment Management before entering marks.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {table.getRowModel().rows.length === 0 ? (
             <EmptyState
               icon={NotebookPen}
               title="No matching students found"
@@ -754,6 +1073,211 @@ export function EntermarkPage() {
           }}
         />
       )}
+
+      {/* Grade Submission Dialog */}
+      <Dialog
+        open={submitDialogOpen}
+        onOpenChange={(open) => {
+          setSubmitDialogOpen(open)
+          if (!open) {
+            setShowIncompleteList(false)
+          }
+        }}
+      >
+        <DialogContent size="xl" className="max-w-4xl max-h-[92vh] flex flex-col p-6">
+          <DialogHeader className="tea-submit-dialog-header" style={{ textAlign: 'center', alignItems: 'center', paddingRight: 0 }}>
+            <DialogTitle
+              className="tea-submit-dialog-title"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                width: '100%',
+                gap: '0.5rem',
+              }}
+            >
+              <FileCheck className="size-5 text-primary" />
+              {currentOffering?.gradeStatus === 'rejected'
+                ? 'Resubmit Grades for Department Approval'
+                : 'Submit Grades for Department Approval'}
+            </DialogTitle>
+            <DialogDescription className="tea-submit-dialog-desc" style={{ textAlign: 'center' }}>
+              Review all student marks and submit final grades for <span className="font-semibold text-foreground">{currentOffering?.course?.code} — {currentOffering?.course?.title}</span> ({currentOffering?.semester?.name || 'Current Term'}, Section {currentOffering?.section || 'A'}).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="tea-submit-modal flex-1 overflow-y-auto pr-1 space-y-4">
+            {/* Quick Metrics Cards */}
+            <div className="tea-submit-grid">
+              <div className="tea-submit-card tea-submit-card--complete">
+                <span className="tea-submit-card__label">Complete Marks</span>
+                <span className="tea-submit-card__value">{summaryStats.complete}</span>
+              </div>
+
+              <div className={cn(
+                "tea-submit-card",
+                summaryStats.incomplete > 0 && "tea-submit-card--incomplete"
+              )}>
+                <span className="tea-submit-card__label">Incomplete Marks</span>
+                <span className="tea-submit-card__value">{summaryStats.incomplete}</span>
+              </div>
+
+              <div className="tea-submit-card">
+                <span className="tea-submit-card__label">Passed / Failed</span>
+                <span className="tea-submit-card__value">
+                  <span style={{ color: 'var(--success, #059669)', fontWeight: 700 }}>{summaryStats.passed}</span>
+                  <span className="text-muted-foreground font-normal"> / </span>
+                  <span style={{ color: summaryStats.failed > 0 ? 'var(--destructive, #dc2626)' : 'inherit', fontWeight: 700 }}>
+                    {summaryStats.failed}
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            {/* Student Marks Table Review Section */}
+            <div className="space-y-2 border rounded-lg p-3 bg-muted/20">
+              {/* Table displaying each student's ID, Name, and each assessment type mark */}
+              <div className="border rounded-md overflow-hidden bg-background max-h-64 overflow-y-auto">
+                <Table className="text-xs">
+                  <TableHeader className="sticky top-0 bg-muted/95 backdrop-blur z-10 border-b">
+                    <TableRow className="hover:bg-muted/95">
+                      <TableHead className="font-semibold text-foreground whitespace-nowrap">Student ID</TableHead>
+                      <TableHead className="font-semibold text-foreground whitespace-nowrap">Student Name</TableHead>
+                      <TableHead className="font-semibold text-foreground text-center whitespace-nowrap">Year of Study</TableHead>
+                      {assessments.map((a) => (
+                        <TableHead key={a.id} className="font-semibold text-foreground text-center whitespace-nowrap">
+                          {a.name} <span className="font-normal text-muted-foreground text-[10px]">({a.weight ?? a.maxMarks}%)</span>
+                        </TableHead>
+                      ))}
+                      <TableHead className="font-semibold text-foreground text-center whitespace-nowrap">Total</TableHead>
+                      <TableHead className="font-semibold text-foreground text-center whitespace-nowrap">Grade</TableHead>
+                      <TableHead className="font-semibold text-foreground text-center whitespace-nowrap">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {submissionStudents.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={assessments.length + 6} className="py-8 text-center text-muted-foreground">
+                          No students enrolled.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      submissionStudents.map((st) => {
+                        const isComplete = Boolean(st.calc?.complete)
+                        return (
+                          <TableRow
+                            key={st.enrollmentId || st.studentId}
+                            className={cn(
+                              !isComplete && !st.withdrawn && "bg-amber-500/5 hover:bg-amber-500/10"
+                            )}
+                          >
+                            <TableCell className="font-mono font-medium text-foreground whitespace-nowrap">
+                              {st.studentId}
+                            </TableCell>
+                            <TableCell className="font-medium text-foreground whitespace-nowrap">
+                              {st.studentName}
+                            </TableCell>
+                            <TableCell className="text-center tabular text-xs text-muted-foreground whitespace-nowrap">
+                              {formatYearOfStudy(st.yearOfStudy)}
+                            </TableCell>
+                            {assessments.map((a) => {
+                              const val = st.effectiveMarks?.[a.id]
+                              const hasMark = val != null && val !== ''
+                              return (
+                                <TableCell key={a.id} className="text-center tabular whitespace-nowrap">
+                                  {hasMark ? (
+                                    <span className="font-semibold text-foreground">{formatNumber(val, 1)}</span>
+                                  ) : (
+                                    <Badge variant="warning" className="text-[10px] py-0 px-1.5 font-semibold">
+                                      Missing
+                                    </Badge>
+                                  )}
+                                </TableCell>
+                              )
+                            })}
+                            {(() => {
+                              const totalVal = st.calc?.total ?? st.calc?.totalScore ?? st.totalScore
+                              const letterVal = st.grade?.letter ?? st.letter ?? (totalVal != null ? gradeForScore(totalVal, scale)?.letter : null)
+                              return (
+                                <>
+                                  <TableCell className="text-center font-bold tabular text-foreground whitespace-nowrap">
+                                    {totalVal != null ? `${formatNumber(totalVal, 1)}%` : '—'}
+                                  </TableCell>
+                                  <TableCell className="text-center font-bold whitespace-nowrap">
+                                    {letterVal ? (
+                                      <GradeBadge letter={letterVal} passed={st.passed} />
+                                    ) : (
+                                      <span className="text-muted-foreground font-mono">—</span>
+                                    )}
+                                  </TableCell>
+                                </>
+                              )
+                            })()}
+                            <TableCell className="text-center whitespace-nowrap">
+                              {st.withdrawn ? (
+                                <Badge variant="muted" className="text-[10px] py-0 px-1.5 font-medium">
+                                  Withdrawn
+                                </Badge>
+                              ) : isComplete ? (
+                                <Badge variant="success" className="text-[10px] py-0 px-1.5 font-medium inline-flex items-center gap-1">
+                                  <CheckCircle2 className="size-2.5" /> Complete
+                                </Badge>
+                              ) : (
+                                <Badge variant="warning" className="text-[10px] py-0 px-1.5 font-medium inline-flex items-center gap-1">
+                                  <AlertCircle className="size-2.5" /> Incomplete
+                                </Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            {/* Incomplete warning if any */}
+            {summaryStats.incomplete > 0 && (
+              <Alert variant="warning" className="py-2.5">
+                <AlertCircle className="size-4" />
+                <div className="w-full">
+                  <AlertTitle className="text-xs font-semibold">Missing Assessment Marks</AlertTitle>
+                  <AlertDescription className="text-xs mt-0.5">
+                    {summaryStats.incomplete} active student(s) have not had all assessment marks entered. They will be submitted with partial marks or failing status unless entered.
+                  </AlertDescription>
+                </div>
+              </Alert>
+            )}
+
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setSubmitDialogOpen(false)
+                setShowIncompleteList(false)
+              }}
+              disabled={submittingGrades}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              onClick={handleSubmitGrades}
+              loading={submittingGrades}
+              disabled={submittingGrades || assessments.length === 0}
+            >
+              <Send className="size-4 mr-1.5" />
+              {currentOffering?.gradeStatus === 'rejected' ? 'Resubmit to Dept Head' : 'Submit to Dept Head'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

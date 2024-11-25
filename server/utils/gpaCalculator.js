@@ -41,7 +41,7 @@ export function computeEnrollmentScore(assessments, scoreMap, scaleEntries, pass
   }
 
   if (letter !== null) {
-    passed = weightedTotal >= Number(passMark);
+    passed = String(letter).toUpperCase() === 'F' ? false : weightedTotal >= Number(passMark);
   }
 
   return {

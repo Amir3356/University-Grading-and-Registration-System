@@ -57,6 +57,49 @@ export function formatYearOfStudy(val) {
   return ordinals[studyYear] || `${studyYear}th Year`
 }
 
+/**
+ * Resolves a student's current year of study.
+ * Automatically increments by 1 as long as the student has not withdrawn from the university.
+ * If the student has withdrawn, preserves their recorded year of study without incrementing.
+ */
+export function getStudentCurrentYearOfStudy(student) {
+  if (!student) return '—'
+
+  const isWithdrawn =
+    String(student.status || '').toLowerCase() === 'withdrawn' ||
+    String(student.academicStatus || student.academic_status || '').toLowerCase() === 'withdrawn' ||
+    Boolean(student.withdrawn) ||
+    Boolean(student.isWithdrawn)
+
+  const rawVal =
+    student.yearOfStudy ??
+    student.year_of_study ??
+    student.batchYear ??
+    student.admissionYear ??
+    1
+
+  let num = typeof rawVal === 'number' ? rawVal : parseInt(String(rawVal).replace(/\D/g, ''), 10)
+  if (!Number.isFinite(num) || num <= 0) {
+    num = 1
+  }
+
+  // If stored as an admission year (e.g. 2024), convert to base study year
+  if (num >= 1900 && num <= 2100) {
+    const currentYear = new Date().getFullYear()
+    num = Math.min(5, Math.max(1, currentYear - num + 1))
+  } else if (num >= 100 && num <= 900) {
+    num = Math.floor(num / 100)
+  }
+
+  // Base year is capped between 1 and 5
+  num = Math.min(5, Math.max(1, num))
+
+  // If not withdrawn, automatically increment by 1 (capped at 5th Year)
+  const effectiveYear = isWithdrawn ? num : Math.min(5, num + 1)
+
+  return formatYearOfStudy(effectiveYear)
+}
+
 export function getCourseStudyYear(course) {
   if (!course) return '1'
   if (course.yearOfStudy) return String(course.yearOfStudy)

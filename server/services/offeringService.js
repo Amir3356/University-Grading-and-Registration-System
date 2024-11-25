@@ -3,6 +3,39 @@ import { newId } from '../utils/idGenerator.js';
 import { ConflictError, NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
 import { query } from '../config/database.js';
 
+export async function autoEnrollMatchingStudents(offeringId) {
+  const offRes = await query(
+    `SELECT co.id, co.year_of_study, c.level, c.department_id as course_dept_id, t.department_id as teacher_dept_id
+     FROM course_offerings co
+     JOIN courses c ON c.id = co.course_id
+     LEFT JOIN teachers t ON t.id = co.teacher_id
+     WHERE co.id = $1`,
+    [offeringId]
+  );
+  if (offRes.rows.length === 0) return;
+  const off = offRes.rows[0];
+  const courseDept = off.course_dept_id;
+  const teacherDept = off.teacher_dept_id;
+  const rawYos = off.year_of_study ?? (off.level ? (off.level >= 100 ? Math.floor(off.level / 100) : off.level) : null);
+  const targetYear = rawYos !== null && rawYos !== undefined ? parseInt(rawYos, 10) : null;
+
+  if ((courseDept || teacherDept) && targetYear) {
+    await query(
+      `INSERT INTO course_enrollments (id, offering_id, student_id, status, is_repeat, enrolled_at)
+       SELECT 'enr_' || substr(md5(random()::text || clock_timestamp()::text || s.id), 1, 16),
+              $1::varchar, s.id, 'enrolled', false, now()
+       FROM students s
+       WHERE (s.department_id = COALESCE($2::varchar, $3::varchar) OR s.department_id = COALESCE($3::varchar, $2::varchar))
+         AND s.year_of_study = $4::smallint
+         AND (s.academic_status IS NULL OR s.academic_status = 'active' OR s.academic_status = 'enrolled')
+         AND NOT EXISTS (
+           SELECT 1 FROM course_enrollments ce WHERE ce.offering_id = $1::varchar AND ce.student_id = s.id
+         )`,
+      [offeringId, courseDept, teacherDept, targetYear]
+    );
+  }
+}
+
 export async function listOfferings(filters, caller) {
   if (caller.roleId === 'dept_head') {
     filters.departmentId = caller.departmentId;
@@ -94,6 +127,9 @@ export async function createOffering(data, caller) {
     );
   }
 
+  // Auto-enroll students whose department and year of study match the offering
+  await autoEnrollMatchingStudents(id);
+
   return await offRepo.getOfferingById(id);
 }
 
@@ -135,6 +171,10 @@ export async function updateOffering(id, data, caller) {
     teacherId: resolvedTeacherId,
     yearOfStudy: data.yearOfStudy !== undefined ? data.yearOfStudy : data.year_of_study,
   });
+
+  // Re-sync eligible students after offering update
+  await autoEnrollMatchingStudents(id);
+
   return await offRepo.getOfferingById(id);
 }
 

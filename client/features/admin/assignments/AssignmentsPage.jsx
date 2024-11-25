@@ -860,22 +860,24 @@ export function AssignmentsPage() {
         searchPlaceholder="Search course code, course name, or teacher…"
         sortable={true}
         toolbar={
-          <div className="flex flex-wrap items-center gap-2">
-            <FilterSelect
-              value={selectedCourseId}
-              onChange={(val) => setSelectedCourseId(val || '')}
-              options={courseFilterOptions}
-              allLabel="All Courses"
-              placeholder="Filter by Course Name"
-              className="w-64"
-            />
+          <div className="assignments-toolbar-filters cluster cluster--end push-end">
             <FilterSelect
               value={selectedYearOfStudy}
               onChange={(val) => setSelectedYearOfStudy(val || '')}
               options={YEAR_OF_STUDY_OPTIONS.filter((o) => o.value !== '')}
               allLabel="All Years of Study"
               placeholder="Filter by Year of Study"
-              className="w-48"
+              className="filter-select--year w-48"
+              align="end"
+            />
+            <FilterSelect
+              value={selectedCourseId}
+              onChange={(val) => setSelectedCourseId(val || '')}
+              options={courseFilterOptions}
+              allLabel="All Courses"
+              placeholder="Filter by Course Name"
+              className="filter-select--course w-64"
+              align="end"
             />
           </div>
         }

@@ -100,6 +100,11 @@
   text-align: left;
 }
 
+.tea-col-year {
+  min-width: 140px;
+  text-align: center;
+}
+
 .tea-col-section {
   min-width: 140px;
   text-align: center;
@@ -254,4 +259,178 @@
   align-items: center;
   gap: 0.75rem;
   margin-left: auto;
+}
+
+/* ==========================================================================
+   Teacher Grade Submission Modal (Professional SIS Quality)
+   ========================================================================== */
+
+.tea-submit-dialog-header {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  padding-right: 0 !important;
+  width: 100% !important;
+}
+
+.tea-submit-dialog-title {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  width: 100% !important;
+  gap: 0.5rem !important;
+}
+
+.tea-submit-dialog-desc {
+  text-align: center !important;
+  max-width: 44rem;
+  margin: 0 auto;
+}
+
+.tea-submit-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.25rem 0;
+}
+
+.tea-submit-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .tea-submit-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.tea-submit-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 0.5rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: color-mix(in oklch, var(--muted) 45%, transparent);
+  text-align: center;
+}
+
+.tea-submit-card__label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  margin-bottom: 0.25rem;
+}
+
+.tea-submit-card__value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.tea-submit-card--complete {
+  background: color-mix(in oklch, var(--success, #10b981) 12%, transparent);
+  border-color: color-mix(in oklch, var(--success, #10b981) 35%, transparent);
+}
+
+.tea-submit-card--complete .tea-submit-card__label {
+  color: var(--success, #059669);
+}
+
+.tea-submit-card--complete .tea-submit-card__value {
+  color: var(--success, #059669);
+}
+
+.tea-submit-card--incomplete {
+  background: color-mix(in oklch, var(--warning, #f59e0b) 12%, transparent);
+  border-color: color-mix(in oklch, var(--warning, #f59e0b) 35%, transparent);
+}
+
+.tea-submit-card--incomplete .tea-submit-card__label {
+  color: var(--warning, #d97706);
+}
+
+.tea-submit-card--incomplete .tea-submit-card__value {
+  color: var(--warning, #d97706);
+}
+
+.tea-submit-dist {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--radius-md);
+  background: var(--muted);
+  border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+}
+
+.tea-submit-dist-pills {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.tea-submit-dist-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.175rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+.tea-submit-missing-list {
+  max-height: 140px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.tea-submit-missing-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--muted) 50%, transparent);
+}
+
+.tea-submit-cert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in oklch, var(--primary) 30%, transparent);
+  background: color-mix(in oklch, var(--primary) 6%, transparent);
+}
+
+.tea-submit-cert input[type="checkbox"],
+.tea-submit-cert .checkbox {
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+}
+
+.tea-submit-cert label {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--foreground);
+  cursor: pointer;
 }

@@ -12,7 +12,7 @@ import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
 import { store } from '@/store'
-import { formatYearOfStudy } from '@/lib/format'
+import { formatYearOfStudy, getStudentCurrentYearOfStudy } from '@/lib/format'
 import { onUserChange } from '@/lib/syncEvents'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { ProgramTypeBadge } from '@/components/common/StatusBadge'
@@ -262,7 +262,7 @@ export function DeptAccountProvisionPage() {
                       <TableCell>
                         {u.roleId === 'student' ? (
                           <span className="text-foreground font-medium">
-                            {formatYearOfStudy(u.yearOfStudy || u.year_of_study || 1)}
+                            {getStudentCurrentYearOfStudy(u)}
                           </span>
                         ) : (
                           <span className="text-muted-foreground">—</span>
@@ -299,6 +299,7 @@ export function DeptAccountProvisionPage() {
         defaultDepartment={headDept?.id || headDeptId || ''}
         roleOptions={DEPT_ROLE_OPTIONS}
         hideDepartment={true}
+        lockDepartment={true}
         onCreated={handleCreated}
         onUpdated={() => refetch()}
       />

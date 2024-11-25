@@ -6,7 +6,7 @@ import { StatusBadge, ProgramTypeBadge } from '@/components/common/StatusBadge'
 import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
-import { formatYearOfStudy } from '@/lib/format'
+import { formatYearOfStudy, getStudentCurrentYearOfStudy } from '@/lib/format'
 import { onUserChange } from '@/lib/syncEvents'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
@@ -48,6 +48,8 @@ export function DeptStudentsPage() {
 
   useWebSocketEvent('USER_UPDATED', () => refetch())
   useWebSocketEvent('STUDENT_UPDATED', () => refetch())
+  useWebSocketEvent('WITHDRAWAL_APPROVED', () => refetch())
+  useWebSocketEvent('WITHDRAWAL_UPDATED', () => refetch())
 
   const columns = [
     { key: 'identifier', header: 'Student ID', cell: (s) => <span className="font-mono text-xs">{s.identifier || s.student_number || s.studentNumber}</span> },
@@ -55,8 +57,26 @@ export function DeptStudentsPage() {
     {
       key: 'yearOfStudy',
       header: 'Current Year',
-      value: (s) => formatYearOfStudy(s.yearOfStudy ?? s.year_of_study ?? s.batchYear ?? s.admissionYear),
-      cell: (s) => formatYearOfStudy(s.yearOfStudy ?? s.year_of_study ?? s.batchYear ?? s.admissionYear),
+      value: (s) => getStudentCurrentYearOfStudy(s),
+      cell: (s) => {
+        const isWithdrawn =
+          String(s.status || '').toLowerCase() === 'withdrawn' ||
+          String(s.academicStatus || s.academic_status || '').toLowerCase() === 'withdrawn' ||
+          Boolean(s.withdrawn) ||
+          Boolean(s.isWithdrawn)
+        const yearText = getStudentCurrentYearOfStudy(s)
+
+        return (
+          <span className="font-semibold text-foreground">
+            {yearText}
+            {isWithdrawn && (
+              <span className="ml-1.5 text-xs text-muted-foreground font-normal">
+                (Withdrawn)
+              </span>
+            )}
+          </span>
+        )
+      },
     },
     {
       key: 'programType',
