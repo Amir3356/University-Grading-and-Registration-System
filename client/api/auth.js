@@ -8,7 +8,7 @@ export async function login({ username, role, identifier, password }) {
   const payload = {
     username: (username || '').trim(),
     identifier: (identifier || username || '').trim(),
-    password: password || undefined,
+    password: password ?? '',
   };
   if (role) payload.role = role;
   return await api.post('/auth/login', payload);

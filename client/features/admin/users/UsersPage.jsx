@@ -169,6 +169,21 @@ export function UsersPage() {
                 label="Status"
                 className="filter-select--status"
               />
+              {(search || roleFilter || departmentFilter || statusFilter) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearch('')
+                    setRoleFilter('')
+                    setDepartmentFilter('')
+                    setStatusFilter('')
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground h-9"
+                >
+                  Reset filters
+                </Button>
+              )}
             </div>
           </div>
 

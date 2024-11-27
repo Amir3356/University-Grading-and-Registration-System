@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { PageHeader } from '@/components/common/PageHeader'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import { useQuery } from '@/hooks/useStore'
+import { formatAcademicYear } from '@/lib/format'
 import { store } from '@/store'
 
 const FALLBACK_COURSES_DATA = [
@@ -14,7 +16,7 @@ const FALLBACK_COURSES_DATA = [
     totalScore: '85.5',
     grade: 'A',
     status: 'published',
-    academicYear: '2026/2027',
+    academicYear: '2026',
     semester: 'First Semester',
   },
   {
@@ -23,7 +25,7 @@ const FALLBACK_COURSES_DATA = [
     totalScore: '78.0',
     grade: 'B',
     status: 'published',
-    academicYear: '2026/2027',
+    academicYear: '2026',
     semester: 'First Semester',
   },
 ]
@@ -42,7 +44,7 @@ export function MyGradesPage() {
         totalScore: c.finalGrade?.totalScore ?? (c.runningPercent != null ? c.runningPercent : '—'),
         grade: c.finalGrade?.letter || (c.resultStatus === 'published' ? c.letter : '—'),
         status: c.resultStatus || c.status,
-        academicYear: c.semester?.academicYear?.name || '2026/2027',
+        academicYear: formatAcademicYear(c.semester),
         semester: c.semester?.name || 'First Semester',
       }))
     }
@@ -50,16 +52,17 @@ export function MyGradesPage() {
   }, [realCourses])
 
 
+  const currentYear = new Date().getFullYear()
+
   const academicYearOptions = [
-    { value: '2027', label: '2027' },
-    { value: '2026', label: '2026' },
-    { value: '2025', label: '2025' },
-    { value: '2024', label: '2024' },
+    { value: 'all', label: 'Academic Year' },
+    { value: String(currentYear), label: String(currentYear) },
   ]
 
   const semesterOptions = [
-    { value: 'Semester 1', label: 'Semester 1' },
-    { value: 'Semester 2', label: 'Semester 2' },
+    { value: 'all', label: 'Semester' },
+    { value: 'first', label: 'First Semester' },
+    { value: 'second', label: 'Second Semester' },
   ]
 
   const courseOptions = useMemo(() => {
@@ -74,15 +77,25 @@ export function MyGradesPage() {
     return list
   }, [coursesList])
 
+  const isFiltered = academicYear !== 'all' || semester !== 'all' || courseChoice !== 'all'
+
   const filteredCourses = useMemo(() => {
     return coursesList.filter((c) => {
       if (academicYear && academicYear !== 'all' && c.academicYear !== academicYear && !c.academicYear.includes(academicYear)) return false
-      if (semester && semester !== 'all' && c.semester !== semester) return false
+      if (semester && semester !== 'all') {
+        const term = String(c.semester ?? '').toLowerCase()
+        if (semester === 'first') {
+          const isFirst = term.includes('fall') || term === '1' || term.includes('first')
+          if (!isFirst) return false
+        } else if (semester === 'second') {
+          const isSecond = term.includes('spring') || term === '2' || term.includes('second')
+          if (!isSecond) return false
+        }
+      }
       if (courseChoice !== 'all' && c.courseCode !== courseChoice) return false
       return true
     })
   }, [coursesList, academicYear, semester, courseChoice])
-
 
   return (
     <div className="space-y-6">
@@ -92,80 +105,69 @@ export function MyGradesPage() {
         centered
       />
 
-      {/* Filter Grades Card */}
-      <Card className="p-5">
-        <CardHeader className="p-0 pb-4">
-          <CardTitle className="text-base font-semibold">Filter Grades</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div
-            className="stu-grades-filter-row"
-            style={{
-              display: 'flex',
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              alignItems: 'flex-start',
-              gap: '1rem',
-              width: '100%',
+      {/* Dropdown Filters (standalone inline cluster, no card/table wrapper) */}
+      <div
+        className="cluster"
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: '0.75rem',
+        }}
+      >
+        <div style={{ width: '12.5rem', minWidth: '10rem' }}>
+          <FilterSelect
+            id="academic-year-select"
+            value={academicYear}
+            onChange={setAcademicYear}
+            options={academicYearOptions}
+            placeholder="Academic Year"
+            includeAll={false}
+          />
+        </div>
+
+        <div style={{ width: '12.5rem', minWidth: '10rem' }}>
+          <FilterSelect
+            id="semester-select"
+            value={semester}
+            onChange={setSemester}
+            options={semesterOptions}
+            placeholder="Semester"
+            includeAll={false}
+          />
+        </div>
+
+        <div style={{ width: '15rem', minWidth: '12rem' }}>
+          <FilterSelect
+            id="course-select"
+            value={courseChoice}
+            onChange={setCourseChoice}
+            options={courseOptions}
+            placeholder="All Courses"
+            includeAll={false}
+          />
+        </div>
+
+        {isFiltered && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setAcademicYear('all')
+              setSemester('all')
+              setCourseChoice('all')
             }}
+            className="text-xs text-muted-foreground hover:text-foreground h-9"
           >
-            <div className="form-field" style={{ flex: '1 1 200px', minWidth: '180px' }}>
-              <label htmlFor="academic-year-select" className="text-sm font-medium text-foreground">
-                Academic Year
-              </label>
-              <FilterSelect
-                id="academic-year-select"
-                value={academicYear}
-                onChange={setAcademicYear}
-                options={academicYearOptions}
-                placeholder="2027"
-                includeAll={false}
-                className="w-full"
-              />
-            </div>
-
-            <div className="form-field" style={{ flex: '1 1 200px', minWidth: '180px' }}>
-              <label htmlFor="semester-select" className="text-sm font-medium text-foreground">
-                Semester
-              </label>
-              <FilterSelect
-                id="semester-select"
-                value={semester}
-                onChange={setSemester}
-                options={semesterOptions}
-                placeholder="Semester 1"
-                includeAll={false}
-                className="w-full"
-              />
-            </div>
-
-            <div className="form-field" style={{ flex: '1 1 200px', minWidth: '180px' }}>
-              <label htmlFor="course-select" className="text-sm font-medium text-foreground">
-                Course
-              </label>
-              <FilterSelect
-                id="course-select"
-                value={courseChoice}
-                onChange={setCourseChoice}
-                options={courseOptions}
-                placeholder="All Courses"
-                includeAll={false}
-                className="w-full"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            Reset filters
+          </Button>
+        )}
+      </div>
 
       {/* Course Grade Summary Card */}
       <Card className="overflow-hidden">
         <CardHeader className="p-5 pb-3 border-b">
-          <div className="flex flex-col gap-0.5">
-            <CardTitle className="text-base font-semibold">Course Grade Summary</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground">
-              Illustrative data only
-            </CardDescription>
-          </div>
+          <CardTitle className="text-base font-semibold">Course Grade Summary</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>

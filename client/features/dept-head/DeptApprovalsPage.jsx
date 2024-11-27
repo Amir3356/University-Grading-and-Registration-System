@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listApprovalRequestsApi, approveGradesApi, rejectGradesApi } from '@/api/grades'
+import { listApprovalRequestsApi, getApprovalRequestApi, approveGradesApi, rejectGradesApi } from '@/api/grades'
+import { useWebSocketEvent } from '@/lib/websocket'
+import { formatNumber, formatYearOfStudy } from '@/lib/format'
 
 import {
   ArrowLeft,
   Award,
-  Calendar,
   CheckCircle2,
-  CreditCard,
-  FileSpreadsheet,
-  GraduationCap,
+  Clock,
   Percent,
   Printer,
   TrendingDown,
+  Undo2,
   UserCheck,
   Users,
   XCircle,
@@ -20,57 +20,16 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { PageHeader } from '@/components/common/PageHeader'
 import { StatCard } from '@/components/common/StatCard'
 import { GradeBadge, PassFailBadge, StatusBadge } from '@/components/common/StatusBadge'
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { SearchInput } from '@/components/common/SearchInput'
 
-const STORAGE_KEY = 'ugs-dept-grade-approvals-v3'
+const STORAGE_KEY = 'ugs-dept-grade-approvals-v4'
 
-const INITIAL_APPROVAL_DATA = [
-  {
-    id: 'app_cs101',
-    courseCode: 'CS101',
-    courseName: 'Introduction to Programming',
-    teacherName: 'Amara Alemu',
-    teacherId: 'TCH101',
-    totalStudent: 45,
-    submissionDate: 'Oct 17, 2026',
-    status: 'Pending',
-  },
-  {
-    id: 'app_dbms201',
-    courseCode: 'DBMS201',
-    courseName: 'Database Systems',
-    teacherName: 'Hana Tesfaye',
-    teacherId: 'TCH201',
-    totalStudent: 38,
-    submissionDate: 'Oct 17, 2026',
-    status: 'Pending',
-  },
-  {
-    id: 'app_swe301',
-    courseCode: 'SWE301',
-    courseName: 'Software Engineering',
-    teacherName: 'Dawit Tadesse',
-    teacherId: 'TCH301',
-    totalStudent: 42,
-    submissionDate: 'Oct 16, 2026',
-    status: 'Approved',
-  },
-  {
-    id: 'app_net401',
-    courseCode: 'NET401',
-    courseName: 'Computer Networks',
-    teacherName: 'Selam Kebede',
-    teacherId: 'TCH401',
-    totalStudent: 35,
-    submissionDate: 'Oct 15, 2026',
-    status: 'Rejected',
-  },
-]
+const INITIAL_APPROVAL_DATA = []
 
 const STUDENT_NAMES = [
   'Abebe Bikila',
@@ -170,6 +129,8 @@ function getCourseStudents(courseCode, count) {
       id: `st_${courseCode.toLowerCase()}_${i + 1}`,
       studentNumber,
       name,
+      yearOfStudy: (i % 4) + 1,
+      section: 'A',
       quiz,
       assignment,
       midterm,
@@ -186,10 +147,11 @@ function getCourseStudents(courseCode, count) {
 
 function loadStoredData() {
   try {
+    localStorage.removeItem('ugs-dept-grade-approvals-v3')
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed
       }
     }
@@ -200,34 +162,42 @@ function loadStoredData() {
 }
 
 export function DeptApprovalsPage() {
-  const [approvals, setApprovals] = useState(loadStoredData)
+  const [approvals, setApprovals] = useState([])
   const [selectedRowId, setSelectedRowId] = useState(null)
 
-  useEffect(() => {
-    async function loadRealSubmissions() {
-      try {
-        const res = await listApprovalRequestsApi()
-        const items = res?.items || (Array.isArray(res) ? res : [])
-        if (items.length > 0) {
-          const mapped = items.map((s) => ({
-            id: s.id,
-            submissionId: s.id,
-            courseCode: s.offering?.course?.code || s.courseCode || 'CS101',
-            courseName: s.offering?.course?.title || s.courseTitle || 'Course',
-            teacherName: s.teacher?.name || 'Teacher',
-            teacherId: s.teacher?.employeeNumber || 'TCH',
-            totalStudent: s.studentCount || 45,
-            submissionDate: s.submittedAt ? new Date(s.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recent',
-            status: s.status ? s.status.charAt(0).toUpperCase() + s.status.slice(1) : 'Pending',
-          }))
-          setApprovals(mapped)
-        }
-      } catch {
-        // Fall back to stored data
-      }
+  const loadRealSubmissions = async () => {
+    try {
+      const res = await listApprovalRequestsApi()
+      const items = res?.items || (Array.isArray(res) ? res : [])
+      const mapped = items.map((s) => ({
+        id: s.id,
+        submissionId: s.id,
+        offeringId: s.offering?.id,
+        courseCode: s.offering?.course?.code || s.courseCode || 'CS101',
+        courseName: s.offering?.course?.title || s.courseTitle || 'Course',
+        teacherName: s.teacher?.name || 'Teacher',
+        teacherId: s.teacher?.employeeNumber || 'TCH',
+        totalStudent: s.studentCount || 0,
+        submissionDate: s.submittedAt ? new Date(s.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recent',
+        status: s.status ? s.status.charAt(0).toUpperCase() + s.status.slice(1) : 'Pending',
+      }))
+      setApprovals(mapped)
+    } catch (err) {
+      console.warn('Failed to load grade approval submissions:', err)
     }
+  }
+
+  useEffect(() => {
     loadRealSubmissions()
   }, [])
+
+  useWebSocketEvent('OFFERING_UPDATED', () => {
+    loadRealSubmissions()
+  })
+
+  useWebSocketEvent('GRADE_SUBMISSION_UPDATED', () => {
+    loadRealSubmissions()
+  })
 
   const selectedRow = useMemo(
     () => approvals.find((a) => a.id === selectedRowId) || null,
@@ -289,51 +259,47 @@ export function DeptApprovalsPage() {
 
   const handleApprove = async (id) => {
     const target = approvals.find((a) => a.id === id)
+    if (!target) return
     const isCurrentlyApproved = target?.status === 'Approved'
     const newStatus = isCurrentlyApproved ? 'Pending' : 'Approved'
 
-    if (newStatus === 'Approved' && target?.submissionId) {
-      try {
+    try {
+      if (newStatus === 'Approved' && target?.submissionId) {
         await approveGradesApi(target.submissionId, { comment: 'Approved by department head' })
-      } catch (err) {
-        console.warn('Backend approval warning:', err)
       }
-    }
+      await loadRealSubmissions()
 
-    const next = approvals.map((a) =>
-      a.id === id ? { ...a, status: newStatus } : a,
-    )
-    saveApprovals(next)
-
-    if (newStatus === 'Approved') {
-      toast.success(`Grades for ${target?.courseCode || 'course'} approved!`)
-    } else {
-      toast.info(`Grades for ${target?.courseCode || 'course'} set back to Pending.`)
+      if (newStatus === 'Approved') {
+        toast.success(`Grades for ${target?.courseCode || 'course'} approved!`)
+      } else {
+        toast.info(`Grades for ${target?.courseCode || 'course'} set back to Pending.`)
+      }
+    } catch (err) {
+      console.error('Backend approval error:', err)
+      toast.error(err.message || 'Failed to approve grades. Please try again.')
     }
   }
 
   const handleReject = async (id) => {
     const target = approvals.find((a) => a.id === id)
+    if (!target) return
     const isCurrentlyRejected = target?.status === 'Rejected'
     const newStatus = isCurrentlyRejected ? 'Pending' : 'Rejected'
 
-    if (newStatus === 'Rejected' && target?.submissionId) {
-      try {
+    try {
+      if (newStatus === 'Rejected' && target?.submissionId) {
         await rejectGradesApi(target.submissionId, { comment: 'Returned by department head for revision' })
-      } catch (err) {
-        console.warn('Backend rejection warning:', err)
       }
-    }
+      await loadRealSubmissions()
 
-    const next = approvals.map((a) =>
-      a.id === id ? { ...a, status: newStatus } : a,
-    )
-    saveApprovals(next)
-
-    if (newStatus === 'Rejected') {
-      toast.error(`Grades for ${target?.courseCode || 'course'} rejected!`)
-    } else {
-      toast.info(`Grades for ${target?.courseCode || 'course'} set back to Pending.`)
+      if (newStatus === 'Rejected') {
+        toast.info(`Teacher allowed to edit grades for ${target?.courseCode || 'course'}.`)
+      } else {
+        toast.info(`Grades for ${target?.courseCode || 'course'} set back to Pending.`)
+      }
+    } catch (err) {
+      console.error('Backend rejection error:', err)
+      toast.error(err.message || 'Failed to allow teacher to edit grades. Please try again.')
     }
   }
 
@@ -376,7 +342,7 @@ export function DeptApprovalsPage() {
             options={[
               { value: 'Pending', label: 'Pending Approval' },
               { value: 'Approved', label: 'Approved' },
-              { value: 'Rejected', label: 'Rejected / Returned' },
+              { value: 'Rejected', label: 'Returned for Edit / Edit Allowed' },
             ]}
             className="w-40"
           />
@@ -422,23 +388,23 @@ export function DeptApprovalsPage() {
                   <TableHead className="font-semibold text-foreground">
                     Course code
                   </TableHead>
-                  <TableHead className="font-semibold text-foreground" title="coursename">
-                    <span className="sr-only">coursename </span>coursename
-                  </TableHead>
-                  <TableHead className="font-semibold text-foreground" title="Teachername">
-                    <span className="sr-only">Teachername </span>Teachername
+                  <TableHead className="font-semibold text-foreground">
+                    Course Name
                   </TableHead>
                   <TableHead className="font-semibold text-foreground">
-                    TeacherID
+                    Teacher Name
+                  </TableHead>
+                  <TableHead className="font-semibold text-foreground">
+                    Teacher ID
                   </TableHead>
                   <TableHead className="font-semibold text-foreground text-center">
-                    Total Student
-                  </TableHead>
-                  <TableHead className="font-semibold text-foreground" title="Submission Data">
-                    <span className="sr-only">Submission Data </span>Submission Data
+                    Total Students
                   </TableHead>
                   <TableHead className="font-semibold text-foreground">
-                    status
+                    Submission Date
+                  </TableHead>
+                  <TableHead className="font-semibold text-foreground">
+                    Status
                   </TableHead>
                   <TableHead className="font-semibold text-foreground text-right">
                     Action
@@ -450,7 +416,6 @@ export function DeptApprovalsPage() {
                   <TableRow>
                     <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
                       <div className="flex flex-col items-center justify-center gap-1.5">
-                        <FileSpreadsheet className="size-8 text-muted-foreground/50 mb-1" />
                         <span className="font-semibold text-foreground text-sm">No grade submissions found</span>
                         <span className="text-xs">
                           {searchQuery || statusFilter || teacherFilter
@@ -532,25 +497,31 @@ export function DeptApprovalsPage() {
                             }`}
                             title={`Approve ${row.courseCode}`}
                             aria-label={`Approve ${row.courseCode}`}
-                            onClick={() => handleApprove(row.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleApprove(row.id)
+                            }}
                           >
                             <CheckCircle2 className="size-4" />
                           </Button>
 
-                          {/* Reject Icon Button */}
+                          {/* Allow Edit / Return Button */}
                           <Button
                             variant="ghost"
                             size="icon-sm"
                             className={`size-8 rounded-md transition-all ${
                               isRejected
-                                ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400 font-bold'
-                                : 'text-muted-foreground hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400'
+                                ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold'
+                                : 'text-muted-foreground hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400'
                             }`}
-                            title={`Reject ${row.courseCode}`}
-                            aria-label={`Reject ${row.courseCode}`}
-                            onClick={() => handleReject(row.id)}
+                            title={isRejected ? `Editing currently allowed for ${row.courseCode}` : `Allow Teacher to Edit ${row.courseCode}`}
+                            aria-label={`Allow Teacher to Edit ${row.courseCode}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleReject(row.id)
+                            }}
                           >
-                            <XCircle className="size-4" />
+                            <Undo2 className="size-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -570,26 +541,131 @@ export function DeptApprovalsPage() {
 function FullSubmittedGradeSheet({ row, onBack, onApprove, onReject }) {
   const isApproved = row.status === 'Approved'
   const isRejected = row.status === 'Rejected'
-  const statusBadgeKey = isApproved ? 'approved' : isRejected ? 'rejected' : 'pending'
 
-  // Generate deterministic student marks for this course
-  const students = useMemo(
-    () => getCourseStudents(row.courseCode, row.totalStudent),
-    [row.courseCode, row.totalStudent],
-  )
+  const [realData, setRealData] = useState(null)
+  const [loadingDetails, setLoadingDetails] = useState(false)
+
+  const fetchDetails = () => {
+    const subId = row.submissionId || row.id
+    if (!subId) return
+    setLoadingDetails(true)
+    getApprovalRequestApi(subId)
+      .then((data) => {
+        if (data) {
+          setRealData(data)
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load real submission details:', err)
+      })
+      .finally(() => {
+        setLoadingDetails(false)
+      })
+  }
+
+  useEffect(() => {
+    fetchDetails()
+  }, [row.submissionId, row.id])
+
+  useWebSocketEvent('OFFERING_UPDATED', () => {
+    fetchDetails()
+  })
+
+  useWebSocketEvent('GRADE_SUBMISSION_UPDATED', () => {
+    fetchDetails()
+  })
+
+  const assessments = useMemo(() => {
+    if (realData?.assessments && realData.assessments.length > 0) {
+      return realData.assessments
+    }
+    return null
+  }, [realData])
+
+  // Extract student marks: either real submitted records or deterministic fallback
+  const students = useMemo(() => {
+    if (realData?.rows && realData.rows.length > 0) {
+      return realData.rows.map((r, idx) => {
+        const studentNum =
+          r.student?.studentNumber ||
+          r.student?.student_number ||
+          r.student?.id ||
+          `STU${String(1001 + idx).slice(1)}`
+        const studentName =
+          r.student?.name ||
+          (r.student?.firstName ? `${r.student.firstName} ${r.student.lastName || ''}`.trim() : '') ||
+          'Student'
+        const totalVal = r.total != null ? Number(r.total) : (r.runningPercent != null ? Number(r.runningPercent) : 0)
+        const yearOfStudy = r.student?.yearOfStudy ?? r.student?.year_of_study ?? realData?.offering?.yearOfStudy ?? row.yearOfStudy ?? 1
+        const section = r.section || realData?.offering?.section || row.section || 'A'
+        const isWithdrawn = r.enrollment?.status === 'withdrawn'
+
+        return {
+          id: r.enrollmentId || `st_${idx}`,
+          studentNumber: studentNum,
+          name: studentName,
+          yearOfStudy,
+          section,
+          withdrawn: isWithdrawn,
+          marks: r.marks || {},
+          total: Number(totalVal.toFixed(1)),
+          letter: r.letter || 'F',
+          points: typeof r.points === 'number' ? r.points : (typeof r.gradePoints === 'number' ? r.gradePoints : 0),
+          passed: r.passed ?? ((r.letter || '').toUpperCase() !== 'F'),
+        }
+      })
+    }
+    return getCourseStudents(row.courseCode, row.totalStudent)
+  }, [realData, row.courseCode, row.totalStudent, row.yearOfStudy, row.section])
 
   const count = students.length
   const passedCount = students.filter((s) => s.passed).length
   const failedCount = count - passedCount
   const passRate = count ? ((passedCount / count) * 100).toFixed(1) : 0
-  const totalAvg = count ? (students.reduce((acc, s) => acc + s.total, 0) / count).toFixed(1) : 0
-  const quizAvg = count ? (students.reduce((acc, s) => acc + s.quiz, 0) / count).toFixed(1) : 0
-  const assignmentAvg = count ? (students.reduce((acc, s) => acc + s.assignment, 0) / count).toFixed(1) : 0
-  const midtermAvg = count ? (students.reduce((acc, s) => acc + s.midterm, 0) / count).toFixed(1) : 0
-  const finalAvg = count ? (students.reduce((acc, s) => acc + s.finalExam, 0) / count).toFixed(1) : 0
 
   const highestScore = count ? Math.max(...students.map((s) => s.total)).toFixed(1) : 0
   const lowestScore = count ? Math.min(...students.map((s) => s.total)).toFixed(1) : 0
+
+  const [searchQuery, setSearchQuery] = useState('')
+  const [resultFilter, setResultFilter] = useState('')
+  const [gradeFilter, setGradeFilter] = useState('')
+
+  const filteredStudents = useMemo(() => {
+    return students.filter((s) => {
+      if (resultFilter === 'passed' && !s.passed) return false
+      if (resultFilter === 'failed' && (s.passed || s.withdrawn)) return false
+      if (resultFilter === 'withdrawn' && !s.withdrawn) return false
+
+      if (gradeFilter) {
+        const studentLetter = String(s.letter || '').toUpperCase()
+        if (!studentLetter.startsWith(gradeFilter.toUpperCase())) {
+          return false
+        }
+      }
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim()
+        const idMatch = String(s.studentNumber || '').toLowerCase().includes(q)
+        const nameMatch = String(s.name || '').toLowerCase().includes(q)
+        const secMatch = String(s.section || '').toLowerCase().includes(q)
+        if (!idMatch && !nameMatch && !secMatch) return false
+      }
+
+      return true
+    })
+  }, [students, resultFilter, gradeFilter, searchQuery])
+
+  const assessmentAverages = useMemo(() => {
+    if (!assessments) return null
+    const avgs = {}
+    for (const a of assessments) {
+      const vals = students
+        .map((s) => s.marks?.[a.id])
+        .filter((v) => typeof v === 'number' && !isNaN(v))
+      avgs[a.id] = vals.length ? (vals.reduce((x, y) => x + y, 0) / vals.length).toFixed(1) : '—'
+    }
+    return avgs
+  }, [assessments, students])
 
   return (
     <div className="space-y-6">
@@ -609,26 +685,16 @@ function FullSubmittedGradeSheet({ row, onBack, onApprove, onReject }) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => window.print()}
-            className="gap-1.5"
-            title="Print Grade Sheet"
-          >
-            <Printer className="size-4" />
-            <span className="hidden sm:inline">Print / Export</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
             className={`gap-1.5 transition-all ${
               isRejected
-                ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400 font-semibold'
-                : 'border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950'
+                ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold border-amber-500/40'
+                : 'border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950'
             }`}
             onClick={onReject}
+            title="Unlock grades and allow the teacher to edit marks or assessments"
           >
-            <XCircle className="size-4" />
-            {isRejected ? 'Rejected' : 'Reject Grade Sheet'}
+            <Undo2 className="size-4" />
+            {isRejected ? 'Editing Allowed' : 'Allow Teacher to Edit'}
           </Button>
 
           <Button
@@ -647,237 +713,275 @@ function FullSubmittedGradeSheet({ row, onBack, onApprove, onReject }) {
         </div>
       </div>
 
-      {/* Course Information & Metadata in Structured Cards */}
-      <Card className="border shadow-sm overflow-hidden">
-        <CardHeader className="border-b bg-card pb-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="rounded-md bg-primary/10 px-2.5 py-1 font-mono text-sm font-bold text-primary">
-                  {row.courseCode}
-                </span>
-                <CardTitle className="text-xl font-bold text-foreground">{row.courseName}</CardTitle>
-                <StatusBadge status={statusBadgeKey} label={row.status} />
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Official Submitted Final Grade Sheet · Academic Year 2026/2027 · Semester 1
-              </p>
-            </div>
+      {/* KPI Metric Cards Grid - Horizontal 3 cards */}
+      <div className="stat-cards-horizontal">
+        <StatCard
+          label="Total Students"
+          value={count}
+          icon={Users}
+          hint="100% completed"
+          tone="default"
+        />
+        <StatCard
+          label="Pass Rate"
+          value={`${passRate}%`}
+          icon={Percent}
+          hint={`${passedCount} passed · ${failedCount} failed`}
+          tone={Number(passRate) >= 60 ? 'success' : 'warning'}
+        />
+        <StatCard
+          label="Highest / Lowest"
+          value={`${highestScore} / ${lowestScore}`}
+          icon={TrendingDown}
+          hint="Out of 100 max marks"
+          tone="default"
+        />
+      </div>
+
+      {/* Search Box filter on left and Dropdown filters flush on right */}
+      <div className="tea-grid-toolbar">
+        <div className="tea-grid-toolbar-left flex items-center gap-2.5">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search student by ID, name, or section…"
+            className="w-72"
+          />
+        </div>
+
+        <div className="tea-grid-toolbar-right flex flex-wrap items-center gap-2.5">
+          <FilterSelect
+            label="Result"
+            value={resultFilter}
+            onChange={setResultFilter}
+            allLabel="All Results"
+            options={[
+              { value: 'passed', label: 'Passed Students' },
+              { value: 'failed', label: 'Failed Students' },
+              { value: 'withdrawn', label: 'Withdrawn' },
+            ]}
+            className="w-40"
+            align="end"
+          />
+
+          <FilterSelect
+            label="Grade"
+            value={gradeFilter}
+            onChange={setGradeFilter}
+            allLabel="All Grades"
+            options={[
+              { value: 'A', label: 'Grade A' },
+              { value: 'B', label: 'Grade B' },
+              { value: 'C', label: 'Grade C' },
+              { value: 'D', label: 'Grade D' },
+              { value: 'F', label: 'Grade F' },
+            ]}
+            className="w-36"
+            align="end"
+          />
+
+          {(searchQuery || resultFilter || gradeFilter) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchQuery('')
+                setResultFilter('')
+                setGradeFilter('')
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground h-9"
+            >
+              Reset filters
+            </Button>
+          )}
+
+          <div className="text-xs text-muted-foreground font-medium whitespace-nowrap pl-1">
+            Showing <span className="font-semibold text-foreground">{filteredStudents.length}</span> of {count}
           </div>
-        </CardHeader>
-
-        <CardContent className="p-4 bg-muted/15">
-          <div className="flex flex-row gap-3 w-full">
-            <div className="flex-1 min-w-0 flex items-center gap-3 rounded-lg border bg-card p-3 shadow-xs">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <UserCheck className="size-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground block">Instructor</span>
-                <p className="truncate text-sm font-semibold text-foreground">{row.teacherName}</p>
-              </div>
-            </div>
-
-            <div className="flex-1 min-w-0 flex items-center gap-3 rounded-lg border bg-card p-3 shadow-xs">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                <CreditCard className="size-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground block">Teacher ID</span>
-                <p className="font-mono text-sm font-semibold text-foreground">{row.teacherId}</p>
-              </div>
-            </div>
-
-            <div className="flex-1 min-w-0 flex items-center gap-3 rounded-lg border bg-card p-3 shadow-xs">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                <Calendar className="size-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground block">Submitted</span>
-                <p className="text-sm font-semibold text-foreground tabular">{row.submissionDate}</p>
-              </div>
-            </div>
-
-            <div className="flex-1 min-w-0 flex items-center gap-3 rounded-lg border bg-card p-3 shadow-xs">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                <GraduationCap className="size-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground block">Total Enrolled</span>
-                <p className="text-sm font-semibold text-foreground tabular">{row.totalStudent} Students</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* KPI Metric Cards Grid - Horizontal 4 parts in flexbox */}
-      <div className="flex flex-row gap-4 w-full">
-        <div className="flex-1 min-w-0">
-          <StatCard
-            label="Total Students"
-            value={count}
-            icon={Users}
-            hint="100% completed"
-            tone="default"
-          />
-        </div>
-        <div className="flex-1 min-w-0">
-          <StatCard
-            label="Class Average"
-            value={`${totalAvg}%`}
-            icon={Award}
-            hint="Weighted out of 100"
-            tone="teal"
-          />
-        </div>
-        <div className="flex-1 min-w-0">
-          <StatCard
-            label="Pass Rate"
-            value={`${passRate}%`}
-            icon={Percent}
-            hint={`${passedCount} passed · ${failedCount} failed`}
-            tone={Number(passRate) >= 60 ? 'success' : 'warning'}
-          />
-        </div>
-        <div className="flex-1 min-w-0">
-          <StatCard
-            label="Highest / Lowest"
-            value={`${highestScore} / ${lowestScore}`}
-            icon={TrendingDown}
-            hint="Out of 100 max marks"
-            tone="default"
-          />
         </div>
       </div>
 
-      {/* Assessment Weights & Structure Card */}
-      <Card className="border shadow-sm">
-        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4 text-xs">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <FileSpreadsheet className="size-4" />
-            </div>
-            <div>
-              <p className="font-semibold text-foreground text-sm">Assessment Structure & Weights</p>
-              <p className="text-muted-foreground">Departmental course evaluation policy</p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <span className="rounded-md border bg-muted/40 px-2.5 py-1 text-xs">
-              Quiz: <strong className="text-foreground">10%</strong> (max 10)
-            </span>
-            <span className="rounded-md border bg-muted/40 px-2.5 py-1 text-xs">
-              Assignment: <strong className="text-foreground">20%</strong> (max 20)
-            </span>
-            <span className="rounded-md border bg-muted/40 px-2.5 py-1 text-xs">
-              Midterm: <strong className="text-foreground">30%</strong> (max 30)
-            </span>
-            <span className="rounded-md border bg-muted/40 px-2.5 py-1 text-xs">
-              Final Exam: <strong className="text-foreground">40%</strong> (max 40)
-            </span>
-            <Badge variant="success" className="font-medium">
-              100% Weight Validated
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Submitted Student Grade Records Table Card */}
       <Card className="border shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between border-b py-3.5">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-base font-semibold">Student Grade Records</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-center border-b py-3.5 text-center">
+          <div className="flex items-center justify-center gap-2 w-full text-center">
+            <CardTitle className="text-base font-semibold text-center">Student Grade Records</CardTitle>
             <Badge variant="outline" className="font-medium">
-              {count} Students
+              {filteredStudents.length === count ? `${count} Students` : `${filteredStudents.length} of ${count} Students`}
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="table-wrap">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead className="font-semibold text-foreground">Student ID</TableHead>
-                  <TableHead className="font-semibold text-foreground">Student Name</TableHead>
-                  <TableHead className="text-right font-semibold text-foreground">
-                    Quiz
-                    <span className="block text-[10px] font-normal text-muted-foreground">/10 · 10%</span>
-                  </TableHead>
-                  <TableHead className="text-right font-semibold text-foreground">
-                    Assignment
-                    <span className="block text-[10px] font-normal text-muted-foreground">/20 · 20%</span>
-                  </TableHead>
-                  <TableHead className="text-right font-semibold text-foreground">
-                    Midterm
-                    <span className="block text-[10px] font-normal text-muted-foreground">/30 · 30%</span>
-                  </TableHead>
-                  <TableHead className="text-right font-semibold text-foreground">
-                    Final Exam
-                    <span className="block text-[10px] font-normal text-muted-foreground">/40 · 40%</span>
-                  </TableHead>
-                  <TableHead className="text-right font-semibold text-foreground">
-                    Total
-                    <span className="block text-[10px] font-normal text-muted-foreground">/100</span>
-                  </TableHead>
-                  <TableHead className="text-center font-semibold text-foreground">Letter</TableHead>
-                  <TableHead className="text-right font-semibold text-foreground">Points</TableHead>
-                  <TableHead className="font-semibold text-foreground">Result</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {students.map((student) => (
-                  <TableRow key={student.id} className="transition-colors hover:bg-muted/30">
-                    <TableCell className="tabular font-mono text-xs font-semibold text-primary">
-                      {student.studentNumber}
-                    </TableCell>
-                    <TableCell className="font-medium text-foreground">
-                      {student.name}
-                    </TableCell>
-                    <TableCell className="text-right tabular">
-                      {student.quiz}
-                    </TableCell>
-                    <TableCell className="text-right tabular">
-                      {student.assignment}
-                    </TableCell>
-                    <TableCell className="text-right tabular">
-                      {student.midterm}
-                    </TableCell>
-                    <TableCell className="text-right tabular">
-                      {student.finalExam}
-                    </TableCell>
-                    <TableCell className="text-right tabular font-bold text-foreground">
-                      {student.total}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <GradeBadge letter={student.letter} passed={student.passed} />
-                    </TableCell>
-                    <TableCell className="text-right tabular font-mono text-xs">
-                      {student.points.toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      <PassFailBadge passed={student.passed} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-              <TableFooter>
-                <TableRow className="bg-muted/40 font-semibold hover:bg-muted/40">
-                  <TableCell colSpan={2} className="text-foreground">
-                    Class Average ({count} Students)
-                  </TableCell>
-                  <TableCell className="text-right tabular text-foreground">{quizAvg}</TableCell>
-                  <TableCell className="text-right tabular text-foreground">{assignmentAvg}</TableCell>
-                  <TableCell className="text-right tabular text-foreground">{midtermAvg}</TableCell>
-                  <TableCell className="text-right tabular text-foreground">{finalAvg}</TableCell>
-                  <TableCell className="text-right tabular font-bold text-foreground">{totalAvg}</TableCell>
-                  <TableCell colSpan={3} className="text-center text-xs text-muted-foreground">
-                    Pass Rate: {passRate}%
-                  </TableCell>
-                </TableRow>
-              </TableFooter>
-            </Table>
+          <div className="tea-spreadsheet-wrap">
+            <table className="tea-spreadsheet-table">
+              <thead>
+                <tr>
+                  <th className="tea-col-student-id">StudentID</th>
+                  <th className="tea-col-student-name">Student Name</th>
+                  <th className="tea-col-year">Year of Study</th>
+                  <th className="tea-col-section">Section</th>
+                  {assessments ? (
+                    assessments.map((a) => {
+                      const maxAllowed = Number(a.weight ?? a.maxMarks ?? 100)
+                      return (
+                        <th key={a.id} className="tea-col-assessment">
+                          <div className="tea-assessment-header">
+                            <span className="tea-assessment-title">
+                              {a.name || a.type}
+                            </span>
+                            <span className="tea-assessment-meta">
+                              Max: {maxAllowed} · {a.weight}%
+                            </span>
+                          </div>
+                        </th>
+                      )
+                    })
+                  ) : (
+                    <>
+                      <th className="tea-col-assessment">
+                        <div className="tea-assessment-header">
+                          <span className="tea-assessment-title">Quiz</span>
+                          <span className="tea-assessment-meta">Max: 10 · 10%</span>
+                        </div>
+                      </th>
+                      <th className="tea-col-assessment">
+                        <div className="tea-assessment-header">
+                          <span className="tea-assessment-title">Assignment</span>
+                          <span className="tea-assessment-meta">Max: 20 · 20%</span>
+                        </div>
+                      </th>
+                      <th className="tea-col-assessment">
+                        <div className="tea-assessment-header">
+                          <span className="tea-assessment-title">Midterm</span>
+                          <span className="tea-assessment-meta">Max: 30 · 30%</span>
+                        </div>
+                      </th>
+                      <th className="tea-col-assessment">
+                        <div className="tea-assessment-header">
+                          <span className="tea-assessment-title">Final Exam</span>
+                          <span className="tea-assessment-meta">Max: 40 · 40%</span>
+                        </div>
+                      </th>
+                    </>
+                  )}
+                  <th className="tea-col-total">Total (%)</th>
+                  <th className="tea-col-grade">Grade</th>
+                  <th className="tea-col-points">Grade Points</th>
+                  <th className="tea-col-status">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredStudents.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={(assessments ? assessments.length : 4) + 6}
+                      className="py-12 text-center text-muted-foreground"
+                    >
+                      <div className="flex flex-col items-center justify-center gap-1.5">
+                        <span className="font-semibold text-foreground text-sm">No student records found</span>
+                        <span className="text-xs">
+                          {searchQuery || resultFilter || gradeFilter
+                            ? 'No students match your active search or filter criteria.'
+                            : 'No student records available for this course offering.'}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredStudents.map((student) => (
+                  <tr key={student.id}>
+                    <td className="tea-col-student-id">
+                      <span className="font-mono text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                        {student.studentNumber}
+                      </span>
+                    </td>
+                    <td className="tea-col-student-name">
+                      <span className="font-semibold whitespace-nowrap text-foreground">
+                        {student.name}
+                      </span>
+                    </td>
+                    <td className="tea-col-year">
+                      <span className="tabular text-xs font-medium whitespace-nowrap text-muted-foreground">
+                        {formatYearOfStudy(student.yearOfStudy)}
+                      </span>
+                    </td>
+                    <td className="tea-col-section">
+                      <Badge variant="outline" className="text-xs px-2.5 py-0.5">
+                        Section {student.section}
+                      </Badge>
+                    </td>
+                    {assessments ? (
+                      assessments.map((a) => (
+                        <td key={a.id} className="tea-col-assessment">
+                          <span className="font-semibold font-mono text-xs tabular text-foreground">
+                            {student.marks?.[a.id] != null ? formatNumber(student.marks[a.id], 1) : '—'}
+                          </span>
+                        </td>
+                      ))
+                    ) : (
+                      <>
+                        <td className="tea-col-assessment">
+                          <span className="font-semibold font-mono text-xs tabular text-foreground">{student.quiz}</span>
+                        </td>
+                        <td className="tea-col-assessment">
+                          <span className="font-semibold font-mono text-xs tabular text-foreground">{student.assignment}</span>
+                        </td>
+                        <td className="tea-col-assessment">
+                          <span className="font-semibold font-mono text-xs tabular text-foreground">{student.midterm}</span>
+                        </td>
+                        <td className="tea-col-assessment">
+                          <span className="font-semibold font-mono text-xs tabular text-foreground">{student.finalExam}</span>
+                        </td>
+                      </>
+                    )}
+                    <td className="tea-col-total">
+                      <span className="font-mono font-semibold text-sm">
+                        {student.total != null ? `${formatNumber(student.total, 1)}%` : '—'}
+                      </span>
+                    </td>
+                    <td className="tea-col-grade">
+                      {student.letter ? (
+                        <GradeBadge letter={student.letter} passed={student.passed} />
+                      ) : (
+                        <span className="text-muted-foreground font-mono">—</span>
+                      )}
+                    </td>
+                    <td className="tea-col-points">
+                      {student.points != null ? (
+                        <span className="font-mono font-semibold text-sm tabular text-foreground">
+                          {Number(student.points).toFixed(2)}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground font-mono">—</span>
+                      )}
+                    </td>
+                    <td className="tea-col-status">
+                      {student.withdrawn ? (
+                        <Badge variant="muted" className="px-2.5 py-0.5">
+                          Withdrawn
+                        </Badge>
+                      ) : isApproved ? (
+                        <Badge variant="success" className="px-2.5 py-0.5 inline-flex items-center gap-1.5 font-medium">
+                          <CheckCircle2 className="size-3" />
+                          Approved
+                        </Badge>
+                      ) : isRejected ? (
+                        <Badge variant="danger" className="px-2.5 py-0.5 inline-flex items-center gap-1.5 font-medium">
+                          <Undo2 className="size-3" />
+                          Rejected
+                        </Badge>
+                      ) : (
+                        <Badge variant="warning" className="px-2.5 py-0.5 inline-flex items-center gap-1.5 font-medium">
+                          <Clock className="size-3" />
+                          Pending
+                        </Badge>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            </table>
           </div>
         </CardContent>
       </Card>

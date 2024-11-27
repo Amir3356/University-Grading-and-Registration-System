@@ -23,6 +23,9 @@ export async function getSubmissionDetail(req, res, next) {
 export async function approveSubmission(req, res, next) {
   try {
     const result = await subService.approveSubmission(req.params.id, req.body, req.user);
+    if (result?.offeringId) {
+      broadcastEvent('OFFERING_UPDATED', { id: result.offeringId, gradeStatus: 'approved' });
+    }
     sendSuccess(res, result);
   } catch (err) {
     next(err);
@@ -32,6 +35,9 @@ export async function approveSubmission(req, res, next) {
 export async function rejectSubmission(req, res, next) {
   try {
     const result = await subService.rejectSubmission(req.params.id, req.body, req.user);
+    if (result?.offeringId) {
+      broadcastEvent('OFFERING_UPDATED', { id: result.offeringId, gradeStatus: 'rejected' });
+    }
     sendSuccess(res, result);
   } catch (err) {
     next(err);
@@ -53,6 +59,7 @@ export async function submitGrades(req, res, next) {
     const offeringId = req.params.id || req.body.offeringId;
     const result = await subService.submitGrades(offeringId, { note }, req.user);
     broadcastEvent('OFFERING_UPDATED', { id: offeringId, gradeStatus: 'submitted' });
+    broadcastEvent('GRADE_SUBMISSION_UPDATED', { offeringId, submissionId: result?.id });
     sendSuccess(res, result);
   } catch (err) {
     next(err);

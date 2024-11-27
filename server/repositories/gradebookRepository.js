@@ -316,7 +316,7 @@ export async function getGradebookData(offeringId) {
   const latestSubmission = subRes.rows[0] || null;
 
   const locked = ['submitted', 'approved', 'published'].includes(offering.grade_status);
-  const requiresReason = latestSubmission?.status === 'rejected';
+  const requiresReason = latestSubmission?.status === 'rejected' || offering.grade_status === 'approved';
 
   return {
     offering,

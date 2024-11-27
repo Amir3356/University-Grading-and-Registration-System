@@ -40,7 +40,13 @@ export async function findByIdentifierOrUsername(role, identifier) {
        FROM users u
        LEFT JOIN students s ON s.user_id = u.id
        WHERE u.role_id = 'student'
-         AND (lower(u.username) = $1 OR lower(s.student_number) = $1 OR lower(u.email) = $1)`,
+         AND (
+           lower(u.username) = $1
+           OR lower(s.student_number) = $1
+           OR lower(u.email) = $1
+           OR lower(concat(u.first_name, ' ', u.last_name)) = $1
+           OR lower(concat(u.first_name, ' student')) = $1
+         )`,
       [lowerId]
     );
     return res.rows[0] || null;
@@ -52,7 +58,15 @@ export async function findByIdentifierOrUsername(role, identifier) {
        FROM users u
        LEFT JOIN teachers t ON t.user_id = u.id
        WHERE u.role_id = 'teacher'
-         AND (lower(u.username) = $1 OR lower(t.employee_number) = $1 OR lower(u.email) = $1)`,
+         AND (
+           lower(u.username) = $1
+           OR lower(t.employee_number) = $1
+           OR lower(u.email) = $1
+           OR lower(concat(u.first_name, ' ', u.last_name)) = $1
+           OR lower(concat(u.first_name, ' teacher')) = $1
+           OR lower(concat(u.first_name, ' ', u.last_name, ' teacher')) = $1
+           OR lower(u.first_name) = $1
+         )`,
       [lowerId]
     );
     return res.rows[0] || null;
@@ -71,6 +85,7 @@ export async function findByIdentifierOrUsername(role, identifier) {
            OR lower(d.code) = $1
            OR lower(d.id) = $1
            OR lower(u.email) = $1
+           OR lower(concat(u.first_name, ' ', u.last_name)) = $1
            OR lower($1) IN ('dept_head', 'depthead', 'head')
          )
        ORDER BY CASE WHEN u.role_id = 'dept_head' THEN 1 WHEN d.head_teacher_id = t.id THEN 2 ELSE 3 END
@@ -88,6 +103,7 @@ export async function findByIdentifierOrUsername(role, identifier) {
          AND (
            lower(u.username) = $1
            OR lower(u.email) = $1
+           OR lower(concat(u.first_name, ' ', u.last_name)) = $1
            OR ($1 IN ('admin', 'amir') AND u.id = 'usr_0001')
          )
        LIMIT 1`,
@@ -96,7 +112,7 @@ export async function findByIdentifierOrUsername(role, identifier) {
     return res.rows[0] || null;
   }
 
-  // If role is omitted or general login: search across ALL users by username, email, student ID, or teacher employee number
+  // If role is omitted or general login: search across ALL users by username, email, student ID, teacher employee number, or name
   const res = await query(
     `SELECT u.*
      FROM users u
@@ -106,11 +122,18 @@ export async function findByIdentifierOrUsername(role, identifier) {
         OR lower(u.email) = $1
         OR lower(s.student_number) = $1
         OR lower(t.employee_number) = $1
+        OR lower(concat(u.first_name, ' ', u.last_name)) = $1
+        OR lower(concat(u.first_name, ' teacher')) = $1
+        OR lower(concat(u.first_name, ' ', u.last_name, ' teacher')) = $1
+        OR (lower(u.first_name) = $1 AND u.role_id = 'teacher')
         OR ($1 IN ('admin', 'amir') AND u.id = 'usr_0001')
      ORDER BY CASE
        WHEN lower(u.username) = $1 THEN 1
        WHEN lower(u.email) = $1 THEN 2
-       ELSE 3
+       WHEN lower(t.employee_number) = $1 THEN 3
+       WHEN lower(concat(u.first_name, ' teacher')) = $1 THEN 4
+       WHEN lower(concat(u.first_name, ' ', u.last_name)) = $1 THEN 5
+       ELSE 6
      END
      LIMIT 1`,
     [lowerId]

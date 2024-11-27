@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
+import { FilterSelect } from '@/components/common/FilterSelect'
 import { SearchInput } from '@/components/common/SearchInput'
 import { TableSkeleton } from '@/components/common/Loading'
 import { PageHeader } from '@/components/common/PageHeader'
@@ -17,7 +18,7 @@ import { onUserChange } from '@/lib/syncEvents'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { ProgramTypeBadge } from '@/components/common/StatusBadge'
 import { UserActionDialogs } from '@/features/admin/users/UserActionDialogs'
-import { UserFormDialog } from '@/features/admin/users/UserFormDialog'
+import { UserFormDialog, PROGRAM_TYPE_OPTIONS, YEAR_OF_STUDY_OPTIONS } from '@/features/admin/users/UserFormDialog'
 
 const COLUMNS = [
   { key: 'name', header: 'Fullname' },
@@ -36,6 +37,11 @@ const DEPT_ROLE_OPTIONS = [
 ]
 const MANAGED_ROLES = DEPT_ROLE_OPTIONS.map((r) => r.value)
 const ROLE_BADGE_LABELS = Object.fromEntries(DEPT_ROLE_OPTIONS.map((r) => [r.value, r.label]))
+
+const STATUS_OPTIONS = [
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+]
 
 function UserRowActions({ user, onEdit, onAction }) {
   const active = user.status === 'active'
@@ -111,6 +117,10 @@ export function DeptAccountProvisionPage() {
   const [action, setAction] = useState(null)
 
   const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
+  const [programFilter, setProgramFilter] = useState('')
+  const [yearFilter, setYearFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
 
   const activeDeptId = headDept?.id || headDeptId
   // Query student and teacher accounts for this department (excluding seed/mock data).
@@ -143,8 +153,22 @@ export function DeptAccountProvisionPage() {
       const name = (u.name || `${u.firstName || ''} ${u.lastName || ''}`).trim()
       const username = u.username || ''
       const identifier = u.identifier || u.student_number || ''
-      const programType = u.roleId === 'student' ? (u.program_type || u.programType || 'regular').toLowerCase() : ''
-      const currentYear = u.roleId === 'student' ? formatYearOfStudy(u.yearOfStudy || u.year_of_study || 1).toLowerCase() : ''
+      const roleId = u.roleId || u.role_id || ''
+      const programType = (u.program_type || u.programType || (roleId === 'student' ? 'regular' : '')).toLowerCase()
+      const currentYear = roleId === 'student' ? formatYearOfStudy(u.yearOfStudy || u.year_of_study || 1).toLowerCase() : ''
+      const status = u.status || 'active'
+
+      if (roleFilter && roleId !== roleFilter) return false
+      if (statusFilter && status !== statusFilter) return false
+      if (programFilter && programType !== programFilter.toLowerCase()) return false
+      if (yearFilter) {
+        if (roleId !== 'student') return false
+        const currentYearStr = getStudentCurrentYearOfStudy(u)
+        const rawYear = String(u.yearOfStudy ?? u.year_of_study ?? '')
+        if (currentYearStr !== `Year ${yearFilter}` && rawYear !== String(yearFilter)) {
+          return false
+        }
+      }
 
       if (search.trim()) {
         const q = search.trim().toLowerCase()
@@ -153,12 +177,13 @@ export function DeptAccountProvisionPage() {
           username.toLowerCase().includes(q) ||
           identifier.toLowerCase().includes(q) ||
           programType.includes(q) ||
-          currentYear.includes(q)
+          currentYear.includes(q) ||
+          (ROLE_BADGE_LABELS[roleId] || '').toLowerCase().includes(q)
         if (!match) return false
       }
       return true
     })
-  }, [items, search])
+  }, [items, search, roleFilter, programFilter, yearFilter, statusFilter])
 
   const openCreate = () => {
     setEditingId(null)
@@ -188,7 +213,7 @@ export function DeptAccountProvisionPage() {
       />
 
       <div className="stack stack--md">
-        {/* Search Box Filter */}
+        {/* Search Box Filter on left, Dropdown Filters flush at the far right edge */}
         <div className="toolbar--split">
           <div className="toolbar--split__left">
             <SearchInput
@@ -196,6 +221,66 @@ export function DeptAccountProvisionPage() {
               onChange={setSearch}
               placeholder="Search by name, username, or ID…"
             />
+          </div>
+          <div className="toolbar--split__right">
+            <FilterSelect
+              value={roleFilter}
+              onChange={(val) => {
+                setRoleFilter(val)
+                if (val === 'teacher') {
+                  setProgramFilter('')
+                  setYearFilter('')
+                }
+              }}
+              options={DEPT_ROLE_OPTIONS}
+              allLabel="All roles"
+              label="Role"
+              className="filter-select--role"
+            />
+            {roleFilter !== 'teacher' && (
+              <>
+                <FilterSelect
+                  value={programFilter}
+                  onChange={setProgramFilter}
+                  options={PROGRAM_TYPE_OPTIONS}
+                  allLabel="All program types"
+                  label="Program Type"
+                  className="filter-select--program"
+                />
+                <FilterSelect
+                  value={yearFilter}
+                  onChange={setYearFilter}
+                  options={YEAR_OF_STUDY_OPTIONS}
+                  allLabel="All years"
+                  label="Year of Study"
+                  className="filter-select--year"
+                />
+              </>
+            )}
+            <FilterSelect
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={STATUS_OPTIONS}
+              allLabel="All statuses"
+              label="Status"
+              className="filter-select--status"
+            />
+            {(search || roleFilter || programFilter || yearFilter || statusFilter) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearch('')
+                  setRoleFilter('')
+                  setProgramFilter('')
+                  setYearFilter('')
+                  setStatusFilter('')
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground h-9"
+              >
+                Reset filters
+              </Button>
+            )}
           </div>
         </div>
 

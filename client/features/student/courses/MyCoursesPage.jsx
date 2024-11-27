@@ -1,19 +1,15 @@
 import { useMemo, useState } from 'react'
 import { BookOpen } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/common/DataTable'
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { PageHeader } from '@/components/common/PageHeader'
 import { StatusBadge } from '@/components/common/StatusBadge'
-import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
-import { formatSemesterTerm } from '@/lib/format'
+import { formatAcademicYear, formatSemesterTerm } from '@/lib/format'
 import { store } from '@/store'
 
 export function MyCoursesPage() {
-  const navigate = useNavigate()
-  const lookups = useLookups()
   const [academicYearChoice, setAcademicYearChoice] = useState('all')
   const [semesterChoice, setSemesterChoice] = useState('all')
 
@@ -22,20 +18,11 @@ export function MyCoursesPage() {
     [],
   )
 
+  // Autoincrements dynamically when the new calendar year arrives (e.g. 2026, 2027 when reached)
   const availableYears = useMemo(() => {
-    const set = new Set()
-    for (const ay of lookups?.academicYears ?? []) {
-      const parts = String(ay.name || '').split('/')
-      for (const p of parts) {
-        const trimmed = p.trim()
-        if (/^\d{4}$/.test(trimmed)) set.add(trimmed)
-      }
-    }
-    if (set.size === 0) {
-      ;['2027', '2026', '2025', '2024'].forEach((y) => set.add(y))
-    }
-    return Array.from(set).sort((a, b) => b.localeCompare(a))
-  }, [lookups?.academicYears])
+    const currentYear = new Date().getFullYear()
+    return [String(currentYear)]
+  }, [])
 
   const academicYearOptions = [
     { value: 'all', label: 'Academic Year' },
@@ -47,6 +34,8 @@ export function MyCoursesPage() {
     { value: 'first', label: 'First Semester' },
     { value: 'second', label: 'Second Semester' },
   ]
+
+  const isFiltered = academicYearChoice !== 'all' || semesterChoice !== 'all'
 
   const toolbar = (
     <div
@@ -76,6 +65,19 @@ export function MyCoursesPage() {
           includeAll={false}
         />
       </div>
+      {isFiltered && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setAcademicYearChoice('all')
+            setSemesterChoice('all')
+          }}
+          className="text-xs text-muted-foreground hover:text-foreground h-9"
+        >
+          Reset filters
+        </Button>
+      )}
     </div>
   )
 
@@ -83,11 +85,13 @@ export function MyCoursesPage() {
     const list = Array.isArray(data) ? data : (data?.courses || data?.items || [])
     return list.filter((r) => {
       if (academicYearChoice !== 'all') {
+        const ayYear = formatAcademicYear(r.semester || r.offering?.semester)
         const ayName = String(r.semester?.academicYear?.name ?? '')
         const semName = String(r.semester?.name ?? '')
         const start = String(r.semester?.startDate ?? '')
         const end = String(r.semester?.endDate ?? '')
         const matchesYear =
+          ayYear === academicYearChoice ||
           ayName.includes(academicYearChoice) ||
           semName.includes(academicYearChoice) ||
           start.startsWith(academicYearChoice) ||
@@ -153,8 +157,12 @@ export function MyCoursesPage() {
     {
       key: 'academicYear',
       header: 'Academic Year',
-      value: (r) => r.semester?.academicYear?.name ?? '—',
-      cell: (r) => <span className="text-muted-foreground">{r.semester?.academicYear?.name ?? '—'}</span>,
+      value: (r) => formatAcademicYear(r.semester || r.offering?.semester),
+      cell: (r) => (
+        <span className="text-muted-foreground">
+          {formatAcademicYear(r.semester || r.offering?.semester)}
+        </span>
+      ),
     },
     {
       key: 'semester',
@@ -172,20 +180,6 @@ export function MyCoursesPage() {
       value: (r) => r.status ?? '',
       cell: (r) => <StatusBadge status={r.status} />,
     },
-    {
-      key: 'action',
-      header: 'Action',
-      sortable: false,
-      searchable: false,
-      align: 'right',
-      cell: (r) => (
-        <div onClick={(e) => e.stopPropagation()}>
-          <Button variant="outline" size="sm" asChild>
-            <Link to={`/student/courses/${r.enrollmentId}`}>View</Link>
-          </Button>
-        </div>
-      ),
-    },
   ]
 
   return (
@@ -202,7 +196,6 @@ export function MyCoursesPage() {
         error={error}
         onRetry={refetch}
         rowKey={(r) => r.enrollmentId}
-        onRowClick={(r) => navigate(`/student/courses/${r.enrollmentId}`)}
         searchPlaceholder="Search course code, name, or teacher…"
         toolbar={toolbar}
         emptyIcon={BookOpen}

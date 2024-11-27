@@ -84,6 +84,7 @@ export const NAVIGATION = {
       section: 'Grading',
       items: [
         { to: '/teacher/entermark', label: 'Entermark', icon: NotebookPen },
+        { to: '/teacher/reports', label: 'Report', icon: FileBarChart },
       ],
     },
   ],

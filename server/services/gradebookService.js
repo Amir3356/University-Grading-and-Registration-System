@@ -24,18 +24,9 @@ export async function saveScores(offeringId, { changes, reason }, caller) {
     throw new ConflictError('Gradebook is locked because final grades have already been submitted.');
   }
 
-  // Reason check: if requiresReason is true, modifying an EXISTING score requires reason
+  // Reason check: if requiresReason is true, default reason if not provided
   if (gradebook.requiresReason && (!reason || !String(reason).trim())) {
-    // Check if any change touches an existing mark
-    const touchesExisting = changes.some((c) => {
-      const row = gradebook.rows.find((r) => r.enrollmentId === c.enrollmentId);
-      return row && row.marks && row.marks[c.assessmentId] !== undefined;
-    });
-    if (touchesExisting) {
-      throw new ValidationError('A reason is required to modify existing marks after grades have been returned.', {
-        reason: 'Please provide a reason for changing previously submitted marks.',
-      });
-    }
+    reason = 'Grade adjustment / revision';
   }
 
   const asmMap = {};

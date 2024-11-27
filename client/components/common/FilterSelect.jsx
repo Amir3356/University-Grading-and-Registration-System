@@ -8,8 +8,13 @@ const ALL = '__all__'
  * options: [{ value, label }]
  */
 export function FilterSelect({ value, onChange, options, allLabel = 'All', placeholder, label, className, includeAll = true, align = 'start' }) {
+  const isAll =
+    value === '' ||
+    value == null ||
+    (value === 'all' && !options.some((o) => String(o.value) === 'all'))
+
   return (
-    <Select value={value === '' || value == null ? (includeAll ? ALL : undefined) : String(value)} onValueChange={(v) => onChange(v === ALL ? '' : v)}>
+    <Select value={isAll ? (includeAll ? ALL : undefined) : String(value)} onValueChange={(v) => onChange(v === ALL ? '' : v)}>
       <SelectTrigger className={cn('filter-select', className)} aria-label={label ?? placeholder ?? allLabel}>
         <SelectValue placeholder={placeholder ?? allLabel} />
       </SelectTrigger>

@@ -35,7 +35,7 @@ export async function listSubmissions({ status, semesterId, departmentId, search
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const countQuery = `
-    SELECT count(*) as total
+    SELECT count(DISTINCT co.id) as total
     FROM grade_submissions gs
     JOIN course_offerings co ON co.id = gs.offering_id
     JOIN courses c ON c.id = co.course_id
@@ -48,7 +48,7 @@ export async function listSubmissions({ status, semesterId, departmentId, search
 
   // Pending count for stat
   const pendingRes = await query(
-    `SELECT count(*) as pending_count
+    `SELECT count(DISTINCT co.id) as pending_count
      FROM grade_submissions gs
      JOIN course_offerings co ON co.id = gs.offering_id
      JOIN courses c ON c.id = co.course_id
@@ -66,41 +66,47 @@ export async function listSubmissions({ status, semesterId, departmentId, search
   const offsetIdx = params.length;
 
   const sql = `
-    SELECT gs.id, gs.student_count, gs.submitted_at, gs.status, gs.note,
-           co.grade_status as offering_status,
-           json_build_object(
-             'id', co.id,
-             'section', co.section,
-             'course', json_build_object('id', c.id, 'code', c.code, 'title', c.title),
-             'semester', json_build_object('id', sem.id, 'name', sem.name)
-           ) as offering,
-           json_build_object(
-             'id', t.id,
-             'name', (u.first_name || ' ' || u.last_name),
-             'employeeNumber', t.employee_number
-           ) as teacher,
-           (
-             SELECT json_build_object(
-               'stage', gsr.stage,
-               'decision', gsr.decision,
-               'reviewerName', (ru.first_name || ' ' || ru.last_name),
-               'reviewedAt', gsr.reviewed_at,
-               'comment', gsr.comment
-             )
-             FROM grade_submission_reviews gsr
-             JOIN users ru ON ru.id = gsr.reviewer_id
-             WHERE gsr.submission_id = gs.id
-             ORDER BY gsr.reviewed_at DESC
-             LIMIT 1
-           ) as last_review
-    FROM grade_submissions gs
-    JOIN course_offerings co ON co.id = gs.offering_id
-    JOIN courses c ON c.id = co.course_id
-    JOIN semesters sem ON sem.id = co.semester_id
-    JOIN teachers t ON t.id = co.teacher_id
-    JOIN users u ON u.id = t.user_id
-    ${whereClause}
-    ORDER BY gs.submitted_at DESC
+    WITH latest_subs AS (
+      SELECT DISTINCT ON (co.id)
+             gs.id, gs.student_count, gs.submitted_at, gs.status, gs.note,
+             co.grade_status as offering_status,
+             co.id as offering_id,
+             json_build_object(
+               'id', co.id,
+               'section', co.section,
+               'course', json_build_object('id', c.id, 'code', c.code, 'title', c.title),
+               'semester', json_build_object('id', sem.id, 'name', sem.name)
+             ) as offering,
+             json_build_object(
+               'id', t.id,
+               'name', (u.first_name || ' ' || u.last_name),
+               'employeeNumber', t.employee_number
+             ) as teacher,
+             (
+               SELECT json_build_object(
+                 'stage', gsr.stage,
+                 'decision', gsr.decision,
+                 'reviewerName', (ru.first_name || ' ' || ru.last_name),
+                 'reviewedAt', gsr.reviewed_at,
+                 'comment', gsr.comment
+               )
+               FROM grade_submission_reviews gsr
+               JOIN users ru ON ru.id = gsr.reviewer_id
+               WHERE gsr.submission_id = gs.id
+               ORDER BY gsr.reviewed_at DESC
+               LIMIT 1
+             ) as last_review
+      FROM grade_submissions gs
+      JOIN course_offerings co ON co.id = gs.offering_id
+      JOIN courses c ON c.id = co.course_id
+      JOIN semesters sem ON sem.id = co.semester_id
+      JOIN teachers t ON t.id = co.teacher_id
+      JOIN users u ON u.id = t.user_id
+      ${whereClause}
+      ORDER BY co.id, gs.submitted_at DESC
+    )
+    SELECT * FROM latest_subs
+    ORDER BY submitted_at DESC
     LIMIT $${limitIdx} OFFSET $${offsetIdx}
   `;
 
@@ -171,10 +177,31 @@ export async function approveSubmission(submissionId, comment, user) {
   return await withTransaction(async (client) => {
     const subRes = await client.query(`SELECT * FROM grade_submissions WHERE id = $1`, [submissionId]);
     if (subRes.rows.length === 0) throw new ConflictError('Grade submission not found.');
-    const sub = subRes.rows[0];
+    let sub = subRes.rows[0];
 
+    // If the submission is not pending (e.g. an earlier submission before the teacher resubmitted),
+    // check if there is an active pending submission for this offering!
     if (sub.status !== 'pending') {
-      throw new ConflictError(`Cannot approve submission with status ${sub.status}.`);
+      const activePendingRes = await client.query(
+        `SELECT * FROM grade_submissions WHERE offering_id = $1 AND status = 'pending' ORDER BY submitted_at DESC LIMIT 1`,
+        [sub.offering_id]
+      );
+      if (activePendingRes.rows.length > 0) {
+        sub = activePendingRes.rows[0];
+        submissionId = sub.id;
+      } else {
+        const activeApprovedRes = await client.query(
+          `SELECT * FROM grade_submissions WHERE offering_id = $1 AND status = 'approved' ORDER BY submitted_at DESC LIMIT 1`,
+          [sub.offering_id]
+        );
+        if (activeApprovedRes.rows.length > 0 || sub.status === 'approved') {
+          return { ok: true, status: 'approved', offeringId: sub.offering_id };
+        } else if (sub.status === 'rejected') {
+          // Department head is re-approving a submission that was previously rejected
+        } else {
+          throw new ConflictError(`Cannot approve submission with status ${sub.status}.`);
+        }
+      }
     }
 
     const reviewId = newId('rev');
@@ -210,7 +237,7 @@ export async function approveSubmission(submissionId, comment, user) {
       [notifId, sub.submitted_by, `/teacher/courses/${sub.offering_id}`]
     );
 
-    return { ok: true, status: 'approved' };
+    return { ok: true, status: 'approved', offeringId: sub.offering_id };
   });
 }
 
@@ -266,7 +293,7 @@ export async function rejectSubmission(submissionId, comment, user) {
       ]
     );
 
-    return { ok: true, status: 'rejected' };
+    return { ok: true, status: 'rejected', offeringId: sub.offering_id };
   });
 }
 
@@ -353,7 +380,12 @@ export async function submitGradesForOffering(offeringId, { note } = {}, user) {
        JOIN courses c ON c.id = co.course_id
        LEFT JOIN departments d ON d.id = c.department_id
        LEFT JOIN teachers ht ON ht.id = d.head_teacher_id
-       LEFT JOIN users u_dh ON u_dh.role_id = 'dept_head' AND u_dh.department_id = c.department_id
+       LEFT JOIN (
+         SELECT t.department_id, u.id
+         FROM teachers t
+         JOIN users u ON u.id = t.user_id
+         WHERE u.role_id = 'dept_head'
+       ) u_dh ON u_dh.department_id = c.department_id
        WHERE co.id = $1`,
       [offeringId]
     );
@@ -365,7 +397,7 @@ export async function submitGradesForOffering(offeringId, { note } = {}, user) {
       throw new ForbiddenError('You can only submit grades for your assigned offerings.');
     }
 
-    if (['submitted', 'approved', 'published'].includes(offering.grade_status)) {
+    if (['submitted', 'published'].includes(offering.grade_status)) {
       throw new ConflictError(`Grades for this course offering have already been ${offering.grade_status}.`);
     }
 
@@ -433,9 +465,9 @@ export async function submitGradesForOffering(offeringId, { note } = {}, user) {
       );
     }
 
-    // 5. Create grade_submissions record (retire any previous pending record to avoid unique index collisions)
+    // 5. Create grade_submissions record (retire any previous pending or approved record to avoid unique index collisions)
     await client.query(
-      `UPDATE grade_submissions SET status = 'rejected' WHERE offering_id = $1 AND status = 'pending'`,
+      `UPDATE grade_submissions SET status = 'rejected' WHERE offering_id = $1 AND status IN ('pending', 'approved')`,
       [offeringId]
     );
 
@@ -457,7 +489,7 @@ export async function submitGradesForOffering(offeringId, { note } = {}, user) {
       const notifId = newId('ntf');
       await client.query(
         `INSERT INTO notifications (id, user_id, title, message, type, link)
-         VALUES ($1, $2, 'New Grade Submission Pending Approval', $3, 'grade_submitted', $4)`,
+         VALUES ($1, $2, 'New Grade Submission Pending Approval', $3, 'approval_required', $4)`,
         [
           notifId,
           offering.head_user_id,
