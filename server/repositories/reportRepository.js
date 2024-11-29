@@ -661,8 +661,8 @@ export async function getStudentTranscriptData(studentId) {
             p.name as program_name
      FROM students s
      JOIN users u ON u.id = s.user_id
-     JOIN departments d ON d.id = s.department_id
-     JOIN programs p ON p.id = s.program_id
+     LEFT JOIN departments d ON d.id = s.department_id
+     LEFT JOIN programs p ON p.id = s.program_id
      WHERE s.id = $1`,
     [studentId]
   );
@@ -672,71 +672,159 @@ export async function getStudentTranscriptData(studentId) {
   const excRes = await query(`SELECT course_id FROM policy_excluded_courses`);
   const excludedSet = new Set(excRes.rows.map((r) => r.course_id));
 
-  // Published course results grouped by semester
+  // Published course results and official withdrawals grouped by semester
   const gradesSql = `
-    SELECT fg.*,
+    SELECT fg.id as final_grade_id, fg.enrollment_id, fg.total_score, fg.letter, fg.grade_points,
+           fg.special_grade, fg.status as final_grade_status, fg.published_at,
            c.id as course_id, c.code as course_code, c.title as course_title, c.credit_hours,
            s.id as semester_id, s.name as semester_name, s.term, s.sort_order,
-           ce.is_repeat
-    FROM final_grades fg
-    JOIN course_enrollments ce ON ce.id = fg.enrollment_id
+           ce.is_repeat, ce.status as enrollment_status
+    FROM course_enrollments ce
     JOIN course_offerings co ON co.id = ce.offering_id
     JOIN courses c ON c.id = co.course_id
     JOIN semesters s ON s.id = co.semester_id
-    WHERE ce.student_id = $1 AND fg.status = 'published'
+    LEFT JOIN final_grades fg ON fg.enrollment_id = ce.id
+    WHERE ce.student_id = $1
+      AND (
+        fg.status = 'published'
+        OR co.grade_status = 'published'
+        OR ce.status = 'withdrawn'
+        OR fg.special_grade = 'W'
+      )
     ORDER BY s.sort_order ASC, c.code ASC
   `;
   const gradesRes = await query(gradesSql, [studentId]);
 
-  // Group by semester
-  const semsMap = {};
-  const semsList = [];
+  // First pass: extract course records and track repeat attempts
+  const attemptsByCourse = new Map();
+  const rawList = [];
 
   for (const g of gradesRes.rows) {
-    if (!semsMap[g.semester_id]) {
+    const isWithdrawn = g.enrollment_status === 'withdrawn' || g.special_grade === 'W';
+    const isSpecialI = g.special_grade === 'I';
+    const isExcluded = excludedSet.has(g.course_id);
+
+    let letter = isWithdrawn ? 'W' : (g.letter || (isSpecialI ? 'I' : '—'));
+    let totalScore = isWithdrawn ? null : (g.total_score !== null ? parseFloat(g.total_score) : null);
+    let gradePoints = isWithdrawn ? null : (g.grade_points !== null ? parseFloat(g.grade_points) : null);
+
+    // If gradePoints is missing but letter exists, resolve from scale entries
+    if (gradePoints === null && letter && letter !== 'W' && letter !== 'I' && scale?.entries?.length > 0) {
+      const match = scale.entries.find((e) => e.letter.toUpperCase() === letter.toUpperCase());
+      if (match) {
+        gradePoints = parseFloat(match.gradePoints ?? match.points);
+      }
+    }
+
+    const countsInGpa = !isWithdrawn && !isSpecialI && !isExcluded && gradePoints !== null;
+
+    let note = null;
+    if (isWithdrawn) note = 'Withdrawn';
+    else if (isSpecialI) note = 'Incomplete';
+    else if (isExcluded) note = 'Excluded from GPA';
+    else if (letter === 'F') note = 'Failed';
+    else if (g.is_repeat) note = 'Repeated';
+
+    const item = {
+      enrollmentId: g.enrollment_id,
+      courseId: g.course_id,
+      courseCode: g.course_code,
+      courseTitle: g.course_title,
+      creditHours: parseInt(g.credit_hours, 10) || 0,
+      totalScore,
+      letter,
+      gradePoints,
+      countsInGpa,
+      isRepeat: Boolean(g.is_repeat),
+      specialGrade: isWithdrawn ? 'W' : g.special_grade,
+      semesterId: g.semester_id,
+      semesterName: g.semester_name,
+      term: g.term,
+      sortOrder: g.sort_order,
+      superseded: false,
+      note,
+    };
+
+    if (!attemptsByCourse.has(g.course_id)) {
+      attemptsByCourse.set(g.course_id, []);
+    }
+    attemptsByCourse.get(g.course_id).push(item);
+    rawList.push(item);
+  }
+
+  // Second pass: apply repeat policy ('latest', 'highest', 'all')
+  const repeatPolicy = policy.repeatPolicy || 'latest';
+
+  for (const [courseId, attempts] of attemptsByCourse.entries()) {
+    if (attempts.length > 1) {
+      for (const a of attempts) {
+        a.isRepeat = true;
+      }
+
+      if (repeatPolicy === 'latest') {
+        attempts.sort((a, b) => a.sortOrder - b.sortOrder);
+        for (let i = 0; i < attempts.length - 1; i++) {
+          attempts[i].superseded = true;
+          attempts[i].countsInGpa = false;
+          attempts[i].note = 'Repeated (superseded)';
+        }
+      } else if (repeatPolicy === 'highest') {
+        let bestIndex = 0;
+        let bestPoints = attempts[0].gradePoints ?? -1;
+        let bestScore = attempts[0].totalScore ?? -1;
+
+        for (let i = 1; i < attempts.length; i++) {
+          const pts = attempts[i].gradePoints ?? -1;
+          const sc = attempts[i].totalScore ?? -1;
+          if (pts > bestPoints || (pts === bestPoints && sc > bestScore)) {
+            bestIndex = i;
+            bestPoints = pts;
+            bestScore = sc;
+          }
+        }
+
+        for (let i = 0; i < attempts.length; i++) {
+          if (i !== bestIndex) {
+            attempts[i].superseded = true;
+            attempts[i].countsInGpa = false;
+            attempts[i].note = 'Repeated (superseded)';
+          }
+        }
+      }
+    }
+  }
+
+  // Third pass: group into semesters and calculate semester totals and cumulative running CGPA
+  const semsMap = new Map();
+  const semsList = [];
+
+  for (const item of rawList) {
+    if (!semsMap.has(item.semesterId)) {
       const semObj = {
-        semesterId: g.semester_id,
-        name: g.semester_name,
-        term: g.term,
-        sortOrder: g.sort_order,
+        semesterId: item.semesterId,
+        name: item.semesterName,
+        term: item.term,
+        sortOrder: item.sortOrder,
         courses: [],
         gpa: 0,
         cgpa: 0,
         credits: 0,
         qualityPoints: 0,
       };
-      semsMap[g.semester_id] = semObj;
+      semsMap.set(item.semesterId, semObj);
       semsList.push(semObj);
     }
-
-    const countsInGpa = !excludedSet.has(g.course_id) && g.special_grade !== 'W';
-    let note = null;
-    if (g.special_grade === 'W') note = 'Withdrawn';
-    else if (g.special_grade === 'I') note = 'Incomplete';
-    else if (excludedSet.has(g.course_id)) note = 'Excluded from GPA';
-    else if (g.letter === 'F') note = 'Failed';
-    else if (g.is_repeat) note = 'Repeated';
-
-    semsMap[g.semester_id].courses.push({
-      courseId: g.course_id,
-      courseCode: g.course_code,
-      courseTitle: g.course_title,
-      creditHours: g.credit_hours,
-      totalScore: g.total_score !== null ? parseFloat(g.total_score) : null,
-      letter: g.letter,
-      gradePoints: g.grade_points !== null ? parseFloat(g.grade_points) : null,
-      countsInGpa,
-      isRepeat: g.is_repeat,
-      superseded: false,
-      note,
-    });
+    semsMap.get(item.semesterId).courses.push(item);
   }
 
-  // Calculate semester GPAs and running CGPA
+  semsList.sort((a, b) => a.sortOrder - b.sortOrder);
+
   let cumulativeQP = 0;
   let cumulativeGpaCredits = 0;
   let totalAttemptedCredits = 0;
   let totalEarnedCredits = 0;
+  const passedCourseIds = new Set();
+  const passMark = policy.passMark ?? 50;
 
   for (const sem of semsList) {
     let semQP = 0;
@@ -744,15 +832,32 @@ export async function getStudentTranscriptData(studentId) {
 
     for (const c of sem.courses) {
       totalAttemptedCredits += c.creditHours;
-      if (c.countsInGpa && c.gradePoints !== null) {
+
+      // Semester GPA: reflects courses taken in this term
+      if (c.gradePoints !== null && c.letter !== 'W' && c.specialGrade !== 'W' && !excludedSet.has(c.courseId)) {
         semQP += c.gradePoints * c.creditHours;
         semCredits += c.creditHours;
+      }
 
+      // Cumulative GPA: respects superseded status per repeat policy
+      if (c.countsInGpa && !c.superseded && c.gradePoints !== null) {
         cumulativeQP += c.gradePoints * c.creditHours;
         cumulativeGpaCredits += c.creditHours;
       }
-      if (c.gradePoints !== null && c.letter !== 'F' && c.letter !== 'W') {
+
+      // Earned credits: passing grade not superseded, awarded once per distinct course
+      const isPassed =
+        c.letter !== 'F' &&
+        c.letter !== 'W' &&
+        c.specialGrade !== 'W' &&
+        c.specialGrade !== 'I' &&
+        c.gradePoints !== null &&
+        c.gradePoints > 0 &&
+        (c.totalScore === null || c.totalScore >= passMark);
+
+      if (isPassed && !c.superseded && !passedCourseIds.has(c.courseId)) {
         totalEarnedCredits += c.creditHours;
+        passedCourseIds.add(c.courseId);
       }
     }
 
@@ -775,16 +880,16 @@ export async function getStudentTranscriptData(studentId) {
       website: university?.website || '',
     },
     student: {
-      id: student?.id,
-      name: student?.name,
-      studentNumber: student?.student_number,
-      program: student?.program_name,
+      id: student?.id || studentId,
+      name: student?.name || 'Student',
+      studentNumber: student?.student_number || '—',
+      program: student?.program_name || 'Undergraduate Programme',
       department: {
         id: student?.department_id,
-        name: student?.department_name,
-        code: student?.department_code,
+        name: student?.department_name || '—',
+        code: student?.department_code || '—',
       },
-      admissionYear: student?.admission_year,
+      admissionYear: student?.admission_year || '—',
     },
     generatedAt: new Date().toISOString(),
     semesters: semsList,
@@ -794,9 +899,9 @@ export async function getStudentTranscriptData(studentId) {
     qualityPoints: roundTo2(cumulativeQP),
     gpaCredits: cumulativeGpaCredits,
     standing,
-    scale: scale.entries,
+    scale: scale?.entries || [],
     policy: {
-      repeatPolicy: policy.repeatPolicy,
+      repeatPolicy,
       passMark: policy.passMark,
     },
   };
@@ -809,8 +914,8 @@ export async function getStudentPerformanceReport(studentId) {
             d.name as department_name, p.name as program_name
      FROM students s
      JOIN users u ON u.id = s.user_id
-     JOIN departments d ON d.id = s.department_id
-     JOIN programs p ON p.id = s.program_id
+     LEFT JOIN departments d ON d.id = s.department_id
+     LEFT JOIN programs p ON p.id = s.program_id
      WHERE s.id = $1`,
     [studentId]
   );

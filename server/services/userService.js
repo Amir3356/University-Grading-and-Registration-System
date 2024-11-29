@@ -536,6 +536,18 @@ export async function updateUser(id, data, caller) {
       if (stuRes.rows.length > 0) {
         const stu = stuRes.rows[0];
         if (stu.department_id && stu.year_of_study) {
+          // Clean up active enrollments from other academic years that do not match the student's current year of study
+          await client.query(
+            `DELETE FROM course_enrollments ce
+             USING course_offerings co, courses c
+             WHERE ce.offering_id = co.id
+               AND co.course_id = c.id
+               AND ce.student_id = $1::varchar
+               AND (COALESCE(co.year_of_study, c.level / 100) != $2::smallint)
+               AND NOT EXISTS (SELECT 1 FROM final_grades fg WHERE fg.enrollment_id = ce.id AND fg.status = 'published')`,
+            [stu.id, stu.year_of_study]
+          );
+
           await client.query(
             `INSERT INTO course_enrollments (id, offering_id, student_id, status, is_repeat, enrolled_at)
              SELECT 'enr_' || substr(md5(random()::text || clock_timestamp()::text || co.id), 1, 16),

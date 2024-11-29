@@ -231,8 +231,8 @@ export async function getStudentDashboard(studentId, userId) {
             p.name as program_name, p.required_credits
      FROM students s
      JOIN users u ON u.id = s.user_id
-     JOIN departments d ON d.id = s.department_id
-     JOIN programs p ON p.id = s.program_id
+     LEFT JOIN departments d ON d.id = s.department_id
+     LEFT JOIN programs p ON p.id = s.program_id
      WHERE s.id = $1`,
     [studentId]
   );
@@ -323,12 +323,15 @@ export async function listStudentCourses(studentId, { academicYearId, semesterId
   const sql = `
     SELECT ce.id as enrollment_id, co.id as offering_id, ce.status, ce.is_repeat,
            co.section, co.room, co.schedule, co.grade_status as offering_grade_status,
+           co.year_of_study as offering_year_of_study,
            c.id as course_id, c.code as course_code, c.title as course_title, c.credit_hours, c.level,
            s.id as semester_id, s.name as semester_name, s.term as semester_term, s.is_current as semester_is_current,
            ay.id as academic_year_id, ay.name as academic_year_name,
            t.id as teacher_id, t.office_room as teacher_office_room,
            (u.first_name || ' ' || u.last_name) as teacher_name,
            u.email as teacher_email,
+           stu.id as student_id, stu.year_of_study as student_year_of_study,
+           stu.program_type as student_program_type, stu.academic_status as student_academic_status,
            COALESCE(SUM(a.weight), 0) as weight_total,
            fg.id as final_grade_id, fg.total_score, fg.letter as final_letter,
            fg.grade_points, fg.special_grade, fg.status as final_grade_status,
@@ -340,6 +343,7 @@ export async function listStudentCourses(studentId, { academicYearId, semesterId
              LIMIT 1
            ) as pending_withdrawal
     FROM course_enrollments ce
+    JOIN students stu ON stu.id = ce.student_id
     JOIN course_offerings co ON co.id = ce.offering_id
     JOIN courses c ON c.id = co.course_id
     JOIN semesters s ON s.id = co.semester_id
@@ -349,12 +353,37 @@ export async function listStudentCourses(studentId, { academicYearId, semesterId
     LEFT JOIN assessments a ON a.offering_id = co.id
     LEFT JOIN final_grades fg ON fg.enrollment_id = ce.id
     WHERE ${conditions.join(' AND ')}
-    GROUP BY ce.id, co.id, c.id, s.id, ay.id, t.id, u.id, fg.id
+    GROUP BY ce.id, co.id, c.id, s.id, ay.id, t.id, u.id, fg.id, stu.id
     ORDER BY s.sort_order DESC, c.code ASC
   `;
 
   const res = await query(sql, params);
   const policy = await getAcademicPolicy();
+  const scale = await getActiveGradeScale();
+
+  const enrollmentIds = res.rows.map((r) => r.enrollment_id);
+  const offeringIds = [...new Set(res.rows.map((r) => r.offering_id))];
+
+  let asmRows = [];
+  let scoreRows = [];
+
+  if (offeringIds.length > 0 && enrollmentIds.length > 0) {
+    const asmRes = await query(
+      `SELECT id, offering_id, name, type, max_marks, weight
+       FROM assessments
+       WHERE offering_id = ANY($1)`,
+      [offeringIds]
+    );
+    asmRows = asmRes.rows;
+
+    const scrRes = await query(
+      `SELECT assessment_id, enrollment_id, marks
+       FROM assessment_scores
+       WHERE enrollment_id = ANY($1) AND marks IS NOT NULL`,
+      [enrollmentIds]
+    );
+    scoreRows = scrRes.rows;
+  }
 
   return res.rows.map((r) => {
     let resultStatus = 'in_progress';
@@ -366,7 +395,30 @@ export async function listStudentCourses(studentId, { academicYearId, semesterId
       resultStatus = 'pending';
     }
 
+    const offeringAsms = asmRows.filter((a) => a.offering_id === r.offering_id);
+    const scoreMap = {};
+    for (const sc of scoreRows) {
+      if (sc.enrollment_id === r.enrollment_id) {
+        scoreMap[sc.assessment_id] = sc.marks;
+      }
+    }
+
+    const calcResult = computeEnrollmentScore(
+      offeringAsms.map((a) => ({
+        id: a.id,
+        maxMarks: parseFloat(a.max_marks),
+        weight: parseFloat(a.weight),
+      })),
+      scoreMap,
+      scale?.entries,
+      policy.passMark
+    );
+
+    const hasScores = calcResult.enteredCount > 0;
     const isPublished = r.final_grade_status === 'published';
+    const computedScore = calcResult.complete ? calcResult.weightedTotal : (calcResult.runningPercent || calcResult.weightedTotal);
+    const computedLetter = calcResult.letter;
+
     const finalGrade = isPublished
       ? {
           totalScore: r.total_score !== null ? parseFloat(r.total_score) : null,
@@ -376,19 +428,50 @@ export async function listStudentCourses(studentId, { academicYearId, semesterId
           publishedAt: r.published_at,
           passed: r.total_score !== null ? parseFloat(r.total_score) >= policy.passMark : false,
         }
+      : hasScores
+      ? {
+          totalScore: computedScore,
+          letter: computedLetter,
+          gradePoints: calcResult.gradePoints,
+          special: null,
+          publishedAt: null,
+          passed: calcResult.passed,
+        }
       : null;
+
+    const effectiveTotalScore = isPublished
+      ? (r.total_score !== null ? parseFloat(r.total_score) : null)
+      : (hasScores ? computedScore : null);
+
+    const effectiveLetter = isPublished
+      ? r.final_letter
+      : (hasScores ? computedLetter : null);
+
+    const offeringYos = r.offering_year_of_study ?? (r.level ? (r.level >= 100 ? Math.floor(r.level / 100) : r.level) : null);
 
     return {
       enrollmentId: r.enrollment_id,
       offeringId: r.offering_id,
       status: r.status,
       isRepeat: r.is_repeat,
+      yearOfStudy: offeringYos ?? r.student_year_of_study,
+      courseYearOfStudy: offeringYos,
+      offeringYearOfStudy: r.offering_year_of_study,
+      studentYearOfStudy: r.student_year_of_study,
+      programType: r.student_program_type,
+      student: {
+        id: r.student_id,
+        yearOfStudy: r.student_year_of_study,
+        programType: r.student_program_type,
+        academicStatus: r.student_academic_status,
+      },
       course: {
         id: r.course_id,
         code: r.course_code,
         title: r.course_title,
         creditHours: r.credit_hours,
         level: r.level,
+        yearOfStudy: offeringYos,
       },
       semester: {
         id: r.semester_id,
@@ -412,6 +495,10 @@ export async function listStudentCourses(studentId, { academicYearId, semesterId
       weightTotal: parseFloat(r.weight_total || '0'),
       resultStatus,
       finalGrade,
+      totalScore: effectiveTotalScore,
+      runningPercent: calcResult.runningPercent,
+      letter: effectiveLetter,
+      grade: effectiveLetter,
       pendingWithdrawal: r.pending_withdrawal || null,
     };
   });
@@ -437,8 +524,8 @@ export async function getStudentCourseDetail(studentId, enrollmentId) {
   let enteredWeightSum = 0;
 
   const assessments = asmRes.rows.map((a) => {
-    const isVisible = a.is_released || courseRow.resultStatus === 'published';
-    const marks = isVisible && a.marks !== null ? parseFloat(a.marks) : null;
+    const isVisible = a.is_released || courseRow.resultStatus === 'published' || a.marks !== null;
+    const marks = a.marks !== null ? parseFloat(a.marks) : null;
     const maxMarks = parseFloat(a.max_marks);
     const weight = parseFloat(a.weight);
 
@@ -500,7 +587,7 @@ export async function listStudentAssessments(studentId, { semesterId, offeringId
   const res = await query(sql, params);
 
   const mapped = res.rows.map((r) => {
-    const isGraded = r.marks !== null && (r.is_released || r.offering_grade_status === 'published');
+    const isGraded = r.marks !== null;
     const marks = isGraded ? parseFloat(r.marks) : null;
     const maxMarks = parseFloat(r.max_marks);
     const percent = marks !== null && maxMarks > 0 ? roundTo2((marks / maxMarks) * 100) : null;
@@ -557,8 +644,8 @@ export async function getStudentProgress(studentId) {
     `SELECT s.*, p.name as program_name, p.required_credits, p.duration_years,
             d.name as department_name
      FROM students s
-     JOIN programs p ON p.id = s.program_id
-     JOIN departments d ON d.id = s.department_id
+     LEFT JOIN programs p ON p.id = s.program_id
+     LEFT JOIN departments d ON d.id = s.department_id
      WHERE s.id = $1`,
     [studentId]
   );

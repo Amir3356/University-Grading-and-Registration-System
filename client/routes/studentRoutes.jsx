@@ -15,6 +15,7 @@ const ProgressPage = page(() => import('@/features/student/progress/ProgressPage
 const GradeReportPage = page(() => import('@/features/student/reports/GradeReportPage'), 'GradeReportPage');
 const TranscriptPage = page(() => import('@/features/student/transcript/TranscriptPage'), 'TranscriptPage');
 const WithdrawalRequestsPage = page(() => import('@/features/student/withdrawals/WithdrawalRequestsPage'), 'WithdrawalRequestsPage');
+const ComplaintsPage = page(() => import('@/features/student/complaints/ComplaintsPage'), 'ComplaintsPage');
 
 export const studentRoutes = (
   <Route element={<ProtectedRoute roles={['student']} />}>
@@ -29,5 +30,7 @@ export const studentRoutes = (
     <Route path="/student/transcript" element={<TranscriptPage />} />
     <Route path="/student/withdrawals" element={<WithdrawalRequestsPage />} />
     <Route path="/student/withdrawal-requests" element={<WithdrawalRequestsPage />} />
+    <Route path="/student/complaints" element={<ComplaintsPage />} />
+    <Route path="/student/complain" element={<ComplaintsPage />} />
   </Route>
 );

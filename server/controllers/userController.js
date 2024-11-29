@@ -35,12 +35,14 @@ export async function updateUser(req, res, next) {
     const result = await userService.updateUser(req.params.id, req.body, req.user);
     const studentNumber = result?.profile?.student_number || result?.identifier || req.body?.identifier;
     const programType = result?.profile?.program_type || result?.programType || req.body?.programType;
+    const yearOfStudy = result?.profile?.year_of_study ?? result?.profile?.yearOfStudy ?? result?.yearOfStudy ?? req.body?.yearOfStudy;
 
     broadcastEvent('STUDENT_UPDATED', {
       userId: req.params.id,
       studentId: result?.profile?.id,
       studentNumber,
       programType,
+      yearOfStudy,
       user: result?.user || result,
       profile: result?.profile,
     });
@@ -51,6 +53,7 @@ export async function updateUser(req, res, next) {
       profile: result?.profile,
       studentNumber,
       programType,
+      yearOfStudy,
     });
 
     if (result?.role_id === 'teacher' || result?.user?.role_id === 'teacher' || result?.profile?.employee_number) {

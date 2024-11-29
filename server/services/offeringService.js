@@ -20,6 +20,17 @@ export async function autoEnrollMatchingStudents(offeringId) {
   const targetYear = rawYos !== null && rawYos !== undefined ? parseInt(rawYos, 10) : null;
 
   if ((courseDept || teacherDept) && targetYear) {
+    // Remove enrollments of students whose year_of_study does not match this offering's year of study
+    await query(
+      `DELETE FROM course_enrollments ce
+       USING students s
+       WHERE ce.student_id = s.id
+         AND ce.offering_id = $1::varchar
+         AND s.year_of_study != $2::smallint
+         AND NOT EXISTS (SELECT 1 FROM final_grades fg WHERE fg.enrollment_id = ce.id AND fg.status = 'published')`,
+      [offeringId, targetYear]
+    );
+
     await query(
       `INSERT INTO course_enrollments (id, offering_id, student_id, status, is_repeat, enrolled_at)
        SELECT 'enr_' || substr(md5(random()::text || clock_timestamp()::text || s.id), 1, 16),
