@@ -2,7 +2,7 @@ import { query } from '../config/database.js';
 import { getCurrentSemester } from './calendarRepository.js';
 import { getAcademicPolicy, getActiveGradeScale, getGradebookData } from './gradebookRepository.js';
 import { getUniversitySettings } from './settingsRepository.js';
-import { getAcademicStanding, computeGpa, roundTo2 } from '../utils/gpaCalculator.js';
+import { getAcademicStanding, computeGpa, roundTo2, computeEnrollmentScore } from '../utils/gpaCalculator.js';
 
 export async function getAdminDashboard() {
   const currentSemester = await getCurrentSemester();
@@ -672,13 +672,14 @@ export async function getStudentTranscriptData(studentId) {
   const excRes = await query(`SELECT course_id FROM policy_excluded_courses`);
   const excludedSet = new Set(excRes.rows.map((r) => r.course_id));
 
-  // Published course results and official withdrawals grouped by semester
+  // Published course results, recorded grades, and official withdrawals grouped by semester
   const gradesSql = `
     SELECT fg.id as final_grade_id, fg.enrollment_id, fg.total_score, fg.letter, fg.grade_points,
            fg.special_grade, fg.status as final_grade_status, fg.published_at,
            c.id as course_id, c.code as course_code, c.title as course_title, c.credit_hours,
            s.id as semester_id, s.name as semester_name, s.term, s.sort_order,
-           ce.is_repeat, ce.status as enrollment_status
+           ce.is_repeat, ce.status as enrollment_status,
+           co.id as offering_id, co.grade_status as offering_grade_status
     FROM course_enrollments ce
     JOIN course_offerings co ON co.id = ce.offering_id
     JOIN courses c ON c.id = co.course_id
@@ -686,14 +687,35 @@ export async function getStudentTranscriptData(studentId) {
     LEFT JOIN final_grades fg ON fg.enrollment_id = ce.id
     WHERE ce.student_id = $1
       AND (
-        fg.status = 'published'
-        OR co.grade_status = 'published'
+        fg.status IS NOT NULL
+        OR co.grade_status IN ('published', 'approved', 'draft', 'submitted')
         OR ce.status = 'withdrawn'
         OR fg.special_grade = 'W'
+        OR EXISTS (SELECT 1 FROM assessment_scores scr WHERE scr.enrollment_id = ce.id)
       )
     ORDER BY s.sort_order ASC, c.code ASC
   `;
   const gradesRes = await query(gradesSql, [studentId]);
+
+  const enrollmentIds = gradesRes.rows.map((r) => r.enrollment_id);
+  const offeringIds = [...new Set(gradesRes.rows.map((r) => r.offering_id).filter(Boolean))];
+
+  let asmRows = [];
+  let scoreRows = [];
+
+  if (offeringIds.length > 0 && enrollmentIds.length > 0) {
+    const asmRes = await query(
+      `SELECT id, offering_id, name, type, max_marks, weight FROM assessments WHERE offering_id = ANY($1)`,
+      [offeringIds]
+    );
+    asmRows = asmRes.rows;
+
+    const scrRes = await query(
+      `SELECT assessment_id, enrollment_id, marks FROM assessment_scores WHERE enrollment_id = ANY($1) AND marks IS NOT NULL`,
+      [enrollmentIds]
+    );
+    scoreRows = scrRes.rows;
+  }
 
   // First pass: extract course records and track repeat attempts
   const attemptsByCourse = new Map();
@@ -704,12 +726,42 @@ export async function getStudentTranscriptData(studentId) {
     const isSpecialI = g.special_grade === 'I';
     const isExcluded = excludedSet.has(g.course_id);
 
-    let letter = isWithdrawn ? 'W' : (g.letter || (isSpecialI ? 'I' : '—'));
-    let totalScore = isWithdrawn ? null : (g.total_score !== null ? parseFloat(g.total_score) : null);
-    let gradePoints = isWithdrawn ? null : (g.grade_points !== null ? parseFloat(g.grade_points) : null);
+    let letter = isWithdrawn ? 'W' : (g.letter || (isSpecialI ? 'I' : null));
+    let totalScore = isWithdrawn ? null : (g.total_score !== null && g.total_score !== undefined ? parseFloat(g.total_score) : null);
+    let gradePoints = isWithdrawn ? null : (g.grade_points !== null && g.grade_points !== undefined ? parseFloat(g.grade_points) : null);
+
+    // If score or letter or points is missing or stale, calculate from raw assessment scores if available
+    if (!isWithdrawn && !isSpecialI && (totalScore === null || !letter || gradePoints === null)) {
+      const offeringAsms = asmRows.filter((a) => a.offering_id === g.offering_id);
+      const studentScores = {};
+      for (const sc of scoreRows) {
+        if (sc.enrollment_id === g.enrollment_id) {
+          studentScores[sc.assessment_id] = parseFloat(sc.marks);
+        }
+      }
+      if (offeringAsms.length > 0 && Object.keys(studentScores).length > 0) {
+        const calcResult = computeEnrollmentScore(
+          offeringAsms.map((a) => ({ id: a.id, maxMarks: parseFloat(a.max_marks), weight: parseFloat(a.weight) })),
+          studentScores,
+          scale?.entries,
+          policy.passMark
+        );
+        if (totalScore === null) {
+          totalScore = calcResult.weightedTotal != null ? calcResult.weightedTotal : calcResult.runningPercent;
+        }
+        if (!letter || letter === '—') {
+          letter = calcResult.letter || '—';
+        }
+        if (gradePoints === null) {
+          gradePoints = calcResult.gradePoints != null ? calcResult.gradePoints : null;
+        }
+      }
+    }
+
+    if (!letter) letter = '—';
 
     // If gradePoints is missing but letter exists, resolve from scale entries
-    if (gradePoints === null && letter && letter !== 'W' && letter !== 'I' && scale?.entries?.length > 0) {
+    if (gradePoints === null && letter && letter !== 'W' && letter !== 'I' && letter !== '—' && scale?.entries?.length > 0) {
       const match = scale.entries.find((e) => e.letter.toUpperCase() === letter.toUpperCase());
       if (match) {
         gradePoints = parseFloat(match.gradePoints ?? match.points);
@@ -868,7 +920,7 @@ export async function getStudentTranscriptData(studentId) {
   }
 
   const finalCgpa = cumulativeGpaCredits > 0 ? roundTo2(cumulativeQP / cumulativeGpaCredits) : 0;
-  const standing = getAcademicStanding(finalCgpa, policy.honorsGpa, policy.probationGpa);
+  const standing = cumulativeGpaCredits > 0 ? getAcademicStanding(finalCgpa, policy.honorsGpa, policy.probationGpa) : { label: 'Good Standing', tone: 'default' };
 
   return {
     university: {

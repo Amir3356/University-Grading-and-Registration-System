@@ -24,6 +24,11 @@ import {
   studentWithdrawalRouter,
 } from './withdrawalRoutes.js';
 import {
+  adminComplaintRouter,
+  studentComplaintRouter,
+  teacherComplaintRouter,
+} from './complaintRoutes.js';
+import {
   teacherRouter as teacherWorkspaceRouter,
   studentWorkspaceRouter,
 } from './workspaceRoutes.js';
@@ -68,6 +73,11 @@ apiRouter.use('/grading', gradingRoutes);
 // Withdrawals
 apiRouter.use('/withdrawal-requests', adminWithdrawalRouter);
 apiRouter.use('/student/withdrawal-requests', studentWithdrawalRouter);
+
+// Complaints & Academic Grievances
+apiRouter.use('/student/complaints', studentComplaintRouter);
+apiRouter.use('/teacher/complaints', teacherComplaintRouter);
+apiRouter.use('/complaints', adminComplaintRouter);
 
 // Dedicated Workspaces
 apiRouter.use('/teacher', teacherWorkspaceRouter);

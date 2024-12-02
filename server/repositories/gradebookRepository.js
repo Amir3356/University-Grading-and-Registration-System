@@ -254,9 +254,10 @@ export async function getGradebookData(offeringId) {
       runningPercent: calcResult.runningPercent,
       complete: calcResult.complete,
       enteredCount: calcResult.enteredCount,
-      letter: existingFg?.letter || calcResult.letter,
-      gradePoints: existingFg?.gradePoints || calcResult.gradePoints,
-      passed: (existingFg?.letter || calcResult.letter) === 'F' ? false : calcResult.passed,
+      letter: enr.status === 'withdrawn' ? 'W' : (existingFg?.specialGrade || calcResult.letter || existingFg?.letter || null),
+      gradePoints: enr.status === 'withdrawn' ? null : (existingFg?.specialGrade ? (existingFg?.gradePoints ?? null) : (calcResult.gradePoints !== null && calcResult.gradePoints !== undefined ? calcResult.gradePoints : (existingFg?.gradePoints ?? null))),
+      points: enr.status === 'withdrawn' ? null : (existingFg?.specialGrade ? (existingFg?.gradePoints ?? null) : (calcResult.gradePoints !== null && calcResult.gradePoints !== undefined ? calcResult.gradePoints : (existingFg?.gradePoints ?? null))),
+      passed: enr.status === 'withdrawn' ? null : (calcResult.passed !== null && calcResult.passed !== undefined ? calcResult.passed : ((existingFg?.specialGrade || calcResult.letter || existingFg?.letter) ? (existingFg?.specialGrade || calcResult.letter || existingFg?.letter) !== 'F' : false)),
       finalGrade: existingFg || null,
     });
   }
@@ -325,8 +326,8 @@ export async function getGradebookData(offeringId) {
   );
   const latestSubmission = subRes.rows[0] || null;
 
-  const locked = ['submitted', 'approved', 'published'].includes(offering.grade_status);
-  const requiresReason = latestSubmission?.status === 'rejected' || offering.grade_status === 'approved';
+  const locked = offering.grade_status === 'submitted';
+  const requiresReason = latestSubmission?.status === 'rejected' || ['approved', 'published'].includes(offering.grade_status);
 
   return {
     offering,
@@ -455,12 +456,12 @@ export async function saveScoreChanges(offeringId, changes, reason, user) {
       [offeringId]
     );
 
-    // Mark draft final grades stale
+    // Mark final grades stale whenever marks change
     await client.query(
       `UPDATE final_grades fg
        SET is_stale = true, updated_at = now()
        FROM course_enrollments ce
-       WHERE ce.id = fg.enrollment_id AND ce.offering_id = $1 AND fg.status = 'draft'`,
+       WHERE ce.id = fg.enrollment_id AND ce.offering_id = $1`,
       [offeringId]
     );
 
@@ -472,6 +473,73 @@ export async function saveScoreChanges(offeringId, changes, reason, user) {
          SET is_released = true, released_at = COALESCE(released_at, now()), updated_at = now()
          WHERE id = ANY($1)`,
         [modifiedAssessmentIds]
+      );
+    }
+
+    // Recalculate and synchronize final_grades for all active enrollments so that
+    // transcripts and reports reflect the latest score, letter, and grade points
+    const asmRes = await client.query(
+      `SELECT id, max_marks, weight FROM assessments WHERE offering_id = $1`,
+      [offeringId]
+    );
+    const policyObj = await getAcademicPolicy();
+    const scale = await getActiveGradeScale();
+    const scaleId = scale.id || 'gsc_0001';
+    const scaleEntries = scale.entries || [];
+
+    const allEnrsRes = await client.query(
+      `SELECT id, status FROM course_enrollments WHERE offering_id = $1`,
+      [offeringId]
+    );
+    const allScoresRes = await client.query(
+      `SELECT scr.assessment_id, scr.enrollment_id, scr.marks
+       FROM assessment_scores scr
+       JOIN course_enrollments ce ON ce.id = scr.enrollment_id
+       WHERE ce.offering_id = $1`,
+      [offeringId]
+    );
+
+    const scoreMap = {};
+    for (const s of allScoresRes.rows) {
+      if (!scoreMap[s.enrollment_id]) scoreMap[s.enrollment_id] = {};
+      scoreMap[s.enrollment_id][s.assessment_id] = parseFloat(s.marks);
+    }
+
+    const offStatusRes = await client.query(`SELECT grade_status FROM course_offerings WHERE id = $1`, [offeringId]);
+    const offGradeStatus = offStatusRes.rows[0]?.grade_status || 'draft';
+
+    for (const enr of allEnrsRes.rows) {
+      if (enr.status === 'withdrawn') continue;
+      const studentScores = scoreMap[enr.id] || {};
+      const calcResult = computeEnrollmentScore(
+        asmRes.rows.map((a) => ({
+          id: a.id,
+          maxMarks: parseFloat(a.max_marks),
+          weight: parseFloat(a.weight),
+        })),
+        studentScores,
+        scaleEntries,
+        policyObj.passMark
+      );
+
+      const totalScore = calcResult.weightedTotal != null ? calcResult.weightedTotal : (calcResult.runningPercent || 0);
+      const letter = calcResult.letter || 'F';
+      const gradePoints = calcResult.gradePoints != null ? calcResult.gradePoints : 0;
+      const fgId = newId('grd');
+
+      await client.query(
+        `INSERT INTO final_grades (
+           id, enrollment_id, grade_scale_id, total_score, letter, grade_points,
+           status, is_stale, computed_at, updated_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, false, now(), now())
+         ON CONFLICT (enrollment_id) DO UPDATE SET
+           grade_scale_id = EXCLUDED.grade_scale_id,
+           total_score = EXCLUDED.total_score,
+           letter = EXCLUDED.letter,
+           grade_points = EXCLUDED.grade_points,
+           is_stale = false,
+           updated_at = now()`,
+        [fgId, enr.id, scaleId, totalScore, letter, gradePoints, offGradeStatus]
       );
     }
 

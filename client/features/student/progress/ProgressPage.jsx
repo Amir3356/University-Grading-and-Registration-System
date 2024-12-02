@@ -14,6 +14,9 @@ import { PageHeader } from '@/components/common/PageHeader'
 import { StatCard } from '@/components/common/StatCard'
 import { GradeBadge } from '@/components/common/StatusBadge'
 import { useQuery } from '@/hooks/useStore'
+import { useWebSocketEvent } from '@/lib/websocket'
+import { onGradeChange } from '@/lib/syncEvents'
+import { useEffect } from 'react'
 import { formatGpa, formatNumber, formatPercent } from '@/lib/format'
 import { store } from '@/store'
 import { GpaTrendChart, ResultStatus, StandingBadge } from '../components/StudentWidgets'
@@ -21,6 +24,16 @@ import { incompletePolicyText, repeatPolicyText, withdrawalPolicyText } from '..
 
 export function ProgressPage() {
   const { data, loading, error, refetch } = useQuery(() => store.student.getMyProgress(), [])
+
+  useWebSocketEvent('SCORES_UPDATED', () => refetch())
+  useWebSocketEvent('OFFERING_UPDATED', () => refetch())
+  useWebSocketEvent('GRADE_UPDATED', () => refetch())
+  useWebSocketEvent('TRANSCRIPT_UPDATED', () => refetch())
+  useWebSocketEvent('GRADE_SUBMISSION_UPDATED', () => refetch())
+
+  useEffect(() => {
+    return onGradeChange(() => refetch())
+  }, [refetch])
 
   if (error) {
     return (

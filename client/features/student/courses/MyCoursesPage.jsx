@@ -1,13 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BookOpen } from 'lucide-react'
+import { BookOpen, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { DataTable } from '@/components/common/DataTable'
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { PageHeader } from '@/components/common/PageHeader'
+import { SearchInput } from '@/components/common/SearchInput'
 import { ProgramTypeBadge, StatusBadge } from '@/components/common/StatusBadge'
+import { TableSkeleton } from '@/components/common/Loading'
+import { EmptyState } from '@/components/common/EmptyState'
+import { ErrorState } from '@/components/common/ErrorState'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { useAuth } from '@/context/auth-context'
 import { getProfileApi } from '@/api/auth'
 import { useQuery } from '@/hooks/useStore'
+import { useDebounce } from '@/hooks/useDebounce'
 import { formatAcademicYear, formatSemesterTerm, getStudentCurrentYearOfStudy } from '@/lib/format'
 import { onUserChange } from '@/lib/syncEvents'
 import { setStoredSession } from '@/lib/storage'
@@ -18,13 +30,31 @@ export function MyCoursesPage() {
   const { user, profile } = useAuth()
   const { data: me, refetch: refetchMe } = useQuery(getProfileApi, [], { live: false, enabled: Boolean(user) })
 
+  // 1. Filter and Cursor Pagination States (4 real data rows per page)
+  const [cursor, setCursor] = useState(null)
+  const [cursorHistory, setCursorHistory] = useState([]) // Stack of previous cursors
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 300)
   const [academicYearChoice, setAcademicYearChoice] = useState('all')
   const [semesterChoice, setSemesterChoice] = useState('all')
   const [studentOverride, setStudentOverride] = useState(null)
 
-  const { data, loading, error, refetch } = useQuery(
-    () => store.student.listMyCourses(),
-    [],
+  // 2. Server-side Cursor Paginated Query (4 items per page)
+  const {
+    data: coursesData,
+    loading,
+    error,
+    refetch,
+  } = useQuery(
+    () =>
+      store.student.listMyCoursesPaginated({
+        cursor: cursor || undefined,
+        limit: 4,
+        search: debouncedSearch.trim() || undefined,
+        academicYearId: academicYearChoice !== 'all' ? academicYearChoice : undefined,
+        semesterId: semesterChoice !== 'all' ? semesterChoice : undefined,
+      }),
+    [cursor, debouncedSearch, academicYearChoice, semesterChoice]
   )
 
   const handleStudentUpdated = useCallback(
@@ -146,195 +176,218 @@ export function MyCoursesPage() {
     { value: 'second', label: 'Second Semester' },
   ]
 
-  const isFiltered = academicYearChoice !== 'all' || semesterChoice !== 'all'
+  const isFiltered = academicYearChoice !== 'all' || semesterChoice !== 'all' || search.trim() !== ''
 
-  const toolbar = (
-    <div
-      className="cluster"
-      style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        gap: '0.75rem',
-      }}
-    >
-      <div style={{ width: '12.5rem', minWidth: '10rem' }}>
-        <FilterSelect
-          value={academicYearChoice}
-          onChange={setAcademicYearChoice}
-          options={academicYearOptions}
-          placeholder="Academic Year"
-          includeAll={false}
-        />
-      </div>
-      <div style={{ width: '12.5rem', minWidth: '10rem' }}>
-        <FilterSelect
-          value={semesterChoice}
-          onChange={setSemesterChoice}
-          options={semesterOptions}
-          placeholder="Semester"
-          includeAll={false}
-        />
-      </div>
-      {isFiltered && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            setAcademicYearChoice('all')
-            setSemesterChoice('all')
-          }}
-          className="text-xs text-muted-foreground hover:text-foreground h-9"
-        >
-          Reset filters
-        </Button>
-      )}
-    </div>
-  )
+  // 3. Computed Cursor Pagination Values
+  const courses = coursesData?.items ?? (Array.isArray(coursesData) ? coursesData : [])
+  const total = coursesData?.total ?? courses.length
+  const nextCursor = coursesData?.nextCursor ?? null
+  const hasMore = Boolean(coursesData?.hasMore ?? nextCursor)
+  const hasPrev = cursorHistory.length > 0
 
-  const filteredData = useMemo(() => {
-    const list = Array.isArray(data) ? data : (data?.courses || data?.items || [])
-    return list.filter((r) => {
-      if (academicYearChoice !== 'all') {
-        const ayYear = formatAcademicYear(r.semester || r.offering?.semester)
-        const ayName = String(r.semester?.academicYear?.name ?? '')
-        const semName = String(r.semester?.name ?? '')
-        const start = String(r.semester?.startDate ?? '')
-        const end = String(r.semester?.endDate ?? '')
-        const matchesYear =
-          ayYear === academicYearChoice ||
-          ayName.includes(academicYearChoice) ||
-          semName.includes(academicYearChoice) ||
-          start.startsWith(academicYearChoice) ||
-          end.startsWith(academicYearChoice)
-        if (!matchesYear) return false
-      }
+  const handlePrevPage = () => {
+    if (cursorHistory.length === 0) return
+    const prevHistory = [...cursorHistory]
+    const prevCursor = prevHistory.pop()
+    setCursorHistory(prevHistory)
+    setCursor(prevCursor ?? null)
+  }
 
-      if (semesterChoice !== 'all') {
-        const term = String(r.semester?.term ?? '').toLowerCase()
-        const semName = String(r.semester?.name ?? '').toLowerCase()
-        const formatted = formatSemesterTerm(r.semester?.term).toLowerCase()
-        if (semesterChoice === 'first') {
-          const isFirst =
-            term.includes('fall') ||
-            term === '1' ||
-            term.includes('first') ||
-            semName.includes('fall') ||
-            semName.includes('first') ||
-            formatted.includes('first')
-          if (!isFirst) return false
-        } else if (semesterChoice === 'second') {
-          const isSecond =
-            term.includes('spring') ||
-            term === '2' ||
-            term.includes('second') ||
-            semName.includes('spring') ||
-            semName.includes('second') ||
-            formatted.includes('second')
-          if (!isSecond) return false
-        }
-      }
+  const handleNextPage = () => {
+    if (!hasMore || !nextCursor) return
+    setCursorHistory((prev) => [...prev, cursor])
+    setCursor(nextCursor)
+  }
 
-      return true
-    })
-  }, [data, academicYearChoice, semesterChoice])
+  const handleSearchChange = (val) => {
+    setSearch(val)
+    setCursor(null)
+    setCursorHistory([])
+  }
 
-  const columns = useMemo(
-    () => [
-      {
-        key: 'courseCode',
-        header: 'Course Code',
-        value: (r) => r.course?.code ?? '',
-        cell: (r) => <span className="font-semibold text-foreground">{r.course?.code}</span>,
-      },
-      {
-        key: 'courseName',
-        header: 'Course Name',
-        value: (r) => r.course?.title ?? '',
-        cell: (r) => <span className="font-medium text-foreground">{r.course?.title}</span>,
-      },
-      {
-        key: 'creditHours',
-        header: 'Credit Hours',
-        value: (r) => r.course?.creditHours ?? '',
-        cell: (r) => <span>{r.course?.creditHours ?? '—'}</span>,
-        align: 'center',
-      },
-      {
-        key: 'teacherName',
-        header: 'Teacher Name',
-        value: (r) => (r.teacher?.name ? r.teacher.name.replace(/^Dr\.?\s+/i, '').trim() : '') || 'Unassigned',
-        cell: (r) => <span>{(r.teacher?.name ? r.teacher.name.replace(/^Dr\.?\s+/i, '').trim() : '') || 'Unassigned'}</span>,
-      },
-      {
-        key: 'currentYear',
-        header: 'Current Year',
-        value: (r) => getStudentCurrentYearOfStudy(resolveStudentForCourse(r)),
-        cell: (r) => (
-          <span className="text-foreground font-medium">
-            {getStudentCurrentYearOfStudy(resolveStudentForCourse(r))}
-          </span>
-        ),
-      },
-      {
-        key: 'programType',
-        header: 'Program Type',
-        value: (r) => resolveStudentForCourse(r).programType,
-        cell: (r) => (
-          <ProgramTypeBadge programType={resolveStudentForCourse(r).programType} />
-        ),
-      },
-      {
-        key: 'academicYear',
-        header: 'Academic Year',
-        value: (r) => formatAcademicYear(r.semester || r.offering?.semester),
-        cell: (r) => (
-          <span className="text-muted-foreground">
-            {formatAcademicYear(r.semester || r.offering?.semester)}
-          </span>
-        ),
-      },
-      {
-        key: 'semester',
-        header: 'Semester',
-        value: (r) => formatSemesterTerm(r.semester?.term) || r.semester?.name || '—',
-        cell: (r) => (
-          <span className="text-muted-foreground">
-            {formatSemesterTerm(r.semester?.term) || r.semester?.name || '—'}
-          </span>
-        ),
-      },
-      {
-        key: 'status',
-        header: 'Status',
-        value: (r) => r.status ?? '',
-        cell: (r) => <StatusBadge status={r.status} />,
-      },
-    ],
-    [resolveStudentForCourse],
-  )
+  const handleAcademicYearChange = (val) => {
+    setAcademicYearChoice(val)
+    setCursor(null)
+    setCursorHistory([])
+  }
+
+  const handleSemesterChange = (val) => {
+    setSemesterChoice(val)
+    setCursor(null)
+    setCursorHistory([])
+  }
+
+  const handleResetFilters = () => {
+    setSearch('')
+    setAcademicYearChoice('all')
+    setSemesterChoice('all')
+    setCursor(null)
+    setCursorHistory([])
+  }
 
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader
         title="My Courses"
         description="View your enrolled courses, schedules, teachers, and credit hours."
         centered
       />
-      <DataTable
-        columns={columns}
-        rows={filteredData}
-        loading={loading}
-        error={error}
-        onRetry={refetch}
-        rowKey={(r) => r.enrollmentId}
-        searchPlaceholder="Search course code, name, or teacher…"
-        toolbar={toolbar}
-        emptyIcon={BookOpen}
-        emptyTitle="No courses found"
-        emptyDescription="You are not enrolled in any courses for this selection."
-      />
-    </>
+
+      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+        {/* Controls Toolbar */}
+        <div className="p-4 border-b border-border bg-card/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="w-full sm:w-72">
+            <SearchInput
+              value={search}
+              onChange={handleSearchChange}
+              placeholder="Search course code, name, or teacher…"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="w-44 sm:w-48">
+              <FilterSelect
+                value={academicYearChoice}
+                onChange={handleAcademicYearChange}
+                options={academicYearOptions}
+                placeholder="Academic Year"
+                includeAll={false}
+              />
+            </div>
+
+            <div className="w-40 sm:w-44">
+              <FilterSelect
+                value={semesterChoice}
+                onChange={handleSemesterChange}
+                options={semesterOptions}
+                placeholder="Semester"
+                includeAll={false}
+              />
+            </div>
+
+            {isFiltered && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleResetFilters}
+                className="text-xs text-muted-foreground hover:text-foreground h-9"
+              >
+                Reset filters
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Content Section */}
+        {loading && courses.length === 0 ? (
+          <div className="p-6">
+            <TableSkeleton rows={5} columns={9} />
+          </div>
+        ) : error ? (
+          <div className="p-8">
+            <ErrorState
+              title="Failed to load courses"
+              message={error?.message || 'An error occurred while loading your enrolled courses.'}
+              onRetry={refetch}
+            />
+          </div>
+        ) : courses.length === 0 ? (
+          <div className="p-12">
+            <EmptyState
+              icon={BookOpen}
+              title="No courses found"
+              description={
+                isFiltered
+                  ? 'No courses match the current filters. Try clearing your search or filters.'
+                  : 'You are not enrolled in any courses for this selection.'
+              }
+            />
+          </div>
+        ) : (
+          <div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent border-b border-border bg-muted/40 text-xs">
+                    <TableHead className="font-semibold text-foreground py-3">Course Code</TableHead>
+                    <TableHead className="font-semibold text-foreground py-3">Course Name</TableHead>
+                    <TableHead className="font-semibold text-foreground py-3 text-center">Credit Hours</TableHead>
+                    <TableHead className="font-semibold text-foreground py-3">Teacher Name</TableHead>
+                    <TableHead className="font-semibold text-foreground py-3">Current Year</TableHead>
+                    <TableHead className="font-semibold text-foreground py-3">Program Type</TableHead>
+                    <TableHead className="font-semibold text-foreground py-3">Academic Year</TableHead>
+                    <TableHead className="font-semibold text-foreground py-3">Semester</TableHead>
+                    <TableHead className="font-semibold text-foreground py-3 text-center">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {courses.map((r) => {
+                    const studentData = resolveStudentForCourse(r)
+                    return (
+                      <TableRow key={r.enrollmentId} className="hover:bg-muted/30 transition-colors">
+                        <TableCell className="py-3 font-semibold text-foreground">
+                          {r.course?.code ?? '—'}
+                        </TableCell>
+                        <TableCell className="py-3 font-medium text-foreground">
+                          {r.course?.title ?? '—'}
+                        </TableCell>
+                        <TableCell className="py-3 text-center tabular font-mono">
+                          {r.course?.creditHours ?? '—'}
+                        </TableCell>
+                        <TableCell className="py-3">
+                          {(r.teacher?.name ? r.teacher.name.replace(/^Dr\.?\s+/i, '').trim() : '') || 'Unassigned'}
+                        </TableCell>
+                        <TableCell className="py-3 text-foreground font-medium">
+                          {getStudentCurrentYearOfStudy(studentData)}
+                        </TableCell>
+                        <TableCell className="py-3">
+                          <ProgramTypeBadge programType={studentData.programType} />
+                        </TableCell>
+                        <TableCell className="py-3 text-muted-foreground">
+                          {formatAcademicYear(r.semester || r.offering?.semester)}
+                        </TableCell>
+                        <TableCell className="py-3 text-muted-foreground">
+                          {formatSemesterTerm(r.semester?.term) || r.semester?.name || '—'}
+                        </TableCell>
+                        <TableCell className="py-3 text-center">
+                          <StatusBadge status={r.status} />
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Server-Side Cursor Pagination: Previous and Next arrow icons (4 rows per page) */}
+            {total > 0 && (
+              <div className="flex items-center justify-end gap-2 px-6 py-3.5 border-t border-border/80 bg-card/40">
+                <button
+                  type="button"
+                  onClick={handlePrevPage}
+                  disabled={!hasPrev || loading}
+                  title="Previous"
+                  aria-label="Previous"
+                  className="size-9 min-w-9 rounded-xl border border-blue-200/80 dark:border-blue-900/60 bg-white dark:bg-card text-blue-600 dark:text-blue-400 flex items-center justify-center transition-all cursor-pointer hover:bg-blue-50/70 hover:border-blue-300 dark:hover:bg-blue-950/40 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextPage}
+                  disabled={!hasMore || loading}
+                  title="Next"
+                  aria-label="Next"
+                  className="size-9 min-w-9 rounded-xl border border-blue-200/80 dark:border-blue-900/60 bg-white dark:bg-card text-blue-600 dark:text-blue-400 flex items-center justify-center transition-all cursor-pointer hover:bg-blue-50/70 hover:border-blue-300 dark:hover:bg-blue-950/40 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 

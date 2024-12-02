@@ -4,20 +4,31 @@ import {
   Pencil,
   Plus,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
-import { DataTable } from '@/components/common/DataTable'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { FilterSelect } from '@/components/common/FilterSelect'
-import { PageSkeleton } from '@/components/common/Loading'
+import { PageSkeleton, TableSkeleton } from '@/components/common/Loading'
 import { PageHeader } from '@/components/common/PageHeader'
+import { SearchInput } from '@/components/common/SearchInput'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
+import { useDebounce } from '@/hooks/useDebounce'
 import { formatYearOfStudy, getCourseStudyYear } from '@/lib/format'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
@@ -29,7 +40,7 @@ export function AssessmentsPage() {
   const lookups = useLookups()
   const currentSemesterId = lookups?.currentSemester?.id
 
-  // 1. Fetch teacher offerings
+  // 1. Fetch teacher offerings for filter dropdowns & assignment context
   const {
     data: offerings,
     loading: offeringsLoading,
@@ -90,9 +101,20 @@ export function AssessmentsPage() {
     }))
   }, [offerings])
 
-  // 2. Year and Offering selection state
+  // 2. Pure server-side cursor pagination query state: Search, Filters, Sorting, Keyset Cursor
+  const [pageSize] = useState(4)
+  const [cursor, setCursor] = useState(null)
+  const [direction, setDirection] = useState('next')
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 300)
   const [selectedYearOfStudy, setSelectedYearOfStudy] = useState('')
   const [selectedCourseId, setSelectedCourseId] = useState('all')
+  const [sort, setSort] = useState({ key: 'dueDate', dir: 'asc' })
+
+  const resetPagination = () => {
+    setCursor(null)
+    setDirection('next')
+  }
 
   // Filter courses by selected Year of Study
   const filteredCourses = useMemo(() => {
@@ -116,32 +138,6 @@ export function AssessmentsPage() {
 
   const activeCourseId = effectiveCourseId && effectiveCourseId !== 'all' ? effectiveCourseId : ''
 
-  // Determine target offerings based on user filter selections
-  const targetOfferings = useMemo(() => {
-    if (!offerings || offerings.length === 0) return []
-
-    // 1. If a specific course is selected in the Course dropdown
-    if (effectiveCourseId && effectiveCourseId !== 'all') {
-      const matching = offerings.filter((o) => {
-        const cId = o.course?.id || o.courseId || o.course_id || o.course?.code || o.id
-        return cId === effectiveCourseId || o.id === effectiveCourseId
-      })
-      if (matching.length > 0) return matching
-    }
-
-    // 2. If a specific year of study is selected
-    if (selectedYearOfStudy && selectedYearOfStudy !== 'all') {
-      const byYear = offerings.filter((o) => {
-        const y = o?.yearOfStudy ?? o?.year_of_study ?? (o?.course ? getCourseStudyYear(o.course) : null)
-        return String(y) === String(selectedYearOfStudy)
-      })
-      if (byYear.length > 0) return byYear
-    }
-
-    // 3. "All Years of Study" -> return all offerings assigned to the teacher by Department Head
-    return offerings
-  }, [offerings, effectiveCourseId, selectedYearOfStudy])
-
   const offering = useMemo(() => {
     if (effectiveCourseId && effectiveCourseId !== 'all') {
       const found = (offerings ?? []).find((o) => {
@@ -150,8 +146,8 @@ export function AssessmentsPage() {
       })
       if (found) return found
     }
-    return targetOfferings[0] || offerings?.[0] || null
-  }, [effectiveCourseId, targetOfferings, offerings])
+    return offerings?.[0] || null
+  }, [effectiveCourseId, offerings])
 
   const handleYearOfStudyChange = (year) => {
     const val = year || ''
@@ -159,6 +155,7 @@ export function AssessmentsPage() {
     if (!val || val === 'all') {
       setSelectedCourseId('all')
     }
+    resetPagination()
   }
 
   const handleCourseChange = (cId) => {
@@ -181,47 +178,42 @@ export function AssessmentsPage() {
         }
       }
     }
+    resetPagination()
   }
 
-  // 3. Fetch assessments across target offerings
-  const targetOfferingIdsKey = targetOfferings.map((o) => o.id).sort().join(',')
+  const handleSearchChange = (val) => {
+    setSearch(val)
+    resetPagination()
+  }
+
+  const handleSort = (key) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: 'asc' }
+      if (prev.dir === 'asc') return { key, dir: 'desc' }
+      return { key: 'dueDate', dir: 'asc' }
+    })
+    resetPagination()
+  }
+
+  // 3. Server-side Cursor-Paginated Query
   const {
-    data: assessments,
+    data: assessmentData,
     loading: assessmentsLoading,
     error: assessmentsError,
     refetch: refetchAssessments,
   } = useQuery(
-    async () => {
-      if (!targetOfferings || targetOfferings.length === 0) return []
-      if (targetOfferings.length === 1) {
-        const list = await store.grades.listAssessments(targetOfferings[0].id)
-        return (list || []).map((a) => ({
-          ...a,
-          offeringId: targetOfferings[0].id,
-          offering: targetOfferings[0],
-        }))
-      }
-
-      const results = await Promise.allSettled(
-        targetOfferings.map((o) => store.grades.listAssessments(o.id))
-      )
-      const combined = []
-      for (let i = 0; i < results.length; i++) {
-        if (results[i].status === 'fulfilled' && Array.isArray(results[i].value)) {
-          const off = targetOfferings[i]
-          for (const a of results[i].value) {
-            combined.push({
-              ...a,
-              offeringId: off.id,
-              offering: off,
-            })
-          }
-        }
-      }
-      return combined
-    },
-    [targetOfferingIdsKey],
-    { enabled: targetOfferings.length > 0 }
+    () =>
+      store.grades.listAssessmentsPaginated({
+        cursor,
+        direction,
+        pageSize,
+        search: debouncedSearch,
+        yearOfStudy: selectedYearOfStudy,
+        courseId: activeCourseId,
+        sortBy: sort?.key,
+        sortDir: sort?.dir,
+      }),
+    [cursor, direction, pageSize, debouncedSearch, selectedYearOfStudy, activeCourseId, sort?.key, sort?.dir]
   )
 
   useWebSocketEvent('ASSESSMENT_CREATED', () => {
@@ -243,24 +235,27 @@ export function AssessmentsPage() {
 
   // 5. Computed states
   const isLocked = Boolean(isLockedStatus(offering?.gradeStatus))
-  const safeAssessments = useMemo(() => {
-    if (!assessments) return []
-    return assessments.filter((a) => {
-      const targetOff = a.offering || (offerings ?? []).find((o) => o.id === a.offeringId)
-      const y = targetOff?.yearOfStudy ?? targetOff?.year_of_study ?? (targetOff?.course ? getCourseStudyYear(targetOff.course) : null)
+  const assessments = assessmentData?.items ?? []
+  const total = assessmentData?.total ?? 0
+  const pageInfo = assessmentData?.pageInfo || {}
+  const hasNextPage = Boolean(pageInfo.hasNextPage)
+  const hasPrevPage = Boolean(pageInfo.hasPrevPage)
+  const nextCursor = pageInfo.nextCursor
+  const prevCursor = pageInfo.prevCursor
 
-      if (selectedYearOfStudy && selectedYearOfStudy !== 'all') {
-        if (y != null && String(y) !== String(selectedYearOfStudy)) return false
-      }
+  const handleNextPage = () => {
+    if (hasNextPage && nextCursor) {
+      setCursor(nextCursor)
+      setDirection('next')
+    }
+  }
 
-      if (effectiveCourseId && effectiveCourseId !== 'all') {
-        const cId = targetOff?.course?.id || targetOff?.courseId || targetOff?.course_id || targetOff?.course?.code || targetOff?.id
-        if (cId !== effectiveCourseId && targetOff?.id !== effectiveCourseId) return false
-      }
-
-      return true
-    })
-  }, [assessments, selectedYearOfStudy, effectiveCourseId, offerings])
+  const handlePrevPage = () => {
+    if (hasPrevPage && prevCursor) {
+      setCursor(prevCursor)
+      setDirection('prev')
+    }
+  }
 
   // Handle assessment deletion
   const handleDelete = async () => {
@@ -278,121 +273,7 @@ export function AssessmentsPage() {
     }
   }
 
-  const columns = [
-    {
-      key: 'type',
-      header: 'Assessment Type',
-      value: (a) => `${typeLabel(a.type)} ${a.name || ''}`,
-      cell: (a) => {
-        const label = typeLabel(a.type)
-        const showSpecific = a.name && a.name.toLowerCase() !== label.toLowerCase()
-        return (
-          <div>
-            <div className="font-medium text-foreground capitalize">
-              {showSpecific ? a.name : label}
-            </div>
-            {showSpecific && (
-              <p className="text-xs text-muted-foreground capitalize">{label}</p>
-            )}
-          </div>
-        )
-      },
-    },
-    {
-      key: 'course',
-      header: 'Course',
-      align: 'center',
-      value: (a) => {
-        const targetOff = a.offering || (offerings ?? []).find((o) => o.id === a.offeringId)
-        return targetOff?.course?.code || ''
-      },
-      cell: (a) => {
-        const targetOff = a.offering || (offerings ?? []).find((o) => o.id === a.offeringId)
-        return (
-          <Badge variant="outline" className="font-mono text-xs font-semibold px-2 py-0.5">
-            {targetOff?.course?.code || '—'}
-          </Badge>
-        )
-      },
-    },
-    {
-      key: 'yearOfStudy',
-      header: 'Year of Study',
-      align: 'center',
-      value: (a) => {
-        const targetOff = a.offering || (offerings ?? []).find((o) => o.id === a.offeringId) || offering
-        const y = targetOff?.yearOfStudy ?? targetOff?.year_of_study ?? (targetOff?.course ? getCourseStudyYear(targetOff.course) : null)
-        return formatYearOfStudy(y)
-      },
-      cell: (a) => {
-        const targetOff = a.offering || (offerings ?? []).find((o) => o.id === a.offeringId) || offering
-        const y = targetOff?.yearOfStudy ?? targetOff?.year_of_study ?? (targetOff?.course ? getCourseStudyYear(targetOff.course) : null)
-        return (
-          <span className="tabular font-medium">
-            {formatYearOfStudy(y)}
-          </span>
-        )
-      },
-    },
-    {
-      key: 'weight',
-      header: 'Weight',
-      align: 'center',
-      cell: (a) => (
-        <div className="inline-flex items-center gap-1.5 font-semibold font-mono text-sm">
-          <span className="tabular">{a.weight}%</span>
-          <span className="text-xs font-normal text-muted-foreground">of course</span>
-        </div>
-      ),
-    },
-    {
-      key: 'maxMarks',
-      header: 'Max Marks',
-      align: 'center',
-      cell: (a) => (
-        <span className="font-mono text-sm tabular font-medium">
-          {a.maxMarks ?? a.weight ?? 100} marks
-        </span>
-      ),
-    },
-    {
-      key: 'actions',
-      header: 'Action',
-      sortable: false,
-      searchable: false,
-      export: false,
-      align: 'right',
-      cell: (a) => {
-        const targetOff = a.offering || (offerings ?? []).find((o) => o.id === a.offeringId) || offering
-        const itemLocked = Boolean(isLockedStatus(targetOff?.gradeStatus))
-        return (
-          <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              title="Edit Assessment"
-              aria-label="Edit Assessment"
-              disabled={itemLocked}
-              onClick={() => setDialog({ open: true, assessment: a })}
-            >
-              <Pencil className="size-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              title="Delete Assessment"
-              aria-label="Delete Assessment"
-              disabled={itemLocked}
-              onClick={() => setDeleting(a)}
-            >
-              <Trash2 className="size-4" />
-            </Button>
-          </div>
-        )
-      },
-    },
-  ]
+
 
   if (offeringsLoading && !offerings) return <PageSkeleton />
   if (offeringsError) {
@@ -426,25 +307,18 @@ export function AssessmentsPage() {
           title="No courses assigned"
           description="You need an assigned course offering before you can create assessments."
         />
-      ) : !offering ? (
-        <EmptyState
-          icon={ClipboardList}
-          title="No course selected"
-          description="Please select an active course offering to view its assessments."
-        />
       ) : (
-        <DataTable
-          columns={columns}
-          rows={safeAssessments}
-          loading={assessmentsLoading}
-          error={assessmentsError}
-          onRetry={refetchAssessments}
-          searchPlaceholder="Search assessments by type…"
-          emptyIcon={ClipboardList}
-          emptyTitle="No assessments created"
-          emptyDescription="Use the Create Assessment button above to define assignments, quizzes, and exams for this course."
-          toolbar={
-            <div className="cluster cluster--end push-end">
+        <div className="stack stack--md">
+          {/* Top Toolbar: Search + Year Filter + Course Filter */}
+          <div className="toolbar--split flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="toolbar--split__left w-full md:max-w-sm">
+              <SearchInput
+                value={search}
+                onChange={handleSearchChange}
+                placeholder="Search assessments by name, type, or course…"
+              />
+            </div>
+            <div className="toolbar--split__right flex flex-wrap items-center gap-2">
               <FilterSelect
                 label="Year of Study"
                 value={selectedYearOfStudy}
@@ -473,8 +347,163 @@ export function AssessmentsPage() {
                 align="end"
               />
             </div>
-          }
-        />
+          </div>
+
+          {/* Table Container */}
+          <div className="table-box rounded-lg border bg-card shadow-sm overflow-hidden">
+            {assessmentsError ? (
+              <div className="p-6">
+                <ErrorState error={assessmentsError} onRetry={refetchAssessments} />
+              </div>
+            ) : assessmentsLoading && !assessmentData ? (
+              <div className="p-4">
+                <TableSkeleton cols={6} rows={pageSize === 'all' ? 8 : Number(pageSize)} />
+              </div>
+            ) : assessments.length === 0 ? (
+              <div className="p-8">
+                <EmptyState
+                  icon={ClipboardList}
+                  title={search ? 'No assessments match your search' : 'No assessments found'}
+                  description={
+                    search
+                      ? 'Try adjusting your search query or clear active filters.'
+                      : 'Use the Create Assessment button above to define assignments, quizzes, and exams for this course.'
+                  }
+                />
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent border-b border-border bg-muted/40 text-xs">
+                    <TableHead className="font-semibold text-foreground py-3">
+                      Assessment Type & Name
+                    </TableHead>
+                    <TableHead className="font-semibold text-foreground py-3 text-center">
+                      Course
+                    </TableHead>
+                    <TableHead className="font-semibold text-foreground py-3 text-center">
+                      Year of Study
+                    </TableHead>
+                    <TableHead className="font-semibold text-foreground py-3 text-center">
+                      Weight
+                    </TableHead>
+                    <TableHead className="font-semibold text-foreground py-3 text-center">
+                      Max Marks
+                    </TableHead>
+                    <TableHead className="font-semibold text-foreground py-3 text-center">
+                      Due Date
+                    </TableHead>
+                    <TableHead className="font-semibold text-foreground py-3 text-right pr-4">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {assessments.map((a) => {
+                    const targetOff = a.offering || (offerings ?? []).find((o) => o.id === a.offeringId) || offering
+                    const y = targetOff?.yearOfStudy ?? targetOff?.year_of_study ?? (targetOff?.course ? getCourseStudyYear(targetOff.course) : null)
+                    const label = typeLabel(a.type)
+                    const showSpecific = a.name && a.name.toLowerCase() !== label.toLowerCase()
+                    const itemLocked = Boolean(isLockedStatus(targetOff?.gradeStatus))
+
+                    return (
+                      <TableRow key={a.id} className="hover:bg-muted/40 transition-colors">
+                        <TableCell>
+                          <div>
+                            <div className="font-medium text-foreground capitalize">
+                              {showSpecific ? a.name : label}
+                            </div>
+                            {showSpecific && (
+                              <p className="text-xs text-muted-foreground capitalize">{label}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline" className="font-mono text-xs font-semibold px-2 py-0.5">
+                            {targetOff?.course?.code || a.course?.code || '—'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="tabular font-medium text-sm">
+                            {formatYearOfStudy(y)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="inline-flex items-center gap-1.5 font-semibold font-mono text-sm">
+                            <span className="tabular">{a.weight}%</span>
+                            <span className="text-xs font-normal text-muted-foreground">of course</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="font-mono text-sm tabular font-medium">
+                            {a.maxMarks ?? a.weight ?? 100} marks
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-xs font-medium tabular text-muted-foreground">
+                            {a.dueDate ? new Date(a.dueDate).toLocaleDateString() : '—'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right pr-4">
+                          <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              title="Edit Assessment"
+                              aria-label="Edit Assessment"
+                              disabled={itemLocked}
+                              onClick={() => setDialog({ open: true, assessment: a })}
+                            >
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              title="Delete Assessment"
+                              aria-label="Delete Assessment"
+                              disabled={itemLocked}
+                              onClick={() => setDeleting(a)}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            )}
+
+            {/* Pure Cursor-Based Server-Side Pagination Footer */}
+            {total > 0 && (
+              <div className="flex items-center justify-end gap-1.5 px-4 py-2.5 border-t border-border bg-card/60">
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  className="size-7"
+                  onClick={handlePrevPage}
+                  disabled={!hasPrevPage || assessmentsLoading}
+                  title="Previous page"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  className="size-7"
+                  onClick={handleNextPage}
+                  disabled={!hasNextPage || assessmentsLoading}
+                  title="Next page"
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Create / Edit Assessment Dialog */}
@@ -482,9 +511,9 @@ export function AssessmentsPage() {
         open={dialog.open}
         onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
         assessment={dialog.assessment}
-        offering={offering}
+        offering={dialog.assessment?.offering || offering}
         offerings={offerings ?? []}
-        existingAssessments={safeAssessments}
+        existingAssessments={assessments}
         onSaved={(savedOfferingId) => {
           if (savedOfferingId) {
             const savedOff = (offerings ?? []).find((o) => o.id === savedOfferingId)

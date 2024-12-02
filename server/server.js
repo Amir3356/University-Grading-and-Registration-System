@@ -23,7 +23,7 @@ async function startServer() {
     console.log(`[Database Pool] Connected to "${dbInfo.database}" as user "${dbInfo.user}" (${dbInfo.latencyMs}ms latency)`);
     console.log(`[Database Pool] Initialized (total: ${poolStats.totalCount}, idle: ${poolStats.idleCount})`);
 
-    const server = app.listen(PORT, () => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`[Server] University Grading & Registration API running on http://localhost:${PORT}`);
       console.log(`[Server] Environment: ${NODE_ENV}`);
     });

@@ -25,7 +25,11 @@ export function TranscriptView({ transcript: t }) {
           <div>
             <p className="text-xs text-muted">Cumulative GPA</p>
             <p className="big-number">{formatGpa(t.cgpa)}</p>
-            <Badge variant={t.standing.tone === 'danger' ? 'danger' : t.standing.tone === 'success' ? 'success' : 'secondary'}>{t.standing.label}</Badge>
+            {t.standing && t.standing.label !== 'Academic Probation' && (
+              <Badge variant={t.standing.tone === 'danger' ? 'danger' : t.standing.tone === 'success' ? 'success' : 'secondary'}>
+                {t.standing.label}
+              </Badge>
+            )}
           </div>
           <div>
             <p className="text-xs text-muted">Credits earned</p>

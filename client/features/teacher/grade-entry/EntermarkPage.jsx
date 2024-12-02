@@ -103,7 +103,7 @@ export function EntermarkPage() {
 
   // 2. Offering and Year selection state
   const [selectedYearOfStudy, setSelectedYearOfStudy] = useState('')
-  const [selectedOfferingId, setSelectedOfferingId] = useState('all')
+  const [selectedOfferingId, setSelectedOfferingId] = useState('')
 
   const getOfferingStudyYear = (o) => {
     if (!o) return null
@@ -292,18 +292,26 @@ export function EntermarkPage() {
   }, [gradebook, targetOfferings])
   
   // Real-time active grade status taking the freshest status from gradebook or offering
-  const activeGradeStatus =
-    currentOffering?.gradeStatus ||
-    currentOffering?.grade_status ||
-    gradebook?.offering?.grade_status ||
-    gradebook?.offering?.gradeStatus ||
-    'not_started'
+  const activeGradeStatus = useMemo(() => {
+    if (currentOffering) {
+      return (
+        currentOffering?.gradeStatus ||
+        currentOffering?.grade_status ||
+        gradebook?.offering?.grade_status ||
+        gradebook?.offering?.gradeStatus ||
+        'not_started'
+      )
+    }
+    if (!targetOfferings || targetOfferings.length === 0) return 'not_started'
+    const statuses = targetOfferings.map((o) => o.gradeStatus || o.grade_status || 'not_started')
+    if (statuses.some((s) => s === 'rejected')) return 'rejected'
+    if (statuses.every((s) => s === 'published')) return 'published'
+    if (statuses.every((s) => s === 'approved')) return 'approved'
+    if (statuses.every((s) => s === 'submitted')) return 'submitted'
+    return 'not_started'
+  }, [currentOffering, gradebook?.offering, targetOfferings])
 
-  const isLocked = Boolean(
-    currentOffering
-      ? isLockedStatus(activeGradeStatus)
-      : false
-  )
+  const isLocked = Boolean(isLockedStatus(activeGradeStatus))
   const offeringGradeStatus = activeGradeStatus
   const gbRows = gradebook?.rows
 
@@ -362,14 +370,17 @@ export function EntermarkPage() {
           setSelectedOfferingId(matching[0].id)
         }
       }
-    } else {
-      setSelectedOfferingId('all')
+    } else if (uniqueCourseOfferings.length > 0) {
+      const currentMatches = uniqueCourseOfferings.some((o) => o.id === selectedOfferingId)
+      if (!currentMatches) {
+        setSelectedOfferingId(uniqueCourseOfferings[0].id)
+      }
     }
   }
 
   // Change handler for Course filter (auto-syncs Year of Study)
   const handleCourseChange = (id) => {
-    const val = id || 'all'
+    const val = id || ''
     setSelectedOfferingId(val)
     setGridEdits({})
     if (val && val !== 'all') {
@@ -381,11 +392,11 @@ export function EntermarkPage() {
     }
   }
 
-  // Ensure active offering belongs to the selected year of study if one is selected
+  // Ensure active offering is selected and belongs to filteredCourseOfferings
   useEffect(() => {
-    if (selectedYearOfStudy && selectedYearOfStudy !== 'all' && filteredCourseOfferings.length > 0) {
+    if (filteredCourseOfferings && filteredCourseOfferings.length > 0) {
       const currentMatches = filteredCourseOfferings.some((o) => o.id === selectedOfferingId)
-      if (!currentMatches) {
+      if (!selectedOfferingId || !currentMatches) {
         setSelectedOfferingId(filteredCourseOfferings[0].id)
       }
     }
@@ -649,7 +660,13 @@ export function EntermarkPage() {
   }, [tableData, assessments, gradebook?.offeringAssessmentsMap])
 
   const handleSubmitGrades = async () => {
-    if (!activeOfferingId) return
+    const offeringsToSubmit = activeOfferingId
+      ? [activeOfferingId]
+      : targetOfferings.map((o) => o.id)
+    if (offeringsToSubmit.length === 0) {
+      toast.error('No course offering selected to submit.')
+      return
+    }
     setSubmittingGrades(true)
     try {
       if (gridChanges.length > 0) {
@@ -661,8 +678,14 @@ export function EntermarkPage() {
         await handleSaveGrid()
       }
 
-      await store.grades.submitGrades(activeOfferingId)
-      toast.success('Grades submitted successfully to Department Head for review.')
+      for (const offId of offeringsToSubmit) {
+        await store.grades.submitGrades(offId)
+      }
+      toast.success(
+        offeringsToSubmit.length > 1
+          ? `Grades for ${offeringsToSubmit.length} course(s) submitted successfully to Department Head for review.`
+          : 'Grades submitted successfully to Department Head for review.'
+      )
       setSubmitDialogOpen(false)
       setShowIncompleteList(false)
       await refetchOfferings()
@@ -1026,7 +1049,7 @@ export function EntermarkPage() {
                   : 'Save All Marks'}
             </Button>
 
-            {currentOffering && (
+            {offerings && offerings.length > 0 && (
               <>
                 {activeGradeStatus === 'submitted' && (
                   <Button
@@ -1078,7 +1101,7 @@ export function EntermarkPage() {
                     }
                   >
                     <Send className="size-4 mr-1.5" />
-                    {activeGradeStatus === 'rejected' ? 'Resubmit Grades' : 'Submit Grades'}
+                    {activeGradeStatus === 'rejected' ? 'Resubmit to Dept Head' : 'Submit to Dept Head'}
                   </Button>
                 )}
               </>
@@ -1119,10 +1142,10 @@ export function EntermarkPage() {
               />
               <FilterSelect
                 label="Course"
-                value={selectedOfferingId || 'all'}
+                value={selectedOfferingId}
                 onChange={handleCourseChange}
-                includeAll={true}
-                allLabel="All Courses"
+                includeAll={false}
+                placeholder="Course"
                 options={filteredCourseOfferings.map((o) => ({
                   value: o.id,
                   label: `${o.course.code} — ${o.course.title} (${o.semester.name})`,
@@ -1253,18 +1276,29 @@ export function EntermarkPage() {
                 : 'Submit Grades for Department Approval'}
             </DialogTitle>
             <DialogDescription className="tea-submit-dialog-desc" style={{ textAlign: 'center' }}>
-              Review all student marks and submit final grades for <span className="font-semibold text-foreground">{currentOffering?.course?.code} — {currentOffering?.course?.title}</span> ({currentOffering?.semester?.name || 'Current Term'}, Section {currentOffering?.section || 'A'}).
+              {currentOffering ? (
+                <>
+                  Review all student marks and submit final grades for{' '}
+                  <span className="font-semibold text-foreground">
+                    {currentOffering.course?.code} — {currentOffering.course?.title}
+                  </span>{' '}
+                  ({currentOffering.semester?.name || 'Current Term'}, Section {currentOffering.section || 'A'}).
+                </>
+              ) : (
+                <>
+                  Review all student marks and submit final grades for{' '}
+                  <span className="font-semibold text-foreground">
+                    {targetOfferings.length} Assigned Course(s)
+                  </span>{' '}
+                  ({targetOfferings.map((o) => o.course?.code).filter(Boolean).join(', ')}) to Department Head for review.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
 
           <div className="tea-submit-modal flex-1 overflow-y-auto pr-1 space-y-4">
             {/* Quick Metrics Cards */}
             <div className="tea-submit-grid">
-              <div className="tea-submit-card tea-submit-card--complete">
-                <span className="tea-submit-card__label">Complete Marks</span>
-                <span className="tea-submit-card__value">{summaryStats.complete}</span>
-              </div>
-
               <div className={cn(
                 "tea-submit-card",
                 summaryStats.incomplete > 0 && "tea-submit-card--incomplete"

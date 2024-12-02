@@ -282,9 +282,8 @@ function Gradebook({ gb, refetch, university }) {
         </Card>
       ) : (
         <>
-          <Card className="mb-4 grid grid-cols-2 gap-4 px-5 py-4 sm:grid-cols-4">
+          <Card className="mb-4 grid grid-cols-2 gap-4 px-5 py-4 sm:grid-cols-3">
             <SummaryItem label="Students" value={active.length} hint={gb.rows.length > active.length ? `${gb.rows.length - active.length} withdrawn` : undefined} />
-            <SummaryItem label="Complete" value={`${complete.length} / ${active.length}`} hint="All marks entered" />
             <SummaryItem label="Class average" value={classAverage == null ? '—' : formatNumber(classAverage, 1)} hint={`Running ${formatPercent(runningAverage)}`} />
             <SummaryItem label="Missing marks" value={missing} hint={missing ? 'Across active students' : 'Everything entered'} />
           </Card>

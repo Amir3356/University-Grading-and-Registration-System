@@ -16,6 +16,7 @@ const EntermarkPage = page(() => import('@/features/teacher/grade-entry/Entermar
 const GradeEntryIndexPage = page(() => import('@/features/teacher/grade-entry/GradeEntryIndexPage'), 'GradeEntryIndexPage');
 const GradeEntryPage = page(() => import('@/features/teacher/grade-entry/GradeEntryPage'), 'GradeEntryPage');
 const PerformanceReportsPage = page(() => import('@/features/teacher/reports/PerformanceReportsPage'), 'PerformanceReportsPage');
+const TeacherComplaintsPage = page(() => import('@/features/teacher/complaints/TeacherComplaintsPage'), 'TeacherComplaintsPage');
 
 export const teacherRoutes = (
   <Route element={<ProtectedRoute roles={['teacher', 'dept_head']} />}>
@@ -32,5 +33,6 @@ export const teacherRoutes = (
     <Route path="/teacher/grade-entry/:offeringId" element={<GradeEntryPage />} />
     <Route path="/teacher/reports" element={<PerformanceReportsPage />} />
     <Route path="/teacher/reports/:offeringId" element={<PerformanceReportsPage />} />
+    <Route path="/teacher/complaints" element={<TeacherComplaintsPage />} />
   </Route>
 );

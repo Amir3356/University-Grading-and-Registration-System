@@ -20,6 +20,10 @@ export async function listAssessments(offeringId) {
   return await api.get(`/offerings/${offeringId}/assessments`);
 }
 
+export async function listAssessmentsPaginated(params = {}) {
+  return await api.get('/assessments', params);
+}
+
 export async function createAssessment(offeringId, data) {
   return await api.post(`/offerings/${offeringId}/assessments`, data);
 }
@@ -88,6 +92,7 @@ export const getGradingConfigApi = getGradingConfig;
 export const updateGradeScaleApi = updateGradeScale;
 export const updatePolicyApi = updatePolicy;
 export const listAssessmentsApi = listAssessments;
+export const listAssessmentsPaginatedApi = listAssessmentsPaginated;
 export const createAssessmentApi = createAssessment;
 export const updateAssessmentApi = updateAssessment;
 export const deleteAssessmentApi = deleteAssessment;

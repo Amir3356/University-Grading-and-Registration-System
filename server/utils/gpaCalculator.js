@@ -59,7 +59,7 @@ export function computeEnrollmentScore(assessments, scoreMap, scaleEntries, pass
 }
 
 export function getAcademicStanding(cgpa, honorsGpa = 3.5, probationGpa = 2.0) {
-  if (cgpa === null || cgpa === undefined || Number.isNaN(Number(cgpa))) {
+  if (cgpa === null || cgpa === undefined || Number.isNaN(Number(cgpa)) || Number(cgpa) <= 0) {
     return { label: 'Good Standing', tone: 'default' };
   }
   const val = Number(cgpa);

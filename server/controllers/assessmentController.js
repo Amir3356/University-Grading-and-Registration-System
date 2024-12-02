@@ -2,6 +2,15 @@ import * as assessmentService from '../services/assessmentService.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
 import { broadcastEvent } from '../config/websocket.js';
 
+export async function listAssessmentsPaginated(req, res, next) {
+  try {
+    const result = await assessmentService.listTeacherAssessments(req.query, req.user);
+    sendSuccess(res, result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function listAssessments(req, res, next) {
   try {
     const assessments = await assessmentService.listAssessments(req.params.id, req.user);

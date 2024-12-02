@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
-  Eye,
   FileQuestion,
+  Loader2,
   MessageSquareWarning,
   Pencil,
   Plus,
@@ -22,7 +24,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -48,15 +49,24 @@ import { ProgramTypeBadge, StatusBadge } from '@/components/common/StatusBadge'
 import { useAuth } from '@/context/auth-context'
 import { useQuery } from '@/hooks/useStore'
 import { formatDateTime, getStudentCurrentYearOfStudy } from '@/lib/format'
-import { useComplaints } from '@/store/complaintsStore'
+import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
+import {
+  listStudentComplaints,
+  submitStudentComplaint,
+  updateStudentComplaint,
+  cancelStudentComplaint,
+} from '@/api/complaints'
 
 const CATEGORY_OPTIONS = [
   { value: 'Grade Discrepancy', label: 'Grade Discrepancy' },
   { value: 'Missing Assessment Mark', label: 'Missing Assessment Mark' },
+  { value: 'Assessment Review', label: 'Assessment Review' },
   { value: 'Exam Attendance', label: 'Exam Attendance Issue' },
   { value: 'Course Scheduling', label: 'Course Scheduling Conflict' },
+  { value: 'Instructor Absence', label: 'Instructor Absence' },
   { value: 'Academic Policy', label: 'Academic Policy Inquiry' },
+  { value: 'Other Academic', label: 'Other Academic Grievance' },
   { value: 'Other', label: 'Other Grievance' },
 ]
 
@@ -75,7 +85,6 @@ const STATUS_FILTER_OPTIONS = [
 
 export function ComplaintsPage() {
   const { user, profile } = useAuth()
-  const { complaints, addComplaint, updateComplaint, deleteComplaint } = useComplaints()
 
   // Enrolled courses for dropdown selection
   const { data: coursesData } = useQuery(() => store.student.listMyCourses(), [])
@@ -90,8 +99,18 @@ export function ComplaintsPage() {
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+
+  // Server-side Cursor Pagination State (3 real data rows per page)
+  const [cursor, setCursor] = useState(null)
+  const [cursorHistory, setCursorHistory] = useState([]) // Stack of previous cursors
+  const [total, setTotal] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [nextCursor, setNextCursor] = useState(null)
+  const [complaints, setComplaints] = useState([])
+  const [loading, setLoading] = useState(false)
 
   // Modal Dialog states
   const [isSubmitOpen, setIsSubmitOpen] = useState(false)
@@ -105,8 +124,7 @@ export function ComplaintsPage() {
     courseId: '',
     category: 'Grade Discrepancy',
     priority: 'Normal',
-    title: '',
-    description: '',
+    reason: '',
   })
   const [formError, setFormError] = useState('')
 
@@ -114,66 +132,91 @@ export function ComplaintsPage() {
   const [editForm, setEditForm] = useState({
     category: '',
     priority: '',
-    title: '',
-    description: '',
+    reason: '',
   })
 
-  // Filtered complaints list
-  const filteredComplaints = useMemo(() => {
-    return complaints.filter((c) => {
-      if (statusFilter && c.status !== statusFilter) return false
-      if (categoryFilter && c.category !== categoryFilter) return false
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim()
-        const matchId = String(c.id || '').toLowerCase().includes(q)
-        const matchCode = String(c.courseCode || '').toLowerCase().includes(q)
-        const matchTitle = String(c.title || '').toLowerCase().includes(q)
-        const matchCat = String(c.category || '').toLowerCase().includes(q)
-        const matchDesc = String(c.description || '').toLowerCase().includes(q)
-        if (!matchId && !matchCode && !matchTitle && !matchCat && !matchDesc) return false
-      }
-      return true
-    })
-  }, [complaints, statusFilter, categoryFilter, searchQuery])
+  // Debounce search input to avoid hitting server on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+      setCursor(null)
+      setCursorHistory([])
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
+  // Fetch paginated complaints from the backend using cursor pagination (3 items per page)
+  const fetchComplaints = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await listStudentComplaints({
+        cursor: cursor || undefined,
+        limit: 3,
+        category: categoryFilter || undefined,
+        status: statusFilter || undefined,
+        search: debouncedSearch.trim() || undefined,
+      })
+
+      if (res && Array.isArray(res.items)) {
+        setComplaints(res.items)
+        setTotal(res.total ?? res.items.length)
+        setNextCursor(res.nextCursor || null)
+        setHasMore(Boolean(res.hasMore ?? res.nextCursor))
+      } else if (Array.isArray(res)) {
+        setComplaints(res.slice(0, 3))
+        setTotal(res.length)
+        setNextCursor(null)
+        setHasMore(false)
+      }
+    } catch (err) {
+      console.warn('Failed to fetch complaints from server:', err)
+      toast.error('Could not load complaints from server.')
+    } finally {
+      setLoading(false)
+    }
+  }, [cursor, categoryFilter, statusFilter, debouncedSearch])
+
+  useEffect(() => {
+    fetchComplaints()
+  }, [fetchComplaints])
+
+  // Real-time synchronization when instructor accepts, updates or resolves a complaint
+  useWebSocketEvent('COMPLAINT_UPDATED', () => fetchComplaints())
+  useWebSocketEvent('COMPLAINT_CREATED', () => fetchComplaints())
 
   const handleOpenSubmit = () => {
     setForm({
       courseId: coursesList[0]?.id || '',
       category: 'Grade Discrepancy',
       priority: 'Normal',
-      title: '',
-      description: '',
+      reason: '',
     })
     setFormError('')
     setIsSubmitOpen(true)
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.title.trim()) {
-      setFormError('Please enter a brief complaint subject or title.')
-      return
-    }
-    if (!form.description.trim()) {
-      setFormError('Please enter a detailed description of your grievance.')
+    if (!form.reason.trim()) {
+      setFormError('Please enter the reason for your complaint.')
       return
     }
 
-    const matchedCourse = coursesList.find((c) => c.id === form.courseId)
-
-    addComplaint({
-      courseId: form.courseId || '',
-      courseCode: matchedCourse ? matchedCourse.code : 'General',
-      courseName: matchedCourse ? matchedCourse.title : 'General Academic / Department',
-      category: form.category,
-      priority: form.priority,
-      title: form.title,
-      description: form.description,
-    })
-
-    toast.success('Your complaint has been submitted successfully to the department.')
-    setIsSubmitOpen(false)
+    try {
+      await submitStudentComplaint({
+        courseId: form.courseId || null,
+        category: form.category,
+        priority: form.priority,
+        reason: form.reason.trim(),
+      })
+      toast.success('Your complaint has been submitted successfully to the department.')
+      setIsSubmitOpen(false)
+      setCursor(null)
+      setCursorHistory([])
+      fetchComplaints()
+    } catch (err) {
+      toast.error(err.message || 'Failed to submit complaint.')
+    }
   }
 
   const handleOpenEdit = (comp) => {
@@ -181,37 +224,63 @@ export function ComplaintsPage() {
     setEditForm({
       category: comp.category,
       priority: comp.priority,
-      title: comp.title,
-      description: comp.description,
+      reason: comp.reason || comp.description || comp.title || '',
     })
     setIsEditOpen(true)
   }
 
-  const handleSaveEdit = (e) => {
+  const handleSaveEdit = async (e) => {
     e.preventDefault()
-    if (!editForm.title.trim() || !editForm.description.trim()) {
-      toast.error('Title and description cannot be empty.')
+    if (!editForm.reason.trim()) {
+      toast.error('Reason cannot be empty.')
       return
     }
-    updateComplaint(activeComplaint.id, {
-      category: editForm.category,
-      priority: editForm.priority,
-      title: editForm.title,
-      description: editForm.description,
-    })
-    toast.success('Complaint updated successfully.')
-    setIsEditOpen(false)
+
+    try {
+      await updateStudentComplaint(activeComplaint.id, {
+        category: editForm.category,
+        priority: editForm.priority,
+        reason: editForm.reason.trim(),
+      })
+      toast.success('Complaint updated successfully.')
+      setIsEditOpen(false)
+      fetchComplaints()
+    } catch (err) {
+      toast.error(err.message || 'Failed to update complaint.')
+    }
   }
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!complaintToDelete) return
-    deleteComplaint(complaintToDelete.id)
-    toast.success(`Complaint ${complaintToDelete.id} cancelled.`)
-    setComplaintToDelete(null)
+    try {
+      await cancelStudentComplaint(complaintToDelete.id)
+      toast.success(`Complaint ${complaintToDelete.referenceNo || complaintToDelete.id} cancelled.`)
+      setComplaintToDelete(null)
+      fetchComplaints()
+    } catch (err) {
+      toast.error(err.message || 'Failed to cancel complaint.')
+    }
   }
 
   const studentCurrentYear = getStudentCurrentYearOfStudy(profile || user)
   const studentProgramType = profile?.program_type || profile?.programType || user?.programType || 'regular'
+
+  // Cursor navigation handlers
+  const hasPrev = cursorHistory.length > 0
+
+  const handlePrevPage = () => {
+    if (cursorHistory.length === 0) return
+    const prevHistory = [...cursorHistory]
+    const prevCursor = prevHistory.pop()
+    setCursorHistory(prevHistory)
+    setCursor(prevCursor ?? null)
+  }
+
+  const handleNextPage = () => {
+    if (!hasMore || !nextCursor) return
+    setCursorHistory((prev) => [...prev, cursor])
+    setCursor(nextCursor)
+  }
 
   return (
     <div className="space-y-6">
@@ -227,36 +296,47 @@ export function ComplaintsPage() {
         }
       />
 
-
       {/* Toolbar / Filters */}
-      <div className="toolbar--split mb-4">
+      <div className="toolbar--split mb-6">
         <div className="toolbar--split__left">
           <SearchInput
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="Search complaint ID, course, title, or keyword…"
-            className="w-80"
+            placeholder="Search complaint ID, course, reason, or keyword…"
+            className="w-full sm:w-80"
           />
         </div>
 
-        <div className="toolbar--split__right flex flex-wrap items-center gap-2.5">
-          <FilterSelect
-            label="Category"
-            value={categoryFilter}
-            onChange={setCategoryFilter}
-            allLabel="All Categories"
-            options={CATEGORY_OPTIONS}
-            className="w-48"
-          />
+        <div className="toolbar--split__right flex flex-wrap items-center gap-2">
+          <div className="w-44">
+            <FilterSelect
+              value={categoryFilter}
+              onChange={(val) => {
+                setCategoryFilter(val)
+                setCursor(null)
+                setCursorHistory([])
+              }}
+              allLabel="All Categories"
+              placeholder="All Categories"
+              options={CATEGORY_OPTIONS}
+              className="w-44 h-10"
+            />
+          </div>
 
-          <FilterSelect
-            label="Status"
-            value={statusFilter}
-            onChange={setStatusFilter}
-            allLabel="All Statuses"
-            options={STATUS_FILTER_OPTIONS}
-            className="w-40"
-          />
+          <div className="w-40">
+            <FilterSelect
+              value={statusFilter}
+              onChange={(val) => {
+                setStatusFilter(val)
+                setCursor(null)
+                setCursorHistory([])
+              }}
+              allLabel="All Statuses"
+              placeholder="All Statuses"
+              options={STATUS_FILTER_OPTIONS}
+              className="w-40 h-10"
+            />
+          </div>
 
           {(searchQuery || statusFilter || categoryFilter) && (
             <Button
@@ -266,16 +346,14 @@ export function ComplaintsPage() {
                 setSearchQuery('')
                 setStatusFilter('')
                 setCategoryFilter('')
+                setCursor(null)
+                setCursorHistory([])
               }}
-              className="text-xs text-muted-foreground hover:text-foreground h-9"
+              className="text-xs text-muted-foreground hover:text-foreground h-9 px-3"
             >
               Reset filters
             </Button>
           )}
-
-          <div className="text-xs text-muted-foreground font-medium whitespace-nowrap pl-1">
-            Showing <span className="font-semibold text-foreground">{filteredComplaints.length}</span> of {complaints.length}
-          </div>
         </div>
       </div>
 
@@ -288,7 +366,7 @@ export function ComplaintsPage() {
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
                   <TableHead className="font-semibold text-foreground">Course</TableHead>
                   <TableHead className="font-semibold text-foreground">Category</TableHead>
-                  <TableHead className="font-semibold text-foreground">Subject / Summary</TableHead>
+                  <TableHead className="font-semibold text-foreground">Reason</TableHead>
                   <TableHead className="font-semibold text-foreground text-center">Priority</TableHead>
                   <TableHead className="font-semibold text-foreground">Submitted</TableHead>
                   <TableHead className="font-semibold text-foreground">Status</TableHead>
@@ -296,7 +374,16 @@ export function ComplaintsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredComplaints.length === 0 ? (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Loader2 className="size-6 animate-spin text-primary" />
+                        <span className="text-xs">Loading complaints from server…</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : complaints.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
                       <div className="flex flex-col items-center justify-center gap-1.5">
@@ -311,7 +398,7 @@ export function ComplaintsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredComplaints.map((comp) => {
+                  complaints.map((comp) => {
                     const isPending = comp.status === 'pending'
                     const priorityClass =
                       comp.priority === 'Urgent'
@@ -321,7 +408,14 @@ export function ComplaintsPage() {
                         : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-300'
 
                     return (
-                      <TableRow key={comp.id} className="hover:bg-muted/50 transition-colors">
+                      <TableRow
+                        key={comp.id}
+                        className="hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => {
+                          setActiveComplaint(comp)
+                          setIsViewOpen(true)
+                        }}
+                      >
                         <TableCell>
                           <div className="font-semibold text-xs text-foreground">{comp.courseCode}</div>
                           <div className="text-[11px] text-muted-foreground truncate max-w-44">{comp.courseName}</div>
@@ -332,8 +426,9 @@ export function ComplaintsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <span className="font-medium text-foreground text-sm line-clamp-1">{comp.title}</span>
-                          <span className="text-xs text-muted-foreground line-clamp-1">{comp.description}</span>
+                          <span className="font-medium text-foreground text-sm line-clamp-2">
+                            {comp.reason || comp.title}
+                          </span>
                         </TableCell>
                         <TableCell className="text-center">
                           <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full border ${priorityClass}`}>
@@ -346,28 +441,19 @@ export function ComplaintsPage() {
                         <TableCell>
                           <StatusBadge status={comp.status} label={comp.statusLabel || comp.status} />
                         </TableCell>
-                        <TableCell className="text-right pr-4">
+                        <TableCell className="text-right pr-4" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              className="size-8"
-                              title="View Complaint Details"
-                              onClick={() => {
-                                setActiveComplaint(comp)
-                                setIsViewOpen(true)
-                              }}
-                            >
-                              <Eye className="size-4" />
-                            </Button>
-                            {isPending && (
+                            {isPending ? (
                               <>
                                 <Button
                                   variant="ghost"
                                   size="icon-sm"
                                   className="size-8 text-muted-foreground hover:text-foreground"
                                   title="Edit Pending Complaint"
-                                  onClick={() => handleOpenEdit(comp)}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleOpenEdit(comp)
+                                  }}
                                 >
                                   <Pencil className="size-4" />
                                 </Button>
@@ -376,11 +462,16 @@ export function ComplaintsPage() {
                                   size="icon-sm"
                                   className="size-8 text-destructive hover:bg-destructive/10"
                                   title="Cancel Complaint"
-                                  onClick={() => setComplaintToDelete(comp)}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setComplaintToDelete(comp)
+                                  }}
                                 >
                                   <Trash2 className="size-4" />
                                 </Button>
                               </>
+                            ) : (
+                              <span className="text-xs text-muted-foreground pr-2">—</span>
                             )}
                           </div>
                         </TableCell>
@@ -391,6 +482,32 @@ export function ComplaintsPage() {
               </TableBody>
             </Table>
           </div>
+
+          {/* Server-Side Cursor Pagination: Previous and Next arrow icons (3 real data rows per page) */}
+          {total > 0 && (
+            <div className="flex items-center justify-end gap-2 px-6 py-3.5 border-t border-border/80 bg-card/40">
+              <button
+                type="button"
+                onClick={handlePrevPage}
+                disabled={!hasPrev || loading}
+                title="Previous"
+                aria-label="Previous"
+                className="size-9 min-w-9 rounded-xl border border-blue-200/80 dark:border-blue-900/60 bg-white dark:bg-card text-blue-600 dark:text-blue-400 flex items-center justify-center transition-all cursor-pointer hover:bg-blue-50/70 hover:border-blue-300 dark:hover:bg-blue-950/40 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleNextPage}
+                disabled={!hasMore || loading}
+                title="Next"
+                aria-label="Next"
+                className="size-9 min-w-9 rounded-xl border border-blue-200/80 dark:border-blue-900/60 bg-white dark:bg-card text-blue-600 dark:text-blue-400 flex items-center justify-center transition-all cursor-pointer hover:bg-blue-50/70 hover:border-blue-300 dark:hover:bg-blue-950/40 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -404,35 +521,41 @@ export function ComplaintsPage() {
             </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <form onSubmit={handleSubmit} className="space-y-6 py-4">
             {formError && (
               <div className="p-3 text-xs bg-destructive/10 text-destructive border border-destructive/20 rounded-md">
                 {formError}
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="comp-course">Course</Label>
-                <Select value={form.courseId} onValueChange={(v) => setForm((f) => ({ ...f, courseId: v }))}>
-                  <SelectTrigger id="comp-course">
-                    <SelectValue placeholder="Select course…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="general">General / Department Issue</SelectItem>
-                    {coursesList.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.code} · {c.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Course Field - Full Width with clear spacing */}
+            <div className="flex flex-col gap-2.5">
+              <Label htmlFor="comp-course" className="text-sm font-semibold text-foreground flex items-center justify-between">
+                <span>Course</span>
+                <span className="text-xs text-muted-foreground font-normal">Select affected course</span>
+              </Label>
+              <Select value={form.courseId} onValueChange={(v) => setForm((f) => ({ ...f, courseId: v }))}>
+                <SelectTrigger id="comp-course" className="h-11 w-full px-3.5 text-sm rounded-lg bg-background border shadow-xs">
+                  <SelectValue placeholder="Select course…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {coursesList.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.code} · {c.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="comp-category">Complaint Category</Label>
+            {/* Category & Priority Fields - Side by Side Grid with clear spacing */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
+              <div className="flex flex-col gap-2.5">
+                <Label htmlFor="comp-category" className="text-sm font-semibold text-foreground">
+                  Complaint Category
+                </Label>
                 <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}>
-                  <SelectTrigger id="comp-category">
+                  <SelectTrigger id="comp-category" className="h-11 w-full px-3.5 text-sm rounded-lg bg-background border shadow-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -444,48 +567,48 @@ export function ComplaintsPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="flex flex-col gap-2.5">
+                <Label htmlFor="comp-priority" className="text-sm font-semibold text-foreground">
+                  Priority Level
+                </Label>
+                <Select value={form.priority} onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}>
+                  <SelectTrigger id="comp-priority" className="h-11 w-full px-3.5 text-sm rounded-lg bg-background border shadow-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIORITY_OPTIONS.map((p) => (
+                      <SelectItem key={p.value} value={p.value}>
+                        {p.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="comp-priority">Priority Level</Label>
-              <Select value={form.priority} onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}>
-                <SelectTrigger id="comp-priority" className="w-full sm:w-1/2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORITY_OPTIONS.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="comp-title">Subject / Title</Label>
-              <Input
-                id="comp-title"
-                value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                placeholder="e.g. Midterm assessment mark calculation issue"
-                maxLength={120}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="comp-desc">Detailed Grievance Description</Label>
+            {/* Reason Field */}
+            <div className="flex flex-col gap-2.5">
+              <Label htmlFor="comp-reason" className="text-sm font-semibold text-foreground flex items-center justify-between">
+                <span>Reason</span>
+                <span className="text-xs text-muted-foreground font-normal">Detailed explanation of the issue</span>
+              </Label>
               <Textarea
-                id="comp-desc"
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                placeholder="Please state clearly what occurred, include test dates, exam paper records, or assessment references..."
+                id="comp-reason"
+                value={form.reason}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, reason: e.target.value }))
+                  if (formError) setFormError('')
+                }}
+                placeholder="Enter the reason for your complaint in detail..."
                 rows={4}
+                className="min-h-[110px] resize-y p-3.5 text-sm leading-relaxed rounded-lg"
+                required
               />
             </div>
 
             {/* Student Context Preview */}
-            <div className="rounded-lg bg-muted/50 p-3 border text-xs text-muted-foreground flex flex-wrap gap-4 items-center">
+            <div className="rounded-xl bg-muted/40 p-4 border text-xs text-muted-foreground flex flex-wrap gap-5 items-center mt-6">
               <div>
                 <span className="font-semibold text-foreground">Current Year: </span>
                 <span>{studentCurrentYear}</span>
@@ -500,7 +623,7 @@ export function ComplaintsPage() {
               </div>
             </div>
 
-            <DialogFooter className="pt-2">
+            <DialogFooter className="pt-4 border-t mt-6 flex items-center justify-end gap-3">
               <Button type="button" variant="outline" onClick={() => setIsSubmitOpen(false)}>
                 Cancel
               </Button>
@@ -526,12 +649,12 @@ export function ComplaintsPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSaveEdit} className="space-y-4 py-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Category</Label>
+          <form onSubmit={handleSaveEdit} className="space-y-6 py-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
+              <div className="flex flex-col gap-2.5">
+                <Label htmlFor="edit-comp-category" className="text-sm font-semibold text-foreground">Complaint Category</Label>
                 <Select value={editForm.category} onValueChange={(v) => setEditForm((f) => ({ ...f, category: v }))}>
-                  <SelectTrigger>
+                  <SelectTrigger id="edit-comp-category" className="h-11 w-full px-3.5 text-sm rounded-lg bg-background border shadow-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -544,10 +667,10 @@ export function ComplaintsPage() {
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label>Priority</Label>
+              <div className="flex flex-col gap-2.5">
+                <Label htmlFor="edit-comp-priority" className="text-sm font-semibold text-foreground">Priority Level</Label>
                 <Select value={editForm.priority} onValueChange={(v) => setEditForm((f) => ({ ...f, priority: v }))}>
-                  <SelectTrigger>
+                  <SelectTrigger id="edit-comp-priority" className="h-11 w-full px-3.5 text-sm rounded-lg bg-background border shadow-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -561,25 +684,20 @@ export function ComplaintsPage() {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Subject</Label>
-              <Input
-                value={editForm.title}
-                onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                maxLength={120}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Description</Label>
+            <div className="flex flex-col gap-2.5">
+              <Label htmlFor="edit-comp-reason" className="text-sm font-semibold text-foreground">Reason</Label>
               <Textarea
-                value={editForm.description}
-                onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                id="edit-comp-reason"
+                value={editForm.reason}
+                onChange={(e) => setEditForm((f) => ({ ...f, reason: e.target.value }))}
+                placeholder="Enter the reason for your complaint..."
                 rows={4}
+                className="min-h-[110px] resize-y p-3.5 text-sm leading-relaxed rounded-lg"
+                required
               />
             </div>
 
-            <DialogFooter className="pt-2">
+            <DialogFooter className="pt-4 border-t mt-6 flex items-center justify-end gap-3">
               <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
                 Cancel
               </Button>
@@ -610,33 +728,28 @@ export function ComplaintsPage() {
           {activeComplaint && (
             <div className="space-y-4 py-2 text-sm">
               <div className="grid grid-cols-2 gap-3 p-3 bg-muted/40 rounded-lg border text-xs">
-                <div>
-                  <span className="text-muted-foreground block">Course:</span>
-                  <span className="font-semibold text-foreground">{activeComplaint.courseCode} · {activeComplaint.courseName}</span>
+                <div className="col-span-2">
+                  <span className="text-muted-foreground block mb-0.5">Course:</span>
+                  <span className="font-semibold text-foreground text-sm">{activeComplaint.courseCode} · {activeComplaint.courseName}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block">Category:</span>
+                  <span className="text-muted-foreground block mb-0.5">Category:</span>
                   <span className="font-medium text-foreground">{activeComplaint.category}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block">Priority:</span>
+                  <span className="text-muted-foreground block mb-0.5">Priority:</span>
                   <span className="font-medium text-foreground">{activeComplaint.priority}</span>
                 </div>
-                <div>
-                  <span className="text-muted-foreground block">Student:</span>
+                <div className="col-span-2">
+                  <span className="text-muted-foreground block mb-0.5">Student:</span>
                   <span className="font-medium text-foreground">{activeComplaint.studentName} ({activeComplaint.studentId})</span>
                 </div>
               </div>
 
-              <div>
-                <Label className="text-xs text-muted-foreground">Subject</Label>
-                <div className="font-semibold text-base text-foreground mt-0.5">{activeComplaint.title}</div>
-              </div>
-
-              <div>
-                <Label className="text-xs text-muted-foreground">Description</Label>
-                <div className="mt-1 p-3 rounded-lg bg-card border text-foreground text-xs leading-relaxed whitespace-pre-wrap">
-                  {activeComplaint.description}
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">Reason</Label>
+                <div className="p-3.5 rounded-lg bg-card border text-foreground text-sm leading-relaxed whitespace-pre-wrap">
+                  {activeComplaint.reason || activeComplaint.description || activeComplaint.title}
                 </div>
               </div>
 

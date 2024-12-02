@@ -10,7 +10,8 @@ import { useAuth } from '@/context/auth-context'
 import { getProfileApi } from '@/api/auth'
 import { useQuery } from '@/hooks/useStore'
 import { formatAcademicYear, getCourseStudyYear, getStudentStudyYear } from '@/lib/format'
-import { onUserChange } from '@/lib/syncEvents'
+import { DEFAULT_GRADE_SCALE, formatGradePoints, gradeForScore } from '@/lib/grading'
+import { onAssessmentChange, onGradeChange, onUserChange } from '@/lib/syncEvents'
 import { setStoredSession } from '@/lib/storage'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
@@ -23,6 +24,11 @@ export function MyGradesPage() {
 
   const { data: realCourses, refetch: refetchCourses } = useQuery(() => store.student.listMyCourses(), [])
   const { data: realAssessments, refetch: refetchAssessments } = useQuery(() => store.student.listMyAssessments(), [])
+  const { data: gradingConfig, refetch: refetchGradingConfig } = useQuery(
+    () => store.grades.getGradingConfig(),
+    [],
+    { live: false }
+  )
   const [academicYear, setAcademicYear] = useState('all')
   const [semester, setSemester] = useState('all')
   const [courseChoice, setCourseChoice] = useState('all')
@@ -31,7 +37,8 @@ export function MyGradesPage() {
     refetchCourses?.()
     refetchAssessments?.()
     refetchMe?.()
-  }, [refetchCourses, refetchAssessments, refetchMe])
+    refetchGradingConfig?.()
+  }, [refetchCourses, refetchAssessments, refetchMe, refetchGradingConfig])
 
   const handleStudentUpdated = useCallback(
     (payload) => {
@@ -79,12 +86,22 @@ export function MyGradesPage() {
   useWebSocketEvent('OFFERING_CREATED', reloadGrades)
   useWebSocketEvent('OFFERING_DELETED', reloadGrades)
   useWebSocketEvent('ASSESSMENT_UPDATED', reloadGrades)
+  useWebSocketEvent('ASSESSMENT_CREATED', reloadGrades)
+  useWebSocketEvent('ASSESSMENT_DELETED', reloadGrades)
   useWebSocketEvent('GRADE_SUBMISSION_UPDATED', reloadGrades)
+  useWebSocketEvent('GRADE_SCALE_UPDATED', reloadGrades)
+  useWebSocketEvent('GRADING_POLICY_UPDATED', reloadGrades)
 
   useEffect(() => {
-    const unsub = onUserChange(handleStudentUpdated)
-    return () => unsub?.()
-  }, [handleStudentUpdated])
+    const unsubUser = onUserChange(handleStudentUpdated)
+    const unsubAsm = onAssessmentChange(() => reloadGrades())
+    const unsubGrade = onGradeChange(() => reloadGrades())
+    return () => {
+      unsubUser?.()
+      unsubAsm?.()
+      unsubGrade?.()
+    }
+  }, [handleStudentUpdated, reloadGrades])
 
   // Resolve student current year of study (e.g. '1' to '5')
   const studentCurrentYear = useMemo(() => {
@@ -98,6 +115,12 @@ export function MyGradesPage() {
       (Array.isArray(realCourses) && (realCourses[0]?.studentYearOfStudy || realCourses[0]?.student?.yearOfStudy))
     return getStudentStudyYear({ yearOfStudy: raw })
   }, [studentOverride, me?.profile, profile, user, realCourses])
+
+  // Active grade scale configured by Admin RBAC in Grade Policy
+  const activeScale = useMemo(() => {
+    const list = gradingConfig?.scale?.entries
+    return Array.isArray(list) && list.length > 0 ? list : DEFAULT_GRADE_SCALE
+  }, [gradingConfig?.scale?.entries])
 
   const allCourses = useMemo(() => {
     if (Array.isArray(realCourses) && realCourses.length > 0) {
@@ -130,20 +153,51 @@ export function MyGradesPage() {
           getCourseStudyYear(courseObj)
         )
 
+        const courseStatus =
+          c.gradeStatus === 'submitted' || c.resultStatus === 'submitted' || c.finalGrade?.status === 'submitted' || c.offeringGradeStatus === 'submitted'
+            ? 'submitted'
+            : c.gradeStatus === 'approved' || c.resultStatus === 'approved' || c.finalGrade?.status === 'approved' || c.offeringGradeStatus === 'approved'
+              ? 'approved'
+              : c.gradeStatus === 'published' || c.resultStatus === 'published' || c.finalGrade?.status === 'published' || c.offeringGradeStatus === 'published'
+                ? 'published'
+                : c.resultStatus || c.status || 'in_progress'
+
+        // Match Grade Points configured by Admin RBAC in Grade Policy
+        let gradePoints = null
+        if (grade && grade !== '—' && grade !== 'Dropped' && grade !== 'W') {
+          const matchedEntry = activeScale.find(
+            (entry) => String(entry.letter || '').trim().toUpperCase() === String(grade).trim().toUpperCase()
+          )
+          if (matchedEntry) {
+            gradePoints = Number(matchedEntry.points ?? matchedEntry.gradePoints ?? matchedEntry.grade_points ?? 0)
+          } else if (c.finalGrade?.gradePoints != null) {
+            gradePoints = Number(c.finalGrade.gradePoints)
+          } else if (rawScore != null && !Number.isNaN(Number(rawScore))) {
+            const entryFromScore = gradeForScore(Number(rawScore), activeScale)
+            if (entryFromScore) {
+              gradePoints = Number(entryFromScore.points ?? entryFromScore.gradePoints ?? entryFromScore.grade_points ?? 0)
+            }
+          }
+        } else if (c.finalGrade?.gradePoints != null && grade !== 'Dropped' && grade !== 'W') {
+          gradePoints = Number(c.finalGrade.gradePoints)
+        }
+
         return {
           courseCode: c.course?.code || c.courseCode,
           courseName: c.course?.title || c.courseTitle,
           yearOfStudy: courseYear,
           totalScore,
           grade,
-          status: c.resultStatus || c.status,
+          gradePoints,
+          status: courseStatus,
+          gradeStatus: c.gradeStatus || c.offeringGradeStatus,
           academicYear: formatAcademicYear(c.semester),
           semester: c.semester?.name || 'First Semester',
         }
       })
     }
     return []
-  }, [realCourses])
+  }, [realCourses, activeScale])
 
   // Only display courses where course year of study equals student's current year of study
   const coursesList = useMemo(() => {
@@ -287,18 +341,19 @@ export function MyGradesPage() {
 
       {/* Course Grade Summary Card */}
       <Card className="overflow-hidden">
-        <CardHeader className="p-5 pb-3 border-b">
-          <CardTitle className="text-base font-semibold">Course Grade Summary</CardTitle>
+        <CardHeader className="p-5 pb-3 border-b flex items-center justify-center text-center" style={{ justifyContent: 'center', textAlign: 'center' }}>
+          <CardTitle className="text-base font-semibold text-center w-full" style={{ textAlign: 'center' }}>Course Grade Summary</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[160px]">Course Code</TableHead>
+                <TableHead className="w-[150px]">Course Code</TableHead>
                 <TableHead>Course Name</TableHead>
-                <TableHead className="text-center w-[120px]">Total /100</TableHead>
-                <TableHead className="text-center w-[100px]">Grade</TableHead>
-                <TableHead className="text-right w-[130px]">Status</TableHead>
+                <TableHead className="text-center w-[110px]">Total /100</TableHead>
+                <TableHead className="text-center w-[90px]">Grade</TableHead>
+                <TableHead className="text-center w-[120px]">Grade points</TableHead>
+                <TableHead className="text-center w-[180px]">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -330,14 +385,36 @@ export function MyGradesPage() {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <StatusBadge status={c.status} />
+                  <TableCell className="text-center font-semibold tabular-nums">
+                    {c.gradePoints != null ? (
+                      formatGradePoints(c.gradePoints)
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center">
+                      <StatusBadge
+                        status={c.status}
+                        label={
+                          c.status === 'submitted'
+                            ? 'Submitted to Dept Head'
+                            : c.status === 'approved'
+                              ? 'Approved'
+                              : c.status === 'published'
+                                ? 'Published'
+                                : c.status === 'in_progress'
+                                  ? 'In progress'
+                                  : undefined
+                        }
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
               {filteredCourses.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     No course grades found for the selected filter.
                   </TableCell>
                 </TableRow>
@@ -349,9 +426,9 @@ export function MyGradesPage() {
 
       {/* Assessment Marks Breakdown Card */}
       <Card className="overflow-hidden">
-        <CardHeader className="p-5 pb-3 border-b flex flex-row items-center justify-between">
+        <CardHeader className="p-5 pb-3 border-b">
           <CardTitle className="text-base font-semibold">Assessment Marks Breakdown</CardTitle>
-          <span className="text-xs text-muted-foreground">Individual assessment marks</span>
+          <span className="text-xs text-muted-foreground mt-0.5 block">Individual assessment marks</span>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -363,7 +440,7 @@ export function MyGradesPage() {
                 <TableHead className="text-center w-[110px]">Max Mark</TableHead>
                 <TableHead className="text-center w-[90px]">Weight</TableHead>
                 <TableHead className="text-center w-[130px]">Mark Obtained</TableHead>
-                <TableHead className="text-right w-[110px]">Status</TableHead>
+                <TableHead className="text-center w-[130px]">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -391,10 +468,12 @@ export function MyGradesPage() {
                       <span className="text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <Badge variant={a.status === 'graded' ? 'success' : a.status === 'pending' ? 'warning' : 'secondary'}>
-                      {a.status}
-                    </Badge>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center">
+                      <Badge variant={a.status === 'graded' ? 'success' : a.status === 'pending' ? 'warning' : 'secondary'}>
+                        {a.status}
+                      </Badge>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

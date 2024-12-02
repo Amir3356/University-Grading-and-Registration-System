@@ -3,6 +3,7 @@ import {
   updateGradeScaleApi,
   updatePolicyApi,
   listAssessmentsApi,
+  listAssessmentsPaginatedApi,
   createAssessmentApi,
   updateAssessmentApi,
   deleteAssessmentApi,
@@ -20,6 +21,7 @@ import {
   getGradeHistoryApi,
 } from '@/api/grades';
 import { bumpVersion } from './db';
+import { notifyAssessmentChange, notifyGradeChange } from '@/lib/syncEvents';
 
 export async function getGradingConfig() {
   return await getGradingConfigApi();
@@ -41,27 +43,35 @@ export async function listAssessments(offeringId) {
   return await listAssessmentsApi(offeringId);
 }
 
+export async function listAssessmentsPaginated(params = {}) {
+  return await listAssessmentsPaginatedApi(params);
+}
+
 export async function createAssessment(offeringId, data) {
   const result = await createAssessmentApi(offeringId, data);
   bumpVersion();
+  notifyAssessmentChange({ action: 'create', offeringId, assessment: result });
   return result;
 }
 
 export async function updateAssessment(id, data) {
   const result = await updateAssessmentApi(id, data);
   bumpVersion();
+  notifyAssessmentChange({ action: 'update', assessmentId: id, assessment: result });
   return result;
 }
 
 export async function deleteAssessment(id) {
   const result = await deleteAssessmentApi(id);
   bumpVersion();
+  notifyAssessmentChange({ action: 'delete', assessmentId: id });
   return result;
 }
 
 export async function setAssessmentReleased(id, isReleased = true) {
   const result = await setAssessmentReleasedApi(id, isReleased);
   bumpVersion();
+  notifyAssessmentChange({ action: 'release', assessmentId: id, isReleased });
   return result;
 }
 
@@ -72,6 +82,7 @@ export async function getGradebook(offeringId) {
 export async function saveScores(offeringId, { changes, reason } = {}) {
   const result = await saveScoresApi(offeringId, { changes, reason });
   bumpVersion();
+  notifyGradeChange({ offeringId, changes });
   return result;
 }
 

@@ -1,4 +1,5 @@
 import { query } from '../config/database.js';
+import { formatPagination } from '../utils/formatters.js';
 import { getCurrentSemester } from './calendarRepository.js';
 import { getAcademicPolicy, getActiveGradeScale } from './gradebookRepository.js';
 import { computeEnrollmentScore, getAcademicStanding, computeGpa, roundTo2 } from '../utils/gpaCalculator.js';
@@ -301,26 +302,100 @@ export async function getStudentDashboard(studentId, userId) {
   };
 }
 
-export async function listStudentCourses(studentId, { academicYearId, semesterId, term } = {}) {
+export async function listStudentCourses(studentId, {
+  academicYearId,
+  semesterId,
+  term,
+  search,
+  cursor,
+  limit: limitParam,
+} = {}) {
+  const isPaginated = cursor !== undefined || limitParam !== undefined;
+  const limit = Math.max(1, parseInt(limitParam, 10) || 4);
+
   const conditions = [`ce.student_id = $1`];
   const params = [studentId];
 
-  if (academicYearId) {
-    params.push(academicYearId);
-    conditions.push(`s.academic_year_id = $${params.length}`);
+  if (academicYearId && academicYearId !== 'all') {
+    params.push(`%${String(academicYearId).toLowerCase()}%`);
+    conditions.push(`(LOWER(ay.name) LIKE $${params.length} OR ay.id LIKE $${params.length})`);
   }
 
-  if (semesterId) {
-    params.push(semesterId);
-    conditions.push(`co.semester_id = $${params.length}`);
+  if (semesterId && semesterId !== 'all') {
+    params.push(`%${String(semesterId).toLowerCase()}%`);
+    conditions.push(`(LOWER(s.term) LIKE $${params.length} OR LOWER(s.name) LIKE $${params.length} OR s.id = $${params.length})`);
   }
 
-  if (term) {
-    params.push(term);
-    conditions.push(`s.term = $${params.length}`);
+  if (term && term !== 'all') {
+    params.push(`%${String(term).toLowerCase()}%`);
+    conditions.push(`(LOWER(s.term) LIKE $${params.length} OR LOWER(s.name) LIKE $${params.length})`);
   }
+
+  if (search && search.trim()) {
+    params.push(`%${search.trim().toLowerCase()}%`);
+    conditions.push(`(
+      LOWER(c.code) LIKE $${params.length}
+      OR LOWER(c.title) LIKE $${params.length}
+      OR LOWER(u.first_name || ' ' || u.last_name) LIKE $${params.length}
+    )`);
+  }
+
+  // Count total matching courses
+  const countSql = `
+    SELECT count(DISTINCT ce.id) as total
+    FROM course_enrollments ce
+    JOIN students stu ON stu.id = ce.student_id
+    JOIN course_offerings co ON co.id = ce.offering_id
+    JOIN courses c ON c.id = co.course_id
+    JOIN semesters s ON s.id = co.semester_id
+    JOIN academic_years ay ON ay.id = s.academic_year_id
+    JOIN teachers t ON t.id = co.teacher_id
+    JOIN users u ON u.id = t.user_id
+    WHERE ${conditions.join(' AND ')}
+  `;
+  const countRes = await query(countSql, params);
+  const total = parseInt(countRes.rows[0]?.total || '0', 10);
+
+  const queryParams = [...params];
+  let cteClause = '';
+  let cursorJoin = '';
+  let cursorCondition = '';
+
+  if (cursor) {
+    queryParams.push(cursor);
+    const cursorIdx = queryParams.length;
+    cteClause = `
+      WITH cur AS (
+        SELECT ce.id, s.sort_order as cur_sort_order, c.code as cur_code
+        FROM course_enrollments ce
+        JOIN course_offerings co ON co.id = ce.offering_id
+        JOIN courses c ON c.id = co.course_id
+        JOIN semesters s ON s.id = co.semester_id
+        WHERE ce.id = $${cursorIdx}
+        LIMIT 1
+      )
+    `;
+    cursorJoin = `CROSS JOIN cur`;
+    cursorCondition = `AND (
+      s.sort_order < cur.cur_sort_order
+      OR (s.sort_order = cur.cur_sort_order AND c.code > cur.cur_code)
+      OR (s.sort_order = cur.cur_sort_order AND c.code = cur.cur_code AND ce.id > cur.id)
+    )`;
+  }
+
+  let limitClause = '';
+  if (isPaginated) {
+    queryParams.push(limit + 1);
+    const limitIdx = queryParams.length;
+    limitClause = `LIMIT $${limitIdx}`;
+  }
+
+  const fullWhereClause = conditions.length > 0
+    ? `WHERE ${conditions.join(' AND ')} ${cursorCondition}`
+    : cursorCondition ? `WHERE 1=1 ${cursorCondition}` : '';
 
   const sql = `
+    ${cteClause}
     SELECT ce.id as enrollment_id, co.id as offering_id, ce.status, ce.is_repeat,
            co.section, co.room, co.schedule, co.grade_status as offering_grade_status,
            co.year_of_study as offering_year_of_study,
@@ -352,12 +427,14 @@ export async function listStudentCourses(studentId, { academicYearId, semesterId
     JOIN users u ON u.id = t.user_id
     LEFT JOIN assessments a ON a.offering_id = co.id
     LEFT JOIN final_grades fg ON fg.enrollment_id = ce.id
-    WHERE ${conditions.join(' AND ')}
-    GROUP BY ce.id, co.id, c.id, s.id, ay.id, t.id, u.id, fg.id, stu.id
-    ORDER BY s.sort_order DESC, c.code ASC
+    ${cursorJoin}
+    ${fullWhereClause}
+    GROUP BY ce.id, co.id, c.id, s.id, ay.id, t.id, u.id, fg.id, stu.id ${cursor ? ', cur.cur_sort_order, cur.cur_code, cur.id' : ''}
+    ORDER BY s.sort_order DESC, c.code ASC, ce.id ASC
+    ${limitClause}
   `;
 
-  const res = await query(sql, params);
+  const res = await query(sql, queryParams);
   const policy = await getAcademicPolicy();
   const scale = await getActiveGradeScale();
 
@@ -385,12 +462,18 @@ export async function listStudentCourses(studentId, { academicYearId, semesterId
     scoreRows = scrRes.rows;
   }
 
-  return res.rows.map((r) => {
+  const mapped = res.rows.map((r) => {
     let resultStatus = 'in_progress';
-    if (r.final_grade_status === 'published') {
-      resultStatus = 'published';
-    } else if (r.status === 'withdrawn') {
+    if (r.status === 'withdrawn') {
       resultStatus = 'withdrawn';
+    } else if (r.final_grade_status === 'published' || r.offering_grade_status === 'published') {
+      resultStatus = 'published';
+    } else if (r.final_grade_status === 'approved' || r.offering_grade_status === 'approved') {
+      resultStatus = 'approved';
+    } else if (r.final_grade_status === 'submitted' || r.offering_grade_status === 'submitted') {
+      resultStatus = 'submitted';
+    } else if (r.final_grade_status === 'rejected' || r.offering_grade_status === 'rejected') {
+      resultStatus = 'in_progress';
     } else if (!r.semester_is_current) {
       resultStatus = 'pending';
     }
@@ -494,6 +577,8 @@ export async function listStudentCourses(studentId, { academicYearId, semesterId
       schedule: r.schedule,
       weightTotal: parseFloat(r.weight_total || '0'),
       resultStatus,
+      gradeStatus: r.offering_grade_status || r.final_grade_status || 'not_started',
+      offeringGradeStatus: r.offering_grade_status || 'not_started',
       finalGrade,
       totalScore: effectiveTotalScore,
       runningPercent: calcResult.runningPercent,
@@ -502,6 +587,26 @@ export async function listStudentCourses(studentId, { academicYearId, semesterId
       pendingWithdrawal: r.pending_withdrawal || null,
     };
   });
+
+  const hasMore = isPaginated ? mapped.length > limit : false;
+  const returnedRows = hasMore ? mapped.slice(0, limit) : mapped;
+  const nextCursor = hasMore ? returnedRows[returnedRows.length - 1].enrollmentId : null;
+
+  if (isPaginated) {
+    return {
+      items: returnedRows,
+      total,
+      nextCursor,
+      prevCursor: cursor || null,
+      hasMore: Boolean(nextCursor),
+      hasPrev: Boolean(cursor),
+      limit,
+    };
+  }
+
+  returnedRows.items = returnedRows;
+  returnedRows.total = total;
+  return returnedRows;
 }
 
 export async function getStudentCourseDetail(studentId, enrollmentId) {
@@ -556,7 +661,20 @@ export async function getStudentCourseDetail(studentId, enrollmentId) {
   };
 }
 
-export async function listStudentAssessments(studentId, { semesterId, offeringId, status } = {}) {
+export async function listStudentAssessments(studentId, {
+  semesterId,
+  offeringId,
+  courseId,
+  courseCode,
+  status,
+  search,
+  cursor,
+  limit: limitParam,
+  page,
+  pageSize,
+  sortBy = 'dueDate',
+  sortDir = 'asc',
+} = {}) {
   const conditions = [`ce.student_id = $1`];
   const params = [studentId];
 
@@ -570,7 +688,114 @@ export async function listStudentAssessments(studentId, { semesterId, offeringId
     conditions.push(`co.id = $${params.length}`);
   }
 
-  const sql = `
+  if (courseId && courseId !== 'all') {
+    params.push(courseId);
+    conditions.push(`(co.course_id = $${params.length} OR c.id = $${params.length})`);
+  }
+
+  if (courseCode && courseCode !== 'all') {
+    params.push(courseCode);
+    conditions.push(`c.code = $${params.length}`);
+  }
+
+  if (search && search.trim()) {
+    params.push(`%${search.trim()}%`);
+    conditions.push(`(a.name ILIKE $${params.length} OR a.type ILIKE $${params.length} OR c.code ILIKE $${params.length} OR c.title ILIKE $${params.length})`);
+  }
+
+  if (status && status !== 'all') {
+    if (status === 'graded') {
+      conditions.push(`scr.marks IS NOT NULL`);
+    } else if (status === 'pending') {
+      conditions.push(`scr.marks IS NULL AND a.due_date < CURRENT_DATE`);
+    } else if (status === 'upcoming') {
+      conditions.push(`scr.marks IS NULL AND a.due_date >= CURRENT_DATE`);
+    }
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  // 1. Total count query
+  const countSql = `
+    SELECT COUNT(DISTINCT a.id) as total
+    FROM assessments a
+    JOIN course_offerings co ON co.id = a.offering_id
+    JOIN courses c ON c.id = co.course_id
+    JOIN course_enrollments ce ON ce.offering_id = co.id
+    LEFT JOIN assessment_scores scr ON scr.assessment_id = a.id AND scr.enrollment_id = ce.id
+    ${whereClause}
+  `;
+  const countRes = await query(countSql, params);
+  const total = parseInt(countRes.rows[0]?.total || '0', 10);
+
+  // 2. Sorting
+  const sortMap = {
+    coursecode: 'c.code',
+    courseCode: 'c.code',
+    coursetitle: 'c.title',
+    courseTitle: 'c.title',
+    name: 'a.name',
+    type: 'a.type',
+    assessmenttype: 'a.type',
+    assessmentType: 'a.type',
+    maxmarks: 'a.max_marks',
+    maxMarks: 'a.max_marks',
+    totalmark: 'a.max_marks',
+    totalMark: 'a.max_marks',
+    weight: 'a.weight',
+    marks: 'COALESCE(scr.marks, -1)',
+    markobtained: 'COALESCE(scr.marks, -1)',
+    markObtained: 'COALESCE(scr.marks, -1)',
+    duedate: 'a.due_date',
+    dueDate: 'a.due_date',
+    status: `CASE WHEN scr.marks IS NOT NULL THEN 'graded' WHEN a.due_date < CURRENT_DATE THEN 'pending' ELSE 'upcoming' END`,
+  };
+
+  const direction = String(sortDir).toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+  const sortCol = sortMap[sortBy] || 'a.due_date';
+
+  // 3. Cursor-based Server Pagination (4 real data rows per page)
+  const limit = Math.max(1, parseInt(limitParam || pageSize, 10) || 4);
+
+  const queryParams = [...params];
+  let cteClause = '';
+  let cursorJoin = '';
+  let cursorCondition = '';
+
+  if (cursor) {
+    queryParams.push(cursor);
+    const cursorIdx = queryParams.length;
+    cteClause = `
+      WITH cur AS (
+        SELECT a.id, ${sortCol} as cur_sort
+        FROM assessments a
+        JOIN course_offerings co ON co.id = a.offering_id
+        JOIN courses c ON c.id = co.course_id
+        JOIN course_enrollments ce ON ce.offering_id = co.id
+        LEFT JOIN assessment_scores scr ON scr.assessment_id = a.id AND scr.enrollment_id = ce.id
+        WHERE a.id = $${cursorIdx}
+        LIMIT 1
+      )
+    `;
+    cursorJoin = `CROSS JOIN cur`;
+    cursorCondition = direction === 'ASC'
+      ? `AND (${sortCol}, a.id) > (cur.cur_sort, cur.id)`
+      : `AND (${sortCol}, a.id) < (cur.cur_sort, cur.id)`;
+  }
+
+  // Fetch limit + 1 to detect whether there is a next page
+  queryParams.push(limit + 1);
+  const limitIdx = queryParams.length;
+  const limitClause = `LIMIT $${limitIdx}`;
+
+  const fullWhereClause = whereClause
+    ? `${whereClause} ${cursorCondition}`
+    : cursorCondition
+    ? `WHERE 1=1 ${cursorCondition}`
+    : '';
+
+  const dataSql = `
+    ${cteClause}
     SELECT a.id, a.name, a.type, a.max_marks, a.weight, a.due_date, a.is_released,
            c.code as course_code, c.title as course_title,
            co.id as offering_id, co.grade_status as offering_grade_status,
@@ -580,13 +805,19 @@ export async function listStudentAssessments(studentId, { semesterId, offeringId
     JOIN courses c ON c.id = co.course_id
     JOIN course_enrollments ce ON ce.offering_id = co.id
     LEFT JOIN assessment_scores scr ON scr.assessment_id = a.id AND scr.enrollment_id = ce.id
-    WHERE ${conditions.join(' AND ')}
-    ORDER BY a.due_date ASC
+    ${cursorJoin}
+    ${fullWhereClause}
+    GROUP BY a.id, c.code, c.title, co.id, co.grade_status, scr.marks ${cursor ? ', cur.cur_sort, cur.id' : ''}
+    ORDER BY ${sortCol} ${direction}, a.id ${direction}
+    ${limitClause}
   `;
 
-  const res = await query(sql, params);
+  const res = await query(dataSql, queryParams);
+  const hasMore = res.rows.length > limit;
+  const returnedRows = hasMore ? res.rows.slice(0, limit) : res.rows;
+  const nextCursor = hasMore ? returnedRows[returnedRows.length - 1].id : null;
 
-  const mapped = res.rows.map((r) => {
+  const mapped = returnedRows.map((r) => {
     const isGraded = r.marks !== null;
     const marks = isGraded ? parseFloat(r.marks) : null;
     const maxMarks = parseFloat(r.max_marks);
@@ -615,10 +846,16 @@ export async function listStudentAssessments(studentId, { semesterId, offeringId
     };
   });
 
-  if (status) {
-    return mapped.filter((m) => m.status === status);
-  }
-  return mapped;
+  return {
+    items: mapped,
+    total,
+    nextCursor,
+    prevCursor: cursor || null,
+    hasMore: Boolean(nextCursor),
+    hasPrev: Boolean(cursor),
+    limit,
+    pageSize: limit,
+  };
 }
 
 export async function getStudentGrades(studentId, { academicYearId, semesterId, offeringId } = {}) {

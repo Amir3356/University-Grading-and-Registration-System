@@ -4,6 +4,16 @@ import { newId } from '../utils/idGenerator.js';
 import { ConflictError, NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
 import { query } from '../config/database.js';
 
+export async function listTeacherAssessments(params = {}, caller) {
+  const queryParams = { ...params };
+  if (caller.roleId === 'teacher') {
+    queryParams.teacherId = caller.teacherId;
+  } else if (caller.roleId === 'dept_head' && caller.departmentId) {
+    queryParams.departmentId = caller.departmentId;
+  }
+  return await asmRepo.listAssessmentsPaginated(queryParams);
+}
+
 export async function listAssessments(offeringId, caller) {
   const offering = await getOfferingById(offeringId);
   if (!offering) throw new NotFoundError('Course offering');

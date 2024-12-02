@@ -86,6 +86,7 @@ export const NAVIGATION = {
       items: [
         { to: '/teacher/entermark', label: 'Entermark', icon: NotebookPen },
         { to: '/teacher/reports', label: 'Report', icon: FileBarChart },
+        { to: '/teacher/complaints', label: 'Complain', icon: MessageSquareWarning },
       ],
     },
   ],
@@ -97,7 +98,7 @@ export const NAVIGATION = {
       items: [
         { to: '/student/registrations', label: 'Semester Registration', icon: UserCheck },
         { to: '/student/courses', label: 'My Courses', icon: BookOpen },
-        { to: '/student/assessments', label: 'My Assessments', icon: ListChecks },
+        { to: '/student/assessments', label: 'Teacher Assessment', icon: ListChecks },
         { to: '/student/grades', label: 'My Grades', icon: BookOpenCheck },
         { to: '/student/grade-report', label: 'Grade Report', icon: FileBarChart },
         { to: '/student/transcript', label: 'Transcript', icon: FileText },
