@@ -20,7 +20,6 @@ import {
 /** Sidebar navigation per actor. Only the authenticated role's items are shown. */
 export const NAVIGATION = {
   admin: [
-    { section: 'Overview', items: [{ to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true }] },
     {
       section: 'People',
       items: [{ to: '/admin/users', label: 'Account Provision', icon: Users }],
@@ -44,6 +43,11 @@ export const NAVIGATION = {
       section: 'Grading',
       items: [
         { to: '/admin/grading-policies', label: 'Grading Policies', icon: SlidersHorizontal },
+      ],
+    },
+    {
+      section: 'Reports',
+      items: [
         { to: '/admin/reports', label: 'Reports', icon: FileBarChart },
       ],
     },
@@ -100,7 +104,7 @@ export const NAVIGATION = {
         { to: '/student/courses', label: 'My Courses', icon: BookOpen },
         { to: '/student/assessments', label: 'Teacher Assessment', icon: ListChecks },
         { to: '/student/grades', label: 'My Grades', icon: BookOpenCheck },
-        { to: '/student/grade-report', label: 'Grade Report', icon: FileBarChart },
+        { to: '/student/grade-report', label: 'Report', icon: FileBarChart },
         { to: '/student/transcript', label: 'Transcript', icon: FileText },
         { to: '/student/withdrawals', label: 'Withdrawal Request', icon: UserMinus },
         { to: '/student/complaints', label: 'Complain', icon: MessageSquareWarning },

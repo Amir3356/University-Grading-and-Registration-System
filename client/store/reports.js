@@ -6,9 +6,11 @@ import {
   getCourseResultsReportApi,
   getGradeDistributionReportApi,
   getGpaReportApi,
+  getRegistrationsReportApi,
   getStudentTranscriptApi,
   getStudentPerformanceReportApi,
   getCourseGradeSheetApi,
+  getWithdrawalRegistrationReport,
 } from '@/api/reports';
 
 import {
@@ -44,6 +46,14 @@ export async function getGradeDistributionReport(params = {}) {
 
 export async function getGpaReport(params = {}) {
   return await getGpaReportApi(params);
+}
+
+export async function getRegistrationsReport(params = {}) {
+  return await getRegistrationsReportApi(params);
+}
+
+export async function getWithdrawalRegistrationReportData(params = {}) {
+  return await getWithdrawalRegistrationReport(params);
 }
 
 export async function buildTranscript(studentId) {

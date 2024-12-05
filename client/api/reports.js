@@ -4,8 +4,8 @@ import { api } from './client';
  * Reports, Dashboards, Transcripts, and Audit Log API calls
  */
 
-export async function getAdminDashboard() {
-  return await api.get('/reports/admin-dashboard');
+export async function getAdminDashboard(params = {}) {
+  return await api.get('/reports/admin-dashboard', params);
 }
 
 export async function getDeptDashboard() {
@@ -48,6 +48,14 @@ export async function exportReport(type, params = {}) {
   return await api.get(`/reports/export/${type}`, params);
 }
 
+export async function getRegistrationsReport(params = {}) {
+  return await api.get('/reports/registrations', params);
+}
+
+export async function getWithdrawalRegistrationReport(params = {}) {
+  return await api.get('/reports/withdrawals-registrations', params);
+}
+
 // Backward-compatible named aliases
 export const getAdminDashboardApi = getAdminDashboard;
 export const getDeptDashboardApi = getDeptDashboard;
@@ -56,6 +64,7 @@ export const getDepartmentReportApi = getDepartmentReport;
 export const getCourseResultsReportApi = getCourseResultsReport;
 export const getGradeDistributionReportApi = getGradeDistributionReport;
 export const getGpaReportApi = getGpaReport;
+export const getRegistrationsReportApi = getRegistrationsReport;
 export const getStudentTranscriptApi = getStudentTranscript;
 export const getStudentPerformanceReportApi = getStudentPerformanceReport;
 export const getCourseGradeSheetApi = getCourseGradeSheet;

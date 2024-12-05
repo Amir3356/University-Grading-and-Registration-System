@@ -28,15 +28,6 @@ export async function getMissingGradesReport(req, res, next) {
   }
 }
 
-export async function getDepartmentReport(req, res, next) {
-  try {
-    const report = await repService.getDepartmentReport(req.query);
-    sendSuccess(res, report);
-  } catch (err) {
-    next(err);
-  }
-}
-
 export async function getCourseResultsReport(req, res, next) {
   try {
     const report = await repService.getCourseResultsReport(req.query, req.user);
@@ -64,15 +55,6 @@ export async function getGpaReport(req, res, next) {
   }
 }
 
-export async function getRegistrationsReport(req, res, next) {
-  try {
-    const report = await repService.getRegistrationsReport(req.query);
-    sendSuccess(res, report);
-  } catch (err) {
-    next(err);
-  }
-}
-
 export async function getStudentTranscript(req, res, next) {
   try {
     const transcript = await repService.getStudentTranscript(req.params.id, req.user);
@@ -86,6 +68,15 @@ export async function getStudentPerformance(req, res, next) {
   try {
     const perf = await repService.getStudentPerformance(req.params.id, req.user);
     sendSuccess(res, perf);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getWithdrawalRegistrationReport(req, res, next) {
+  try {
+    const report = await repService.getWithdrawalRegistrationReport(req.query);
+    sendSuccess(res, report);
   } catch (err) {
     next(err);
   }

@@ -34,6 +34,14 @@ export async function getGpaReport(params = {}) {
   return await reportsApi.getGpaReport(params);
 }
 
+export async function getRegistrationsReport(params = {}) {
+  return await reportsApi.getRegistrationsReport(params);
+}
+
+export async function getWithdrawalRegistrationReport(params = {}) {
+  return await reportsApi.getWithdrawalRegistrationReport(params);
+}
+
 export async function getStudentTranscript(studentId) {
   return await reportsApi.getStudentTranscript(studentId);
 }
