@@ -18,9 +18,6 @@ export function AppLayout() {
   const { data: approvals } = useQuery(() => store.grades.listApprovalRequests({ status: 'pending', pageSize: 1 }), [], { enabled: user?.roleId === 'admin' })
   const badges = { unread: notif?.unreadCount ?? 0, pendingApprovals: approvals?.pendingCount ?? 0 }
 
-  // Hide the nav sidebar on the admin dashboard page
-  const isAdminDashboard = location.pathname === '/admin'
-
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [location.pathname])

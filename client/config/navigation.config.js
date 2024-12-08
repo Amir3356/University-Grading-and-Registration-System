@@ -54,7 +54,6 @@ export const NAVIGATION = {
   ],
 
   dept_head: [
-    { section: 'Overview', items: [{ to: '/dept-head', label: 'Dashboard', icon: LayoutDashboard, end: true }] },
     {
       section: 'People',
       items: [{ to: '/dept-head/account-provision', label: 'Account Provision', icon: Users }],
@@ -96,7 +95,6 @@ export const NAVIGATION = {
   ],
 
   student: [
-    { section: 'Overview', items: [{ to: '/student', label: 'Dashboard', icon: LayoutDashboard, end: true }] },
     {
       section: 'Academics',
       items: [
@@ -114,8 +112,8 @@ export const NAVIGATION = {
 };
 
 export const HOME_BY_ROLE = {
-  admin: '/admin',
-  dept_head: '/dept-head',
+  admin: '/admin/reports',
+  dept_head: '/dept-head/reports',
   teacher: '/teacher',
-  student: '/student',
+  student: '/student/registrations',
 };

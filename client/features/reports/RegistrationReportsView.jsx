@@ -3,7 +3,6 @@ import { format, subDays } from 'date-fns'
 import {
   CalendarRange,
   FileDown,
-  Percent,
   UserMinus,
   UserPlus,
 } from 'lucide-react'
@@ -33,10 +32,8 @@ import {
   lineCursor,
   tooltipProps,
 } from '@/components/charts/chart-theme'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Card, CardContent } from '@/components/ui/card'
 import { downloadRegistrationReportPdf } from '@/lib/registration-report-pdf'
 import { KpiCard } from './KpiCard'
 import { PERIOD_OPTIONS } from './periods'
@@ -163,16 +160,6 @@ export function RegistrationReportsView({ description, university }) {
               invert
               hint={compareHint}
             />
-            <KpiCard
-              label="Withdrawal rate"
-              value={`${report.kpis.rate.value.toFixed(1)}%`}
-              icon={Percent}
-              tone="rate"
-              change={report.kpis.rate.change}
-              changeSuffix=" pts"
-              invert
-              hint={compareHint}
-            />
           </section>
 
           <ChartCard
@@ -280,54 +267,6 @@ export function RegistrationReportsView({ description, university }) {
               </ResponsiveContainer>
             </ChartCard>
           </div>
-
-          <Card className="card--table">
-            <CardHeader className="justify-center text-center" style={{ justifyContent: 'center', textAlign: 'center' }}>
-              <div className="grow text-center w-full" style={{ width: '100%', textAlign: 'center' }}>
-                <CardTitle style={{ textAlign: 'center' }}>Recent activity</CardTitle>
-                <CardDescription style={{ textAlign: 'center' }}>Latest registrations and withdrawals in the selected period</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="rpt-table">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Student</TableHead>
-                      <TableHead>Course</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead className="rpt-table__when">When</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {report.recentActivity.map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell>
-                          <div className="rpt-student">
-                            <span className="rpt-student__name">{row.student}</span>
-                            <span className="rpt-student__id">{row.studentId}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>{row.course}</TableCell>
-                        <TableCell>
-                          {row.type === 'registration' ? (
-                            <Badge variant="info" className="rpt-type">
-                              <UserPlus aria-hidden="true" /> Registration
-                            </Badge>
-                          ) : (
-                            <Badge variant="warning" className="rpt-type">
-                              <UserMinus aria-hidden="true" /> Withdrawal
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="rpt-table__when tabular">{row.when}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
         </>
       )}
     </div>

@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { Route } from 'react-router-dom';
+import { Navigate, Route } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
 
 const page = (loader, name) =>
@@ -20,7 +20,7 @@ const EntermarkPage = page(() => import('@/features/teacher/grade-entry/Entermar
 
 export const deptHeadRoutes = (
   <Route element={<ProtectedRoute roles={['dept_head']} />}>
-    <Route path="/dept-head" element={<DeptHeadDashboardPage />} />
+    <Route path="/dept-head" element={<Navigate to="/dept-head/reports" replace />} />
     <Route path="/dept-head/account-provision" element={<DeptAccountProvisionPage />} />
     <Route path="/dept-head/users" element={<DeptAccountProvisionPage />} />
     <Route path="/dept-head/courses" element={<DeptCoursesPage />} />

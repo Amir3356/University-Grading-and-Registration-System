@@ -1,23 +1,21 @@
 import { useMemo, useState } from 'react'
 import { format, parseISO, subDays } from 'date-fns'
-import { BookCheck, CalendarRange, CheckCircle2, FileDown, GraduationCap, XCircle } from 'lucide-react'
+import { BookCheck, CalendarRange, CheckCircle2, FileDown, XCircle } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { toast } from 'sonner'
 import { ChartCard } from '@/components/charts/ChartCard'
 import { DateInput } from '@/components/common/DateInput'
 import { axisProps, barRadius, gridProps, legendProps, tooltipProps } from '@/components/charts/chart-theme'
-import { DataTable } from '@/components/common/DataTable'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { PageSkeleton } from '@/components/common/Loading'
-import { GradeStatusBadge } from '@/components/common/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { KpiCard } from '@/features/reports/KpiCard'
 import { PERIOD_OPTIONS } from '@/features/reports/periods'
 import { useQuery } from '@/hooks/useStore'
-import { GRADE_STATUS_LABELS, formatSemesterName } from '@/lib/format'
+import { formatSemesterName } from '@/lib/format'
 import { downloadGradeResultsPdf } from '@/lib/grade-results-pdf'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
@@ -135,73 +133,6 @@ export function DeptGradeResultsReport({ department, university }) {
   if (loading && !data && !rangeInvalid) return <PageSkeleton />
   if (error) return <ErrorState error={error} onRetry={refetch} title="Could not load grade results" />
 
-  const columns = [
-    {
-      key: 'course',
-      header: 'Course',
-      value: (r) => `${r.courseCode} ${r.courseTitle}`,
-      cell: (r) => (
-        <div className="rpt-student">
-          <span className="rpt-student__name">
-            {r.courseCode} <span className="rpt-muted">· Sec {r.section}</span>
-          </span>
-          <span className="rpt-course-title">{r.courseTitle}</span>
-        </div>
-      ),
-    },
-    ...(showSemesterCol ? [{ key: 'semesterName', header: 'Semester', value: (r) => formatSemesterName(r.semesterName) }] : []),
-    { key: 'teacherName', header: 'Instructor' },
-    {
-      key: 'gradeStatus',
-      header: 'Grade status',
-      value: (r) => GRADE_STATUS_LABELS[r.gradeStatus] ?? r.gradeStatus,
-      cell: (r) => <GradeStatusBadge status={r.gradeStatus} />,
-    },
-    {
-      key: 'students',
-      header: 'Graded',
-      align: 'right',
-      cell: (r) => (
-        <span className="tabular">
-          {r.students}
-          <span className="rpt-muted"> / {r.enrolled}</span>
-        </span>
-      ),
-    },
-    { key: 'passed', header: 'Passed', align: 'right', cell: (r) => (r.students ? <span className="tabular rpt-pass">{r.passed}</span> : '—') },
-    { key: 'failed', header: 'Failed', align: 'right', cell: (r) => (r.students ? <span className="tabular rpt-fail">{r.failed}</span> : '—') },
-    {
-      key: 'wi',
-      header: 'W / I',
-      align: 'right',
-      value: (r) => r.withdrawn + r.incomplete,
-      cell: (r) => (r.students ? <span className="tabular rpt-muted">{r.withdrawn} / {r.incomplete}</span> : '—'),
-    },
-    {
-      key: 'passRate',
-      header: 'Pass rate',
-      value: (r) => (r.passed + r.failed ? r.passRate : -1),
-      cell: (r) =>
-        r.passed + r.failed ? (
-          <div className="rpt-rate">
-            <div className="rpt-rate__track" aria-hidden="true">
-              <div className="rpt-rate__fill" style={{ width: `${r.passRate}%` }} />
-            </div>
-            <span className="tabular">{pct(r.passRate)}</span>
-          </div>
-        ) : (
-          <span className="rpt-muted">Awaiting approval</span>
-        ),
-    },
-    {
-      key: 'average',
-      header: 'Avg. score',
-      align: 'right',
-      value: (r) => (r.passed + r.failed ? r.average : -1),
-      cell: (r) => (r.passed + r.failed ? <span className="tabular">{Number(r.average).toFixed(1)}</span> : '—'),
-    },
-  ]
-
   return (
     <div className="rpt">
       <div className="rpt-toolbar" style={{ justifyContent: 'flex-end' }}>
@@ -265,14 +196,6 @@ export function DeptGradeResultsReport({ department, university }) {
       ) : (
         <>
           <section className="rpt-kpis" aria-label="Grade result totals">
-            <KpiCard
-              label="Courses approved"
-              value={`${summary.approvedCourses} / ${summary.courses}`}
-              icon={BookCheck}
-              tone="net"
-              hint="with grades in this period"
-            />
-            <KpiCard label="Students graded" value={summary.graded} icon={GraduationCap} tone="rate" hint="approved in this period" />
             <KpiCard label="Passed" value={summary.passed} icon={CheckCircle2} tone="pass" hint="grade points above 0" />
             <KpiCard label="Failed" value={summary.failed} icon={XCircle} tone="fail" hint="grade F" />
           </section>
@@ -366,24 +289,6 @@ export function DeptGradeResultsReport({ department, university }) {
               </ResponsiveContainer>
             </ChartCard>
           </div>
-
-          <Card className="card--table">
-            <CardHeader>
-              <div className="grow">
-                <CardTitle>Results by course</CardTitle>
-                <CardDescription>{semesterLabel}</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <DataTable
-                columns={columns}
-                rows={rows}
-                rowKey={(r) => r.offeringId}
-                searchPlaceholder="Search course or instructor…"
-                emptyTitle="No courses match your search"
-              />
-            </CardContent>
-          </Card>
         </>
       )}
     </div>
