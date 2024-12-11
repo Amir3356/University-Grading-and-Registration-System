@@ -26,6 +26,8 @@ import { PageHeader } from '@/components/common/PageHeader'
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { DateInput } from '@/components/common/DateInput'
 import { EmptyState } from '@/components/common/EmptyState'
+import { ErrorState } from '@/components/common/ErrorState'
+import { PageSkeleton } from '@/components/common/Loading'
 import { ChartCard } from '@/components/charts/ChartCard'
 import {
   axisProps,
@@ -39,12 +41,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { GradeBadge } from '@/components/common/StatusBadge'
-import { useLookups } from '@/context/lookups-context'
+import { useQuery } from '@/hooks/useStore'
 import { downloadTranscriptPdf } from '@/lib/transcript-pdf'
+import { store } from '@/store'
 import { KpiCard } from '@/features/reports/KpiCard'
-import { PERIOD_OPTIONS } from '@/features/reports/periods'
-import { resolvePeriod } from '@/features/reports/reportsMockData'
+import { PERIOD_OPTIONS, resolvePeriod } from '@/features/reports/periods'
 
 const GPA_COLOR = 'var(--chart-1)'
 const CGPA_COLOR = 'var(--chart-2)'
@@ -53,111 +54,11 @@ const numberFmt = new Intl.NumberFormat('en-US')
 const formatNumber = (n) => numberFmt.format(n)
 const formatGpa = (n) => (n == null || Number.isNaN(n) ? '—' : Number(n).toFixed(2))
 
-const SAMPLE_COURSES = [
-  { code: 'CS202', title: 'Database Management Systems', credits: 4, letter: 'A', score: 88.5, points: 4.0, type: 'passed' },
-  { code: 'MATH201', title: 'Discrete Mathematics', credits: 4, letter: 'B+', score: 81.0, points: 3.5, type: 'passed' },
-  { code: 'CS204', title: 'Operating Systems & System Programming', credits: 4, letter: 'B+', score: 82.5, points: 3.5, type: 'passed' },
-  { code: 'CS206', title: 'Web Application Technologies', credits: 4, letter: 'A', score: 89.0, points: 4.0, type: 'passed' },
-  { code: 'SE201', title: 'Software Engineering Fundamentals', credits: 3, letter: 'B-', score: 74.5, points: 2.75, type: 'passed' },
-  { code: 'EE102', title: 'Digital Logic Design', credits: 4, letter: 'A', score: 86.0, points: 4.0, type: 'passed' },
-  { code: 'CS102', title: 'Object-Oriented Programming (Java)', credits: 4, letter: 'A', score: 91.0, points: 4.0, type: 'passed' },
-  { code: 'MATH101', title: 'Calculus I for Engineers', credits: 4, letter: 'B+', score: 82.0, points: 3.5, type: 'passed' },
-]
-
-function hashString(str) {
-  let h = 2166136261
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
-}
-
-function seeded(seedKey) {
-  let a = hashString(seedKey)
-  return () => {
-    a = (a + 0x6d2b79f5) | 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-const between = (rand, min, max) => min + rand() * (max - min)
-
-function buildStudentReport(resolved) {
-  const { buckets } = resolved
-  const periodKey = buckets[0]?.key ?? 'none'
-  const rand = seeded(`stu-grade:${periodKey}:${buckets.length}`)
-
-  const trend = buckets.map((b, i) => {
-    const bRand = seeded(`trend:${b.key}`)
-    const baseGpa = 3.3 + (i / (buckets.length || 1)) * 0.35 + between(bRand, -0.15, 0.2)
-    const sgpa = Math.min(4.0, Math.max(2.5, baseGpa))
-    const cgpa = Math.min(4.0, Math.max(2.7, 3.42 + (i / (buckets.length || 1)) * 0.12))
-    return {
-      label: b.label,
-      sgpa: Number(sgpa.toFixed(2)),
-      cgpa: Number(cgpa.toFixed(2)),
-    }
-  })
-
-  const latestSgpa = trend[trend.length - 1]?.sgpa ?? 3.65
-  const latestCgpa = trend[trend.length - 1]?.cgpa ?? 3.48
-
-  const kpis = {
-    cgpa: { value: latestCgpa, change: 0.12 },
-    sgpa: { value: latestSgpa, change: 0.15 },
-    credits: { value: 62, change: 15 },
-    passRate: { value: 96.8, change: 3.2 },
-  }
-
-  const breakdownRows = [
-    { name: 'Grade A', passed: 6, failed: 0 },
-    { name: 'Grade A-', passed: 4, failed: 0 },
-    { name: 'Grade B+', passed: 5, failed: 0 },
-    { name: 'Grade B', passed: 4, failed: 0 },
-    { name: 'Grade B-', passed: 2, failed: 0 },
-    { name: 'Grade C+', passed: 1, failed: 0 },
-    { name: 'Grade F', passed: 0, failed: 1 },
-  ]
-
-  const subjectCredits = [
-    { subject: 'Computer Science', credits: 28 },
-    { subject: 'Mathematics', credits: 16 },
-    { subject: 'Electrical Eng.', credits: 8 },
-    { subject: 'Physics & General', credits: 10 },
-  ]
-
-  const recentActivity = SAMPLE_COURSES.map((c, i) => {
-    const bucket = buckets[Math.max(0, buckets.length - 1 - Math.floor(i / 2))]
-    return {
-      id: `${periodKey}-${i}`,
-      courseCode: c.code,
-      courseTitle: c.title,
-      creditHours: c.credits,
-      letter: c.letter,
-      score: c.score,
-      points: c.points,
-      type: c.type,
-      when: bucket.label,
-    }
-  })
-
-  return {
-    kpis,
-    trend,
-    breakdown: { title: 'Grade distribution', dimension: 'Grade', rows: breakdownRows },
-    subjectCredits,
-    recentActivity,
-  }
-}
-
 /**
- * Student Grade & Transcript Report matching the Admin RBAC Reports view layout and structure.
+ * Student Grade & Transcript Report.
+ * Renders verified real-time student performance directly from official grade records.
  */
 export function GradeReportPage() {
-  const lookups = useLookups()
   const today = format(new Date(), 'yyyy-MM-dd')
   const [period, setPeriod] = useState('weekly')
   const [range, setRange] = useState(() => ({
@@ -166,83 +67,95 @@ export function GradeReportPage() {
   }))
 
   const resolved = useMemo(() => resolvePeriod(period, range), [period, range])
-  const report = useMemo(() => (resolved ? buildStudentReport(resolved) : null), [resolved])
-
   const rangeInvalid = period === 'custom' && range.from && range.to && range.from > range.to
+
+  const { data: transcript, loading, error, refetch } = useQuery(
+    () => store.student.getMyTranscript(),
+    [],
+  )
+
+  const report = useMemo(() => {
+    if (!transcript || !Array.isArray(transcript.semesters) || transcript.semesters.length === 0) {
+      return null
+    }
+
+    const allCourses = transcript.semesters.flatMap((s) =>
+      (s.courses || []).map((c) => ({
+        ...c,
+        semesterName: s.name,
+      })),
+    )
+
+    const passedCourses = allCourses.filter((c) => Number(c.gradePoints || 0) > 0)
+    const passRate = allCourses.length ? (passedCourses.length / allCourses.length) * 100 : 0
+    const latestSem = transcript.semesters[transcript.semesters.length - 1]
+
+    const kpis = {
+      cgpa: { value: Number(transcript.cgpa ?? 0), change: null },
+      sgpa: { value: Number(latestSem?.gpa ?? 0), change: null },
+      credits: { value: Number(transcript.earnedCredits ?? 0), change: null },
+      passRate: { value: passRate, change: null },
+    }
+
+    const trend = transcript.semesters.map((s) => ({
+      label: s.name,
+      sgpa: Number(s.gpa ?? 0),
+      cgpa: Number(s.cgpa ?? transcript.cgpa ?? 0),
+    }))
+
+    // Letter grade distribution
+    const letterCounts = new Map()
+    for (const c of allCourses) {
+      const letKey = c.letter || 'Other'
+      letterCounts.set(letKey, (letterCounts.get(letKey) || 0) + 1)
+    }
+    const breakdownRows = Array.from(letterCounts.entries())
+      .map(([name, count]) => ({
+        name: `Grade ${name}`,
+        passed: count,
+        failed: 0,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+
+    // Credits by subject/department
+    const deptCredits = new Map()
+    for (const c of allCourses) {
+      const subj = c.department || c.subject || 'Core Courses'
+      deptCredits.set(subj, (deptCredits.get(subj) || 0) + Number(c.creditHours || 0))
+    }
+    const subjectCredits = Array.from(deptCredits.entries()).map(([subject, credits]) => ({
+      subject,
+      credits,
+    }))
+
+    const recentActivity = allCourses.map((c, i) => ({
+      id: `${c.courseCode || i}-${i}`,
+      courseCode: c.courseCode || '—',
+      courseTitle: c.courseTitle || 'Untitled Course',
+      creditHours: c.creditHours || 0,
+      letter: c.letter || '—',
+      score: c.totalScore ?? c.score ?? '—',
+      points: c.gradePoints ?? 0,
+      type: c.letter === 'F' ? 'failed' : 'passed',
+      when: c.semesterName || 'Completed',
+    }))
+
+    return {
+      kpis,
+      trend,
+      breakdown: { title: 'Grade distribution', dimension: 'Grade', rows: breakdownRows },
+      subjectCredits,
+      recentActivity,
+    }
+  }, [transcript])
+
   const compareHint = period === 'today' ? 'vs yesterday' : 'vs previous period'
 
   const handleDownload = () => {
+    if (!transcript) return
     try {
-      const sampleTranscript = {
-        student: {
-          name: 'Iris Williams',
-          studentNumber: 'NBU/2024/0019',
-          program: 'BSc. Computer Science',
-          department: { name: 'Computer Science and Engineering', code: 'CSE' },
-          admissionYear: 2024,
-        },
-        cgpa: report?.kpis?.cgpa?.value ?? 3.48,
-        earnedCredits: report?.kpis?.credits?.value ?? 62,
-        attemptedCredits: 62,
-        standing: { label: "Dean's List", tone: 'success' },
-        generatedAt: new Date().toISOString(),
-        university: lookups?.university || {
-          name: 'Northbridge University',
-          shortName: 'NBU',
-          registrarName: 'Marcus Bell',
-        },
-        scale: [
-          { letter: 'A+', min: 90, max: 100, points: 4.0 },
-          { letter: 'A', min: 85, max: 89, points: 4.0 },
-          { letter: 'A-', min: 80, max: 84, points: 3.75 },
-          { letter: 'B+', min: 75, max: 79, points: 3.5 },
-          { letter: 'B', min: 70, max: 74, points: 3.0 },
-          { letter: 'B-', min: 65, max: 69, points: 2.75 },
-          { letter: 'C+', min: 60, max: 64, points: 2.5 },
-          { letter: 'C', min: 50, max: 59, points: 2.0 },
-          { letter: 'F', min: 0, max: 49, points: 0.0 },
-        ],
-        policy: {
-          repeatPolicy: 'latest',
-          passMark: 50,
-          probationGpa: 2.0,
-          honorsGpa: 3.5,
-        },
-        semesters: [
-          {
-            semesterId: 'sem_1',
-            name: '2024 First Semester',
-            gpa: 3.55,
-            cgpa: 3.55,
-            credits: 16,
-            courses: SAMPLE_COURSES.slice(0, 4).map((c) => ({
-              courseCode: c.code,
-              courseTitle: c.title,
-              creditHours: c.credits,
-              totalScore: c.score,
-              letter: c.letter,
-              gradePoints: c.points,
-            })),
-          },
-          {
-            semesterId: 'sem_2',
-            name: '2024 Second Semester',
-            gpa: 3.65,
-            cgpa: 3.60,
-            credits: 15,
-            courses: SAMPLE_COURSES.slice(4, 8).map((c) => ({
-              courseCode: c.code,
-              courseTitle: c.title,
-              creditHours: c.credits,
-              totalScore: c.score,
-              letter: c.letter,
-              gradePoints: c.points,
-            })),
-          },
-        ],
-      }
-      downloadTranscriptPdf(sampleTranscript)
-      toast.success('Report downloaded as PDF.')
+      downloadTranscriptPdf(transcript)
+      toast.success('Official grade report downloaded as PDF.')
     } catch (err) {
       toast.error(err.message || 'Could not generate the PDF.')
     }
@@ -279,11 +192,14 @@ export function GradeReportPage() {
           </div>
         </div>
       )}
-      <Button className="rpt-filters__download" onClick={handleDownload} disabled={!report}>
+      <Button className="rpt-filters__download" onClick={handleDownload} disabled={!report || !transcript}>
         <FileDown /> Download PDF
       </Button>
     </div>
   )
+
+  if (loading && !transcript) return <PageSkeleton />
+  if (error) return <ErrorState error={error} onRetry={refetch} title="Could not load grade report" />
 
   return (
     <div className="rpt">
@@ -307,12 +223,9 @@ export function GradeReportPage() {
         <Card>
           <CardContent>
             <EmptyState
-              title={rangeInvalid ? 'The start date is after the end date' : 'Choose a date range'}
-              description={
-                rangeInvalid
-                  ? 'Adjust the From or To date to see the report.'
-                  : 'Pick both a From and a To date to generate the report.'
-              }
+              icon={GraduationCap}
+              title={rangeInvalid ? 'The start date is after the end date' : 'No grade reports available'}
+              description={rangeInvalid ? 'Adjust the From or To date to see the report.' : 'You do not have any published course grades or GPA records yet.'}
             />
           </CardContent>
         </Card>
@@ -348,8 +261,10 @@ export function GradeReportPage() {
 
           <ChartCard
             title="GPA progression vs. cumulative average"
-            description={`${resolved.granularity} grade point averages for the selected period`}
+            description={`${resolved?.granularity ?? 'Semester'} grade point averages for the selected period`}
             height={320}
+            empty={!report.trend.length}
+            emptyText="No GPA trend records in this period."
             tableColumns={[
               { key: 'label', header: 'Period' },
               { key: 'sgpa', header: 'Semester GPA', format: formatGpa },
@@ -402,6 +317,8 @@ export function GradeReportPage() {
               title={report.breakdown.title}
               description={`Passed and failed course counts per ${report.breakdown.dimension.toLowerCase()}`}
               height={300}
+              empty={!report.breakdown.rows.length}
+              emptyText="No grade breakdown available."
               tableColumns={[
                 { key: 'name', header: report.breakdown.dimension },
                 { key: 'passed', header: 'Passed', format: formatNumber },

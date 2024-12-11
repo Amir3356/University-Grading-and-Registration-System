@@ -11,6 +11,7 @@ import {
   ListChecks,
   MessageSquareWarning,
   NotebookPen,
+  ShieldCheck,
   SlidersHorizontal,
   UserCheck,
   UserMinus,
@@ -49,6 +50,12 @@ export const NAVIGATION = {
       section: 'Reports',
       items: [
         { to: '/admin/reports', label: 'Reports', icon: FileBarChart },
+      ],
+    },
+    {
+      section: 'Governance',
+      items: [
+        { to: '/admin/audit', label: 'Audit Trail', icon: ShieldCheck },
       ],
     },
   ],

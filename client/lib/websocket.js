@@ -52,7 +52,9 @@ class WebSocketClient {
               });
             }
           }
-        } catch {}
+        } catch {
+          /* ignore */
+        }
       };
 
       this.ws.onclose = () => {
@@ -109,7 +111,10 @@ export const wsClient = new WebSocketClient();
  */
 export function useWebSocketEvent(eventType, handler) {
   const handlerRef = useRef(handler);
-  handlerRef.current = handler;
+
+  useEffect(() => {
+    handlerRef.current = handler;
+  });
 
   useEffect(() => {
     const unsubscribe = wsClient.subscribe(eventType, (payload) => {

@@ -84,7 +84,7 @@ export async function setUserStatus(req, res, next) {
 
 export async function resetPassword(req, res, next) {
   try {
-    const result = await userService.resetPassword(req.params.id, req.user);
+    const result = await userService.resetPassword(req.params.id);
     sendSuccess(res, result);
   } catch (err) {
     next(err);

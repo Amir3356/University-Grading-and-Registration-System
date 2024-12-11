@@ -42,7 +42,6 @@ export async function createWithdrawalRequest({
   enrollmentId,
   reasonCategoryId,
   reason,
-  user,
 }) {
   return await withTransaction(async (client) => {
     // Generate reference number
@@ -93,7 +92,7 @@ export async function createWithdrawalRequest({
   });
 }
 
-export async function cancelWithdrawalRequest(id, studentId, user) {
+export async function cancelWithdrawalRequest(id, studentId) {
   return await withTransaction(async (client) => {
     const res = await client.query(
       `UPDATE withdrawal_requests

@@ -6,7 +6,6 @@ export function computeEnrollmentScore(assessments, scoreMap, scaleEntries, pass
   let weightedTotal = 0;
   let enteredWeightSum = 0;
   let enteredCount = 0;
-  const totalWeight = assessments.reduce((sum, a) => sum + Number(a.weight), 0);
 
   for (const a of assessments) {
     const mark = scoreMap[a.id];

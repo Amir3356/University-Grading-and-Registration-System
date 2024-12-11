@@ -23,6 +23,8 @@ import { PageHeader } from '@/components/common/PageHeader'
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { DateInput } from '@/components/common/DateInput'
 import { EmptyState } from '@/components/common/EmptyState'
+import { ErrorState } from '@/components/common/ErrorState'
+import { PageSkeleton } from '@/components/common/Loading'
 import { ChartCard } from '@/components/charts/ChartCard'
 import {
   axisProps,
@@ -34,10 +36,11 @@ import {
 } from '@/components/charts/chart-theme'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { useQuery } from '@/hooks/useStore'
 import { downloadRegistrationReportPdf } from '@/lib/registration-report-pdf'
+import { store } from '@/store'
 import { KpiCard } from './KpiCard'
-import { PERIOD_OPTIONS } from './periods'
-import { buildReport, resolvePeriod } from './reportsMockData'
+import { PERIOD_OPTIONS, resolvePeriod } from './periods'
 
 const REG_COLOR = 'var(--chart-1)'
 const WD_COLOR = 'var(--chart-2)'
@@ -47,6 +50,7 @@ const formatNumber = (n) => numberFmt.format(n)
 
 /**
  * Registration & withdrawal report (admin) with period filters, charts and PDF download.
+ * Fetches real operational metrics directly from the backend API.
  */
 export function RegistrationReportsView({ description, university }) {
   const today = format(new Date(), 'yyyy-MM-dd')
@@ -56,13 +60,86 @@ export function RegistrationReportsView({ description, university }) {
     to: today,
   }))
 
-  const resolved = useMemo(() => resolvePeriod(period, range), [period, range])
-  const report = useMemo(() => (resolved ? buildReport(resolved) : null), [resolved])
-
   const rangeInvalid = period === 'custom' && range.from && range.to && range.from > range.to
+  const resolved = useMemo(() => resolvePeriod(period, range), [period, range])
+
+  const { data: apiData, loading, error, refetch } = useQuery(
+    () =>
+      store.reports.getWithdrawalRegistrationReportData(
+        period === 'custom' ? { period, startDate: range.from, endDate: range.to } : { period },
+      ),
+    [period, range.from, range.to],
+    { enabled: !rangeInvalid },
+  )
+
+  const report = useMemo(() => {
+    if (!apiData) return null
+    const regCount = Number(apiData.registrations?.period?.total ?? 0)
+    const wdCount = Number(apiData.withdrawals?.period?.total ?? 0)
+    const net = regCount - wdCount
+    const rate = regCount ? (wdCount / regCount) * 100 : 0
+
+    const trend = Array.isArray(apiData.trend)
+      ? apiData.trend.map((t) => ({
+          label: t.date || t.label || '',
+          registrations: Number(t.registrations ?? 0),
+          withdrawals: Number(t.withdrawals ?? 0),
+        }))
+      : []
+
+    const deptMap = new Map()
+    if (Array.isArray(apiData.registrations?.byDepartment)) {
+      for (const d of apiData.registrations.byDepartment) {
+        deptMap.set(d.department, { name: d.department, registrations: Number(d.count ?? 0), withdrawals: 0 })
+      }
+    }
+    const breakdownRows = Array.from(deptMap.values())
+
+    const withdrawalReasons = Array.isArray(apiData.withdrawals?.byCategory)
+      ? apiData.withdrawals.byCategory.map((c) => ({
+          reason: c.category || c.reason || 'Other',
+          count: Number(c.count ?? 0),
+        }))
+      : []
+
+    const recentRegs = (apiData.registrations?.recent || []).map((r) => ({
+      id: `reg-${r.id}`,
+      student: r.studentName || 'Student',
+      studentId: r.studentNumber || '—',
+      course: r.registrationType || r.departmentName || 'Semester Registration',
+      type: 'registration',
+      when: r.submittedAt ? format(new Date(r.submittedAt), 'd MMM yyyy') : '—',
+    }))
+
+    const recentWdrs = (apiData.withdrawals?.recent || []).map((w) => ({
+      id: `wdr-${w.id}`,
+      student: w.studentName || 'Student',
+      studentId: w.studentNumber || '—',
+      course: w.reasonCategory || w.reason || w.scope || 'Withdrawal',
+      type: 'withdrawal',
+      when: w.submittedAt ? format(new Date(w.submittedAt), 'd MMM yyyy') : '—',
+    }))
+
+    const recentActivity = [...recentRegs, ...recentWdrs].slice(0, 10)
+
+    return {
+      kpis: {
+        registrations: { value: regCount, change: null },
+        withdrawals: { value: wdCount, change: null },
+        net: { value: net, change: null },
+        rate: { value: rate, change: null },
+      },
+      trend,
+      breakdown: { title: 'By department', dimension: 'Department', rows: breakdownRows },
+      withdrawalReasons,
+      recentActivity,
+    }
+  }, [apiData])
+
   const compareHint = period === 'today' ? 'vs yesterday' : 'vs previous period'
 
   const handleDownload = () => {
+    if (!report || !resolved) return
     try {
       downloadRegistrationReportPdf(report, {
         periodLabel: PERIOD_OPTIONS.find((o) => o.value === period)?.label ?? period,
@@ -114,6 +191,9 @@ export function RegistrationReportsView({ description, university }) {
     </div>
   )
 
+  if (loading && !apiData && !rangeInvalid) return <PageSkeleton />
+  if (error) return <ErrorState error={error} onRetry={refetch} title="Could not load registration report" />
+
   return (
     <div className="rpt">
       <PageHeader title="Reports" description={description} centered actions={periodControls} />
@@ -164,8 +244,10 @@ export function RegistrationReportsView({ description, university }) {
 
           <ChartCard
             title="Registrations vs. withdrawals"
-            description={`${resolved.granularity} totals for the selected period`}
+            description={`${resolved?.granularity ?? 'Daily'} totals for the selected period`}
             height={320}
+            empty={!report.trend.length}
+            emptyText="No registrations or withdrawals recorded in this period."
             tableColumns={[
               { key: 'label', header: 'Period' },
               { key: 'registrations', header: 'Registrations', format: formatNumber },
@@ -217,6 +299,8 @@ export function RegistrationReportsView({ description, university }) {
               title={report.breakdown.title}
               description={`Registrations and withdrawals per ${report.breakdown.dimension.toLowerCase()}`}
               height={300}
+              empty={!report.breakdown.rows.length}
+              emptyText="No departmental registration activity in this period."
               tableColumns={[
                 { key: 'name', header: report.breakdown.dimension },
                 { key: 'registrations', header: 'Registrations', format: formatNumber },
@@ -241,7 +325,7 @@ export function RegistrationReportsView({ description, university }) {
               title="Withdrawal reasons"
               description="Why students withdrew in this period"
               height={300}
-              empty={report.kpis.withdrawals.value === 0}
+              empty={!report.withdrawalReasons.length}
               emptyText="No withdrawals in this period."
               tableColumns={[
                 { key: 'reason', header: 'Reason' },

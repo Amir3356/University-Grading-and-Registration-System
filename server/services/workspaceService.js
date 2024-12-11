@@ -4,7 +4,7 @@ import * as repRepo from '../repositories/reportRepository.js';
 import { getAcademicPolicy } from '../repositories/gradebookRepository.js';
 import { getAcademicStanding } from '../utils/gpaCalculator.js';
 import { getCurrentSemester, getSemesterById } from '../repositories/calendarRepository.js';
-import { ForbiddenError, NotFoundError, ValidationError } from '../utils/errors.js';
+import { ForbiddenError, NotFoundError } from '../utils/errors.js';
 
 // ---------------- Teacher Workspace ----------------
 
@@ -13,7 +13,7 @@ export async function getTeacherDashboard(caller) {
   if (!teacherId) {
     throw new ForbiddenError('You do not have a teacher profile.');
   }
-  return await wsRepo.getTeacherDashboard(teacherId, caller.id);
+  return await wsRepo.getTeacherDashboard(teacherId);
 }
 
 export async function getTeacherOfferings(params, caller) {
@@ -60,7 +60,7 @@ export async function getStudentDashboard(caller) {
   if (!studentId) {
     throw new ForbiddenError('You do not have a student profile.');
   }
-  return await wsRepo.getStudentDashboard(studentId, caller.id);
+  return await wsRepo.getStudentDashboard(studentId);
 }
 
 export async function listStudentCourses(params, caller) {

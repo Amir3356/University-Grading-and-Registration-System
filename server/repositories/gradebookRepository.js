@@ -547,7 +547,7 @@ export async function saveScoreChanges(offeringId, changes, reason, user) {
   });
 }
 
-export async function getGradeHistory(offeringId) {
+export async function getGradeHistory() {
   // Audit log query removed; return empty history list
   return [];
 }

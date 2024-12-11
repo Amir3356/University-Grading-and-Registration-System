@@ -35,6 +35,7 @@ import {
 import { reportRouter, studentReportRouter } from './reportRoutes.js';
 import { notificationRouter, announcementRouter } from './notificationRoutes.js';
 import { settingsRouter, systemRouter } from './settingsRoutes.js';
+import auditRoutes from './auditRoutes.js';
 
 const apiRouter = Router();
 
@@ -93,6 +94,9 @@ apiRouter.use('/announcements', announcementRouter);
 // Settings & System
 apiRouter.use('/settings', settingsRouter);
 apiRouter.use('/system', systemRouter);
+
+// Centralized Audit Trail (Admin only)
+apiRouter.use('/audit', auditRoutes);
 
 
 export default apiRouter;

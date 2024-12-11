@@ -1,0 +1,247 @@
+/* Audit Trail Feature Styles */
+
+.audit-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.audit-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.audit-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.audit-filter-search {
+  flex: 1 1 240px;
+  min-width: 220px;
+}
+
+.audit-filter-select {
+  flex: 0 1 170px;
+  min-width: 150px;
+}
+
+.audit-actor-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.audit-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.audit-avatar--dept-head {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.dark .audit-avatar--dept-head {
+  background: #082f49;
+  color: #38bdf8;
+}
+
+.audit-avatar--admin {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.dark .audit-avatar--admin {
+  background: #451a03;
+  color: #fcd34d;
+}
+
+.audit-action-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.audit-action-badge--create {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+.dark .audit-action-badge--create {
+  background: #064e3b;
+  color: #6ee7b7;
+  border-color: #047857;
+}
+
+.audit-action-badge--update {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+.dark .audit-action-badge--update {
+  background: #1e3a8a;
+  color: #93c5fd;
+  border-color: #1d4ed8;
+}
+
+.audit-action-badge--approve {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+.dark .audit-action-badge--approve {
+  background: #14532d;
+  color: #86efac;
+  border-color: #15803d;
+}
+
+.audit-action-badge--reject {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+.dark .audit-action-badge--reject {
+  background: #7f1d1d;
+  color: #fca5a5;
+  border-color: #b91c1c;
+}
+
+.audit-action-badge--delete {
+  background: #fff1f2;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+}
+.dark .audit-action-badge--delete {
+  background: #881337;
+  color: #fda4af;
+  border-color: #be123c;
+}
+
+.audit-action-badge--other {
+  background: var(--muted);
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
+}
+
+/* Diff viewer */
+.audit-diff-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.8125rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.audit-diff-table th {
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-weight: 600;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.audit-diff-table td {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.audit-diff-table tr:last-child td {
+  border-bottom: none;
+}
+
+.audit-diff-value {
+  display: block;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8125rem;
+  word-break: break-word;
+  white-space: pre-wrap;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.audit-diff-value--removed {
+  background: #fee2e2;
+  color: #991b1b;
+  text-decoration: line-through;
+}
+.dark .audit-diff-value--removed {
+  background: #450a0a;
+  color: #f87171;
+}
+
+.audit-diff-value--added {
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 600;
+}
+.dark .audit-diff-value--added {
+  background: #052e16;
+  color: #4ade80;
+}
+
+.audit-diff-value--unchanged {
+  color: var(--muted-foreground);
+}
+
+/* Meta card in dialog */
+.audit-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.875rem;
+  padding: 1rem;
+  background: var(--muted);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+}
+
+.audit-meta-item dt {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  margin-bottom: 0.25rem;
+}
+
+.audit-meta-item dd {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+/* Code block */
+.audit-json-box {
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  max-height: 380px;
+}

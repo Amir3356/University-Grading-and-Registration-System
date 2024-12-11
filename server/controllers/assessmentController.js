@@ -63,7 +63,7 @@ export async function releaseAssessment(req, res, next) {
 
 export async function applyTemplate(req, res, next) {
   try {
-    const assessments = await assessmentService.applyTemplate(req.params.id, req.user);
+    const assessments = await assessmentService.applyTemplate(req.params.id);
     broadcastEvent('ASSESSMENT_CREATED', { offeringId: req.params.id, assessments });
     sendCreated(res, assessments);
   } catch (err) {

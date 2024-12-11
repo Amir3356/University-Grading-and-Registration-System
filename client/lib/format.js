@@ -65,12 +65,6 @@ export function formatYearOfStudy(val) {
 export function getStudentCurrentYearOfStudy(student) {
   if (!student) return '—'
 
-  const isWithdrawn =
-    String(student.status || '').toLowerCase() === 'withdrawn' ||
-    String(student.academicStatus || student.academic_status || '').toLowerCase() === 'withdrawn' ||
-    Boolean(student.withdrawn) ||
-    Boolean(student.isWithdrawn)
-
   const rawVal =
     student.yearOfStudy ??
     student.year_of_study ??

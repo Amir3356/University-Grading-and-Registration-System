@@ -1,6 +1,7 @@
 import * as wrRepo from '../repositories/withdrawalRepository.js';
 import { query } from '../config/database.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../utils/errors.js';
+import { logAudit } from '../utils/auditLogger.js';
 
 export async function listReasonCategories() {
   return await wrRepo.listReasonCategories();
@@ -85,13 +86,12 @@ export async function createStudentWithdrawalRequest(data, caller) {
     enrollmentId,
     reasonCategoryId,
     reason: reason.trim(),
-    user: caller,
   });
 }
 
 export async function cancelStudentWithdrawalRequest(id, caller) {
   if (!caller.studentId) throw new ForbiddenError('Only students can cancel their withdrawal requests.');
-  return await wrRepo.cancelWithdrawalRequest(id, caller.studentId, caller);
+  return await wrRepo.cancelWithdrawalRequest(id, caller.studentId);
 }
 
 export async function listAdminWithdrawals(params, caller) {
@@ -139,11 +139,42 @@ export async function updateClearance(id, office, { status, remarks } = {}, call
 
   const res = await wrRepo.updateClearance(id, office, status, remarks, caller);
   if (!res) throw new NotFoundError('Clearance record');
+
+  await logAudit({
+    actor: caller,
+    action: status === 'approved' ? 'approve' : status === 'rejected' ? 'reject' : 'update',
+    entityType: 'withdrawal',
+    entityId: id,
+    entityName: `${wr.student?.name || 'Student'} (${office} clearance)`,
+    departmentId: wr.student?.department?.id || caller.departmentId,
+    description: `${status === 'approved' ? 'Approved' : status === 'rejected' ? 'Rejected' : 'Updated'} ${office} clearance for ${wr.student?.name || 'student'}`,
+    details: {
+      requestId: id,
+      office,
+      status,
+      remarks: remarks || null,
+      studentId: wr.student?.id,
+    },
+  });
+
   return res;
 }
 
 export async function approveWithdrawal(id, { adminNotes } = {}, caller) {
-  return await wrRepo.approveWithdrawal(id, adminNotes, caller);
+  const res = await wrRepo.approveWithdrawal(id, adminNotes, caller);
+
+  await logAudit({
+    actor: caller,
+    action: 'approve',
+    entityType: 'withdrawal',
+    entityId: id,
+    entityName: `Withdrawal ${id}`,
+    departmentId: caller?.departmentId,
+    description: `Approved student withdrawal request ${id}`,
+    details: { requestId: id, adminNotes: adminNotes || null },
+  });
+
+  return res;
 }
 
 export async function rejectWithdrawal(id, { adminNotes } = {}, caller) {
@@ -152,5 +183,18 @@ export async function rejectWithdrawal(id, { adminNotes } = {}, caller) {
       adminNotes: 'Please provide remarks explaining the rejection.',
     });
   }
-  return await wrRepo.rejectWithdrawal(id, adminNotes.trim(), caller);
+  const res = await wrRepo.rejectWithdrawal(id, adminNotes.trim(), caller);
+
+  await logAudit({
+    actor: caller,
+    action: 'reject',
+    entityType: 'withdrawal',
+    entityId: id,
+    entityName: `Withdrawal ${id}`,
+    departmentId: caller?.departmentId,
+    description: `Rejected student withdrawal request ${id}`,
+    details: { requestId: id, adminNotes: adminNotes.trim() },
+  });
+
+  return res;
 }

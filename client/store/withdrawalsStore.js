@@ -78,8 +78,30 @@ export function useWithdrawalRequests() {
   }, []);
 
   useEffect(() => {
-    fetchRequests();
-  }, [fetchRequests]);
+    let ignore = false;
+    (async () => {
+      try {
+        const user = getStoredUser();
+        let list = [];
+        if (user?.roleId === 'student') {
+          list = await listStudentWithdrawalRequestsApi();
+        } else {
+          const res = await listWithdrawalRequestsApi({ pageSize: 100 });
+          list = res.items || res;
+        }
+        if (!ignore && Array.isArray(list)) {
+          setRequests(list.map(formatWithdrawal));
+        }
+      } catch (err) {
+        console.error('Failed to fetch withdrawal requests:', err);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const addRequest = async (newRecord) => {
     try {

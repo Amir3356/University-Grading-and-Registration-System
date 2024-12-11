@@ -6,7 +6,6 @@ const page = (loader, name) =>
   lazy(() => loader().then((m) => ({ default: m[name] ?? m.default })));
 
 // Student Pages
-const StudentDashboardPage = page(() => import('@/features/student/dashboard/StudentDashboardPage'), 'StudentDashboardPage');
 const RegistrationsPage = page(() => import('@/features/student/registration/RegistrationsPage'), 'RegistrationsPage');
 const StudentCoursesPage = page(() => import('@/features/student/courses/MyCoursesPage'), 'MyCoursesPage');
 const MyAssessmentsPage = page(() => import('@/features/student/assessments/MyAssessmentsPage'), 'MyAssessmentsPage');

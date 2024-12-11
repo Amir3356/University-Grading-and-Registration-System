@@ -7,7 +7,7 @@ const right = (content) => ({ content, styles: { halign: 'right' } })
 const share = (part, total) => (total ? `${((part / total) * 100).toFixed(1)}%` : '—')
 
 /**
- * Render a registration & withdrawal report (from reports/reportsMockData buildReport) to PDF.
+ * Render a registration & withdrawal report to PDF.
  * meta: { periodLabel, rangeLabel, granularity, compareHint, university? }
  */
 export function downloadRegistrationReportPdf(report, meta) {
@@ -46,26 +46,30 @@ export function downloadRegistrationReportPdf(report, meta) {
     columnStyles: { 1: num, 2: num },
   }) + 18
 
-  const trendTotals = trend.reduce((a, t) => ({ r: a.r + t.registrations, w: a.w + t.withdrawals }), { r: 0, w: 0 })
+  const trendTotals = (trend || []).reduce((a, t) => ({ r: a.r + (t.registrations || 0), w: a.w + (t.withdrawals || 0) }), { r: 0, w: 0 })
   y = pdfTable(doc, {
     startY: section(`Registrations vs. withdrawals (${meta.granularity.toLowerCase()})`),
     head: ['Period', right('Registrations'), right('Withdrawals'), right('Net')],
-    body: trend.map((t) => [t.label, fmt(t.registrations), fmt(t.withdrawals), fmt(t.registrations - t.withdrawals)]),
+    body: (trend && trend.length)
+      ? trend.map((t) => [t.label, fmt(t.registrations), fmt(t.withdrawals), fmt(t.registrations - t.withdrawals)])
+      : [['No trend data recorded in this period.', '', '', '']],
     foot: ['Total', right(fmt(trendTotals.r)), right(fmt(trendTotals.w)), right(fmt(trendTotals.r - trendTotals.w))],
     columnStyles: { 1: num, 2: num, 3: num },
   }) + 18
 
   y = pdfTable(doc, {
-    startY: section(breakdown.title),
-    head: [breakdown.dimension, right('Registrations'), right('Withdrawals'), right('Withdrawal rate')],
-    body: breakdown.rows.map((r) => [r.name, fmt(r.registrations), fmt(r.withdrawals), share(r.withdrawals, r.registrations)]),
+    startY: section(breakdown?.title || 'By department'),
+    head: [breakdown?.dimension || 'Department', right('Registrations'), right('Withdrawals'), right('Withdrawal rate')],
+    body: (breakdown?.rows && breakdown.rows.length)
+      ? breakdown.rows.map((r) => [r.name, fmt(r.registrations), fmt(r.withdrawals), share(r.withdrawals, r.registrations)])
+      : [['No departmental activity recorded in this period.', '', '', '']],
     columnStyles: { 1: num, 2: num, 3: num },
   }) + 18
 
   y = pdfTable(doc, {
     startY: section('Withdrawal reasons'),
     head: ['Reason', right('Withdrawals'), right('Share')],
-    body: withdrawalReasons.length && kpis.withdrawals.value
+    body: (withdrawalReasons && withdrawalReasons.length && kpis?.withdrawals?.value)
       ? withdrawalReasons.map((r) => [r.reason, fmt(r.count), share(r.count, kpis.withdrawals.value)])
       : [['No withdrawals in this period.', '', '']],
     columnStyles: { 1: num, 2: num },
@@ -73,8 +77,10 @@ export function downloadRegistrationReportPdf(report, meta) {
 
   pdfTable(doc, {
     startY: section('Recent activity'),
-    head: ['Student', 'Student ID', 'Course', 'Type', 'When'],
-    body: recentActivity.map((a) => [a.student, a.studentId, a.course, a.type === 'withdrawal' ? 'Withdrawal' : 'Registration', a.when]),
+    head: ['Student', 'Student ID', 'Course / Type', 'Type', 'When'],
+    body: (recentActivity && recentActivity.length)
+      ? recentActivity.map((a) => [a.student, a.studentId, a.course, a.type === 'withdrawal' ? 'Withdrawal' : 'Registration', a.when])
+      : [['No recent activity recorded in this period.', '', '', '', '']],
   })
 
   finishPdf(doc, `registration_report_${meta.periodLabel.toLowerCase().replace(/\s+/g, '_')}`)

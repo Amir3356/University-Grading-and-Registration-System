@@ -21,7 +21,6 @@ import { toast } from 'sonner'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -31,9 +30,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { useParams } from 'react-router-dom'
 import {
   Select,
   SelectContent,
@@ -57,12 +54,10 @@ import { DEFAULT_GRADE_SCALE, computeWeightedTotal, gradeForScore, isPassing, va
 import { cn } from '@/lib/utils'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
-import { defaultOfferingId, isLockedStatus, lockedExplanation, typeLabel } from '../lib'
+import { isLockedStatus, typeLabel } from '../lib'
 
 export function EntermarkPage() {
-  const { offeringId: paramOfferingId } = useParams()
   const lookups = useLookups()
-  const currentSemesterId = lookups?.currentSemester?.id
 
   // 1. Fetch teacher offerings
   const {
@@ -244,7 +239,6 @@ export function EntermarkPage() {
   const [editModalData, setEditModalData] = useState(null) // { row, isNew?: boolean }
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
   const [submittingGrades, setSubmittingGrades] = useState(false)
-  const [showIncompleteList, setShowIncompleteList] = useState(false)
 
   // Assessment columns to display in spreadsheet
   const assessments = useMemo(() => {
@@ -593,12 +587,6 @@ export function EntermarkPage() {
     })
   }, [matchingGbRows, assessments, gridEdits, currentOffering, scale, passMark, gradebook?.offeringAssessmentsMap])
 
-  // Grade submission metrics & handler
-  const weightTotal = useMemo(() => {
-    return assessments.reduce((acc, a) => acc + Number(a.weight ?? a.maxMarks ?? 0), 0)
-  }, [assessments])
-  const weightsValid = assessments.length === 0 || Math.round(weightTotal) === 100
-
   const summaryStats = useMemo(() => {
     const total = tableData.length
     const active = tableData.filter((t) => !t.withdrawn)
@@ -641,24 +629,6 @@ export function EntermarkPage() {
     }
   }, [tableData, scale])
 
-  const incompleteStudents = useMemo(() => {
-    return tableData
-      .filter((t) => !t.calc?.complete && !t.withdrawn)
-      .map((t) => {
-        const rowAsms = gradebook?.offeringAssessmentsMap?.[t.offeringId] || assessments
-        const missing = rowAsms
-          .filter((a) => t.effectiveMarks?.[a.id] == null || t.effectiveMarks?.[a.id] === '')
-          .map((a) => a.name)
-        const currentTotal = t.calc?.total ?? t.calc?.totalScore
-        return {
-          id: t.studentId,
-          name: t.studentName,
-          missing,
-          currentTotal: currentTotal != null ? Number(currentTotal).toFixed(1) : '0.0',
-        }
-      })
-  }, [tableData, assessments, gradebook?.offeringAssessmentsMap])
-
   const handleSubmitGrades = async () => {
     const offeringsToSubmit = activeOfferingId
       ? [activeOfferingId]
@@ -687,7 +657,6 @@ export function EntermarkPage() {
           : 'Grades submitted successfully to Department Head for review.'
       )
       setSubmitDialogOpen(false)
-      setShowIncompleteList(false)
       await refetchOfferings()
       await refetchGradebook()
     } catch (err) {
@@ -1250,12 +1219,7 @@ export function EntermarkPage() {
       {/* Grade Submission Dialog */}
       <Dialog
         open={submitDialogOpen}
-        onOpenChange={(open) => {
-          setSubmitDialogOpen(open)
-          if (!open) {
-            setShowIncompleteList(false)
-          }
-        }}
+        onOpenChange={setSubmitDialogOpen}
       >
         <DialogContent size="xl" className="max-w-4xl max-h-[92vh] flex flex-col p-6">
           <DialogHeader className="tea-submit-dialog-header" style={{ textAlign: 'center', alignItems: 'center', paddingRight: 0 }}>
@@ -1443,7 +1407,6 @@ export function EntermarkPage() {
               variant="outline"
               onClick={() => {
                 setSubmitDialogOpen(false)
-                setShowIncompleteList(false)
               }}
               disabled={submittingGrades}
             >
@@ -1510,7 +1473,9 @@ function EnterMarkDialog({
         if (active && items.length > 0) {
           setLiveOfferingsList(items)
         }
-      } catch {}
+      } catch {
+        /* ignore */
+      }
 
       // 2. Refresh active offering detail
       const targetId = dialogOfferingId || offeringId || offerings[0]?.id
@@ -1521,13 +1486,17 @@ function EnterMarkDialog({
             setLiveOffering(off)
             return
           }
-        } catch {}
+        } catch {
+          /* ignore */
+        }
         try {
           const off = await store.teacher.getMyOffering(targetId)
           if (active && off?.offering) {
             setLiveOffering(off.offering)
           }
-        } catch {}
+        } catch {
+          /* ignore */
+        }
       }
     }
 
@@ -1687,7 +1656,9 @@ function EnterMarkDialog({
                 setCourseAssessments(sibItems)
                 return
               }
-            } catch {}
+            } catch {
+              /* ignore */
+            }
           }
         }
 

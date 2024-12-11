@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ClipboardList,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { FilterSelect } from '@/components/common/FilterSelect'
@@ -52,7 +51,7 @@ export function MyAssessmentsPage() {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [courseFilter, setCourseFilter] = useState('all')
-  const [sort, setSort] = useState({ key: 'dueDate', dir: 'asc' })
+  const [sort] = useState({ key: 'dueDate', dir: 'asc' })
 
   const handleSearchChange = (val) => {
     setSearch(val)
@@ -62,16 +61,6 @@ export function MyAssessmentsPage() {
 
   const handleCourseChange = (val) => {
     setCourseFilter(val || 'all')
-    setCursor(null)
-    setCursorHistory([])
-  }
-
-  const handleSort = (key) => {
-    setSort((prev) => {
-      if (!prev || prev.key !== key) return { key, dir: 'asc' }
-      if (prev.dir === 'asc') return { key, dir: 'desc' }
-      return { key: 'dueDate', dir: 'asc' }
-    })
     setCursor(null)
     setCursorHistory([])
   }

@@ -1,8 +1,8 @@
 import { query } from '../config/database.js';
 import { getCurrentSemester } from './calendarRepository.js';
-import { getAcademicPolicy, getActiveGradeScale, getGradebookData } from './gradebookRepository.js';
+import { getAcademicPolicy, getActiveGradeScale } from './gradebookRepository.js';
 import { getUniversitySettings } from './settingsRepository.js';
-import { getAcademicStanding, computeGpa, roundTo2, computeEnrollmentScore } from '../utils/gpaCalculator.js';
+import { getAcademicStanding, roundTo2, computeEnrollmentScore } from '../utils/gpaCalculator.js';
 
 export async function getAdminDashboard() {
   const currentSemester = await getCurrentSemester();
@@ -335,75 +335,6 @@ export async function getMissingGradesReport({ semesterId, departmentId } = {}) 
   );
 }
 
-export async function getDepartmentReport({ semesterId } = {}) {
-  const deptsRes = await query(`SELECT * FROM departments ORDER BY name ASC`);
-  const scale = await getActiveGradeScale();
-
-  const results = [];
-  for (const dept of deptsRes.rows) {
-    const params = [dept.id];
-    let semFilter = '';
-    if (semesterId) {
-      params.push(semesterId);
-      semFilter = `AND co.semester_id = $2`;
-    }
-
-    const dataRes = await query(
-      `SELECT
-         COUNT(fg.id) as grades,
-         AVG(fg.total_score) as avg_score,
-         AVG(fg.grade_points) as avg_points,
-         COUNT(fg.id) FILTER (WHERE fg.grade_points > 0) as passed,
-         COUNT(fg.id) FILTER (WHERE fg.grade_points = 0) as failed,
-         COUNT(DISTINCT ce.student_id) as students
-       FROM final_grades fg
-       JOIN course_enrollments ce ON ce.id = fg.enrollment_id
-       JOIN course_offerings co ON co.id = ce.offering_id
-       JOIN courses c ON c.id = co.course_id
-       WHERE c.department_id = $1 AND fg.status = 'published' ${semFilter}`,
-      params
-    );
-    const d = dataRes.rows[0];
-    const grades = parseInt(d?.grades || '0', 10);
-    const passed = parseInt(d?.passed || '0', 10);
-    const failed = parseInt(d?.failed || '0', 10);
-    const passRate = grades > 0 ? roundTo2((passed / grades) * 100) : 0;
-
-    // Distribution
-    const distRes = await query(
-      `SELECT fg.letter, count(fg.id) as count
-       FROM final_grades fg
-       JOIN course_enrollments ce ON ce.id = fg.enrollment_id
-       JOIN course_offerings co ON co.id = ce.offering_id
-       JOIN courses c ON c.id = co.course_id
-       WHERE c.department_id = $1 AND fg.status = 'published' ${semFilter}
-       GROUP BY fg.letter`,
-      params
-    );
-    const distMap = {};
-    for (const row of distRes.rows) distMap[row.letter] = parseInt(row.count, 10);
-
-    results.push({
-      departmentId: dept.id,
-      code: dept.code,
-      name: dept.name,
-      grades,
-      averageScore: d?.avg_score ? roundTo2(d.avg_score) : 0,
-      averageGradePoint: d?.avg_points ? roundTo2(d.avg_points) : 0,
-      passRate,
-      passed,
-      failed,
-      students: parseInt(d?.students || '0', 10),
-      averageCgpa: d?.avg_points ? roundTo2(d.avg_points) : 0,
-      distribution: scale.entries.map((e) => ({
-        letter: e.letter,
-        count: distMap[e.letter] || 0,
-      })),
-    });
-  }
-  return results;
-}
-
 /** Parses "YYYY-MM-DD" as a local calendar date (new Date(str) would read it as UTC midnight). */
 function parseLocalDate(str) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(str ?? ''));
@@ -671,50 +602,6 @@ export async function getGpaReport({ departmentId, programType, yearOfStudy, sta
   };
 }
 
-export async function getRegistrationsReport({ semesterId } = {}) {
-  let semId = semesterId;
-  if (!semId) {
-    const curr = await getCurrentSemester();
-    semId = curr?.id;
-  }
-
-  const deptCountsRes = await query(
-    `SELECT d.name as department_name, count(sr.id) as count
-     FROM semester_registrations sr
-     JOIN students s ON s.id = sr.student_id
-     JOIN departments d ON d.id = s.department_id
-     WHERE sr.semester_id = $1 AND sr.status = 'registered'
-     GROUP BY d.id
-     ORDER BY d.name ASC`,
-    [semId]
-  );
-
-  const progTypeCountsRes = await query(
-    `SELECT s.program_type, count(sr.id) as count
-     FROM semester_registrations sr
-     JOIN students s ON s.id = sr.student_id
-     WHERE sr.semester_id = $1 AND sr.status = 'registered'
-     GROUP BY s.program_type`,
-    [semId]
-  );
-
-  const regTypeCountsRes = await query(
-    `SELECT rt.label as registration_type, count(sr.id) as count
-     FROM semester_registrations sr
-     JOIN registration_types rt ON rt.id = sr.registration_type_id
-     WHERE sr.semester_id = $1 AND sr.status = 'registered'
-     GROUP BY rt.id`,
-    [semId]
-  );
-
-  return {
-    semesterId: semId,
-    byDepartment: deptCountsRes.rows.map((r) => ({ name: r.department_name, count: parseInt(r.count, 10) })),
-    byProgramType: progTypeCountsRes.rows.map((r) => ({ type: r.program_type, count: parseInt(r.count, 10) })),
-    byRegistrationType: regTypeCountsRes.rows.map((r) => ({ type: r.registration_type, count: parseInt(r.count, 10) })),
-  };
-}
-
 export async function getStudentTranscriptData(studentId) {
   const university = await getUniversitySettings();
   const policy = await getAcademicPolicy();
@@ -872,7 +759,7 @@ export async function getStudentTranscriptData(studentId) {
   // Second pass: apply repeat policy ('latest', 'highest', 'all')
   const repeatPolicy = policy.repeatPolicy || 'latest';
 
-  for (const [courseId, attempts] of attemptsByCourse.entries()) {
+  for (const attempts of attemptsByCourse.values()) {
     if (attempts.length > 1) {
       for (const a of attempts) {
         a.isRepeat = true;

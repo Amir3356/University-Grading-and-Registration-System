@@ -4,7 +4,7 @@ import * as courseRepo from '../repositories/courseRepository.js';
 import * as calRepo from '../repositories/calendarRepository.js';
 import { newId } from '../utils/idGenerator.js';
 import { ConflictError, NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
-import { query } from '../config/database.js';
+import { logAudit } from '../utils/auditLogger.js';
 
 // ----------------- Departments -----------------
 
@@ -19,7 +19,7 @@ export async function getDepartmentById(id) {
 }
 
 
-export async function createDepartment(data, user) {
+export async function createDepartment(data, _user) {
   if (!data.name?.trim()) throw new ValidationError('Department name is required.', { name: 'Name is required.' });
   let code = data.code?.trim().toUpperCase();
   if (!code) {
@@ -41,7 +41,7 @@ export async function createDepartment(data, user) {
   return dept;
 }
 
-export async function updateDepartment(id, data, user) {
+export async function updateDepartment(id, data, _user) {
   const existing = await deptRepo.findById(id);
   if (!existing) throw new NotFoundError('Department');
 
@@ -55,7 +55,7 @@ export async function updateDepartment(id, data, user) {
   return dept;
 }
 
-export async function deleteDepartment(id, user) {
+export async function deleteDepartment(id, _user) {
   const existing = await deptRepo.findById(id);
   if (!existing) throw new NotFoundError('Department');
 
@@ -84,7 +84,7 @@ export async function getProgramById(id, user = null) {
 }
 
 
-export async function createProgram(data, user) {
+export async function createProgram(data, _user) {
   if (!data.name?.trim()) throw new ValidationError('Program name is required.', { name: 'Name is required.' });
   if (!data.code?.trim()) throw new ValidationError('Program code is required.', { code: 'Code is required.' });
   if (!data.departmentId) throw new ValidationError('Department is required.', { departmentId: 'Department is required.' });
@@ -102,14 +102,14 @@ export async function createProgram(data, user) {
   return prog;
 }
 
-export async function updateProgram(id, data, user) {
+export async function updateProgram(id, data, _user) {
   const prog = await progRepo.updateProgram(id, data);
   if (!prog) throw new NotFoundError('Program');
 
   return prog;
 }
 
-export async function deleteProgram(id, user) {
+export async function deleteProgram(id, _user) {
   const hasStudents = await progRepo.hasStudents(id);
   if (hasStudents) {
     throw new ConflictError('Cannot delete program with registered students.');
@@ -122,7 +122,7 @@ export async function getProgramCurriculum(programId) {
   return await progRepo.getCurriculum(programId);
 }
 
-export async function updateProgramCurriculum(programId, coursesList, user) {
+export async function updateProgramCurriculum(programId, coursesList, _user) {
   await progRepo.updateCurriculum(programId, coursesList);
   return await progRepo.getCurriculum(programId);
 }
@@ -188,6 +188,17 @@ export async function createCourse(data, user) {
     description: data.description,
   });
 
+  await logAudit({
+    actor: user,
+    action: 'create',
+    entityType: 'course',
+    entityId: course.id,
+    entityName: `${course.code} - ${course.title}`,
+    departmentId: course.departmentId || course.department_id || data.departmentId,
+    description: `Created course ${course.code} - ${course.title}`,
+    details: { after: course },
+  });
+
   return course;
 }
 
@@ -228,7 +239,20 @@ export async function updateCourse(id, data, user) {
     status: data.status,
   });
 
-  return await courseRepo.findById(id);
+  const updated = await courseRepo.findById(id);
+
+  await logAudit({
+    actor: user,
+    action: 'update',
+    entityType: 'course',
+    entityId: id,
+    entityName: `${updated.code} - ${updated.title}`,
+    departmentId: updated.department_id || user.departmentId,
+    description: `Updated course details for ${updated.code} - ${updated.title}`,
+    details: { before: existing, after: updated },
+  });
+
+  return updated;
 }
 
 export async function deleteCourse(id, user) {
@@ -247,6 +271,18 @@ export async function deleteCourse(id, user) {
   }
 
   await courseRepo.deleteCourse(id);
+
+  await logAudit({
+    actor: user,
+    action: 'delete',
+    entityType: 'course',
+    entityId: id,
+    entityName: `${existing.code} - ${existing.title}`,
+    departmentId: existing.department_id || user.departmentId,
+    description: `Deleted course ${existing.code} - ${existing.title}`,
+    details: { before: existing },
+  });
+
   return { ok: true };
 }
 
@@ -256,7 +292,7 @@ export async function listAcademicCalendar() {
   return await calRepo.listAcademicCalendar();
 }
 
-export async function createAcademicYear(data, user) {
+export async function createAcademicYear(data, _user) {
   if (!data.name?.trim()) throw new ValidationError('Academic year name is required.', { name: 'Name is required.' });
   if (!data.startDate || !data.endDate) throw new ValidationError('Dates are required.');
   if (data.endDate <= data.startDate) throw new ValidationError('End date must be after start date.');
@@ -272,14 +308,14 @@ export async function createAcademicYear(data, user) {
   return year;
 }
 
-export async function updateAcademicYear(id, data, user) {
+export async function updateAcademicYear(id, data, _user) {
   const year = await calRepo.updateAcademicYear(id, data);
   if (!year) throw new NotFoundError('Academic year');
 
   return year;
 }
 
-export async function createSemester(data, user) {
+export async function createSemester(data, _user) {
   if (!data.academicYearId) throw new ValidationError('Academic year is required.', { academicYearId: 'Required' });
   if (!data.term) throw new ValidationError('Term is required.', { term: 'Required' });
   if (!data.startDate || !data.endDate) throw new ValidationError('Dates are required.');
@@ -304,21 +340,21 @@ export async function createSemester(data, user) {
   return sem;
 }
 
-export async function updateSemester(id, data, user) {
+export async function updateSemester(id, data, _user) {
   const sem = await calRepo.updateSemester(id, data);
   if (!sem) throw new NotFoundError('Semester');
 
   return sem;
 }
 
-export async function setCurrentSemester(id, user) {
+export async function setCurrentSemester(id, _user) {
   const target = await calRepo.setCurrentSemester(id);
   if (!target) throw new NotFoundError('Semester');
 
   return target;
 }
 
-export async function deleteSemester(id, user) {
+export async function deleteSemester(id, _user) {
   const sem = await calRepo.getSemesterById(id);
   if (!sem) throw new NotFoundError('Semester');
   if (sem.is_current) throw new ConflictError('Cannot delete the current active semester.');

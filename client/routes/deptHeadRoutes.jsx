@@ -6,7 +6,6 @@ const page = (loader, name) =>
   lazy(() => loader().then((m) => ({ default: m[name] ?? m.default })));
 
 // Department Head Pages
-const DeptHeadDashboardPage = page(() => import('@/features/dept-head/DeptHeadDashboardPage'), 'DeptHeadDashboardPage');
 const DeptAccountProvisionPage = page(() => import('@/features/dept-head/DeptAccountProvisionPage'), 'DeptAccountProvisionPage');
 const DeptCoursesPage = page(() => import('@/features/dept-head/DeptCoursesPage'), 'DeptCoursesPage');
 const DeptTeachersPage = page(() => import('@/features/dept-head/DeptTeachersPage'), 'DeptTeachersPage');

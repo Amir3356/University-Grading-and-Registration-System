@@ -109,7 +109,7 @@ export function AssessmentsPage() {
   const debouncedSearch = useDebounce(search, 300)
   const [selectedYearOfStudy, setSelectedYearOfStudy] = useState('')
   const [selectedCourseId, setSelectedCourseId] = useState('all')
-  const [sort, setSort] = useState({ key: 'dueDate', dir: 'asc' })
+  const [sort] = useState({ key: 'dueDate', dir: 'asc' })
 
   const resetPagination = () => {
     setCursor(null)
@@ -183,15 +183,6 @@ export function AssessmentsPage() {
 
   const handleSearchChange = (val) => {
     setSearch(val)
-    resetPagination()
-  }
-
-  const handleSort = (key) => {
-    setSort((prev) => {
-      if (!prev || prev.key !== key) return { key, dir: 'asc' }
-      if (prev.dir === 'asc') return { key, dir: 'desc' }
-      return { key: 'dueDate', dir: 'asc' }
-    })
     resetPagination()
   }
 

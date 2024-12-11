@@ -324,7 +324,6 @@ export function AdminWithdrawalsPage() {
                     const isUnivWithdrawal =
                       r.withdrawalType === 'University Withdrawal' ||
                       r.withdrawalType?.toLowerCase().includes('university')
-                    const isPending = r.status === 'pending'
                     const isApproved = r.status === 'approved'
                     const isRejected = r.status === 'rejected'
                     const progType = r.programType || 'Regular'

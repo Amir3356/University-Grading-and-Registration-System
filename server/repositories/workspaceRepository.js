@@ -1,13 +1,12 @@
 import { query } from '../config/database.js';
-import { formatPagination } from '../utils/formatters.js';
 import { getCurrentSemester } from './calendarRepository.js';
 import { getAcademicPolicy, getActiveGradeScale } from './gradebookRepository.js';
-import { computeEnrollmentScore, getAcademicStanding, computeGpa, roundTo2 } from '../utils/gpaCalculator.js';
+import { computeEnrollmentScore, getAcademicStanding, roundTo2 } from '../utils/gpaCalculator.js';
 import { getOfferingById } from './offeringRepository.js';
 
 // ----------------- Teacher Workspace -----------------
 
-export async function getTeacherDashboard(teacherId, userId) {
+export async function getTeacherDashboard(teacherId) {
   const currentSemester = await getCurrentSemester();
   const currentSemId = currentSemester?.id;
 
@@ -221,7 +220,7 @@ export async function listTeacherStudents(teacherId, { semesterId, offeringId, s
 
 // ----------------- Student Workspace -----------------
 
-export async function getStudentDashboard(studentId, userId) {
+export async function getStudentDashboard(studentId) {
   const currentSemester = await getCurrentSemester();
   const currentSemId = currentSemester?.id;
 
@@ -629,7 +628,6 @@ export async function getStudentCourseDetail(studentId, enrollmentId) {
   let enteredWeightSum = 0;
 
   const assessments = asmRes.rows.map((a) => {
-    const isVisible = a.is_released || courseRow.resultStatus === 'published' || a.marks !== null;
     const marks = a.marks !== null ? parseFloat(a.marks) : null;
     const maxMarks = parseFloat(a.max_marks);
     const weight = parseFloat(a.weight);
@@ -670,7 +668,6 @@ export async function listStudentAssessments(studentId, {
   search,
   cursor,
   limit: limitParam,
-  page,
   pageSize,
   sortBy = 'dueDate',
   sortDir = 'asc',
@@ -858,7 +855,7 @@ export async function listStudentAssessments(studentId, {
   };
 }
 
-export async function getStudentGrades(studentId, { academicYearId, semesterId, offeringId } = {}) {
+export async function getStudentGrades(studentId, { semesterId } = {}) {
   const { getStudentTranscriptData } = await import('./reportRepository.js');
   const transcriptData = await getStudentTranscriptData(studentId);
   const policy = await getAcademicPolicy();

@@ -4,18 +4,13 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Clock,
   Eye,
-  FileQuestion,
   Loader2,
-  MessageSquare,
   MessageSquareWarning,
-  XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -41,7 +36,6 @@ import { PageHeader } from '@/components/common/PageHeader'
 import { SearchInput } from '@/components/common/SearchInput'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import { TableSkeleton } from '@/components/common/Loading'
-import { useAuth } from '@/context/auth-context'
 import { useQuery } from '@/hooks/useStore'
 import { useDebounce } from '@/hooks/useDebounce'
 import { formatDateTime } from '@/lib/format'
@@ -67,8 +61,6 @@ const CATEGORY_OPTIONS = [
 
 
 export function TeacherComplaintsPage() {
-  const { user } = useAuth()
-
   // 1. Fetch teacher courses for filter dropdown
   const { data: offerings } = useQuery(() => store.teacher.listMyOfferings({}), [])
 
@@ -365,7 +357,6 @@ export function TeacherComplaintsPage() {
                   {complaints.map((comp) => {
                     const isPending = comp.status === 'pending'
                     const isInReview = comp.status === 'in_review'
-                    const isResolved = comp.status === 'resolved' || comp.status === 'rejected'
 
                     const priorityClass =
                       comp.priority === 'Urgent'
