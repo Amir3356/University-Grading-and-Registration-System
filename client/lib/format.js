@@ -218,8 +218,18 @@ export function formatSemesterOptionLabel(s, academicYears = []) {
     }
   }
 
+  const currentYear = new Date().getFullYear()
+
+  // For active or upcoming semesters, ensure the year dynamically increments when the calendar year reaches a new year
+  if (s.status !== 'closed' && (s.status === 'active' || s.status === 'upcoming' || s.isCurrent || s.is_current)) {
+    const parsedNum = parseInt(year, 10)
+    if (!parsedNum || parsedNum < currentYear) {
+      year = String(currentYear)
+    }
+  }
+
   if (!year) {
-    year = String(new Date().getFullYear())
+    year = String(currentYear)
   }
 
   return `${year} ${termLabel}`

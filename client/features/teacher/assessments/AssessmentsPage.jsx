@@ -97,7 +97,7 @@ export function AssessmentsPage() {
     const sorted = Array.from(yearSet).sort((a, b) => Number(a) - Number(b))
     return sorted.map((y) => ({
       value: String(y),
-      label: `Year ${y}`,
+      label: formatYearOfStudy(y),
     }))
   }, [offerings])
 
@@ -116,15 +116,23 @@ export function AssessmentsPage() {
     setDirection('next')
   }
 
+  const defaultYear = teacherYearOptions[0]?.value || ''
+  const effectiveYearOfStudy = useMemo(() => {
+    if (selectedYearOfStudy && teacherYearOptions.some((o) => o.value === selectedYearOfStudy)) {
+      return selectedYearOfStudy
+    }
+    return defaultYear
+  }, [selectedYearOfStudy, teacherYearOptions, defaultYear])
+
   // Filter courses by selected Year of Study
   const filteredCourses = useMemo(() => {
     if (!uniqueCourses) return []
-    if (!selectedYearOfStudy || selectedYearOfStudy === 'all') return uniqueCourses
+    if (!effectiveYearOfStudy) return uniqueCourses
     return uniqueCourses.filter((o) => {
       const y = o?.yearOfStudy ?? o?.year_of_study ?? (o?.course ? getCourseStudyYear(o.course) : null)
-      return String(y) === String(selectedYearOfStudy)
+      return String(y) === String(effectiveYearOfStudy)
     })
-  }, [uniqueCourses, selectedYearOfStudy])
+  }, [uniqueCourses, effectiveYearOfStudy])
 
   // If a specific course was selected but does not belong to the selected year, treat as 'all'
   const effectiveCourseId = useMemo(() => {
@@ -150,11 +158,7 @@ export function AssessmentsPage() {
   }, [effectiveCourseId, offerings])
 
   const handleYearOfStudyChange = (year) => {
-    const val = year || ''
-    setSelectedYearOfStudy(val)
-    if (!val || val === 'all') {
-      setSelectedCourseId('all')
-    }
+    setSelectedYearOfStudy(year || '')
     resetPagination()
   }
 
@@ -199,12 +203,12 @@ export function AssessmentsPage() {
         direction,
         pageSize,
         search: debouncedSearch,
-        yearOfStudy: selectedYearOfStudy,
+        yearOfStudy: effectiveYearOfStudy,
         courseId: activeCourseId,
         sortBy: sort?.key,
         sortDir: sort?.dir,
       }),
-    [cursor, direction, pageSize, debouncedSearch, selectedYearOfStudy, activeCourseId, sort?.key, sort?.dir]
+    [cursor, direction, pageSize, debouncedSearch, effectiveYearOfStudy, activeCourseId, sort?.key, sort?.dir]
   )
 
   useWebSocketEvent('ASSESSMENT_CREATED', () => {
@@ -312,11 +316,11 @@ export function AssessmentsPage() {
             <div className="toolbar--split__right flex flex-wrap items-center gap-2">
               <FilterSelect
                 label="Year of Study"
-                value={selectedYearOfStudy}
+                value={effectiveYearOfStudy}
                 onChange={handleYearOfStudyChange}
                 options={teacherYearOptions}
-                allLabel="All Years of Study"
-                placeholder="Filter by Year of Study"
+                includeAll={false}
+                placeholder="Select Year"
                 className="filter-select--year w-48"
                 align="end"
               />

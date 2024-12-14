@@ -490,6 +490,52 @@
   gap: 1rem;
 }
 
+.reg-card__header--centered {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.reg-card__header-spacer {
+  display: block;
+}
+
+.reg-card__title--centered {
+  text-align: center;
+  justify-content: center;
+  margin: 0;
+}
+
+.semester-reg-main .reg-card__title {
+  text-align: center;
+  justify-content: center;
+}
+
+.reg-card__header-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+  .reg-card__header--centered {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .reg-card__header-spacer {
+    display: none;
+  }
+
+  .reg-card__header-actions {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 /* Tabs */
 .reg-card__tabs {
   display: flex;

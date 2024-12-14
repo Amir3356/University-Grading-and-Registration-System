@@ -29,7 +29,7 @@ function pad2(n) {
 }
 
 /** Formats a date into DD/MM/YYYY (Day/Month/Year) format */
-export function formatDateDMY(value) {
+function formatDateDMY(value) {
   if (!value) return '—'
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
     const [y, m, d] = value.split('T')[0].split('-')
@@ -41,13 +41,6 @@ export function formatDateDMY(value) {
   const mm = String(date.getMonth() + 1).padStart(2, '0')
   const yyyy = date.getFullYear()
   return `${dd}/${mm}/${yyyy}`
-}
-
-/** Utility to check if a deadline has passed */
-export function isDeadlinePassed(deadline) {
-  const endMs = getTimestamp(deadline, true)
-  if (!endMs) return false
-  return Date.now() > endMs
 }
 
 /**

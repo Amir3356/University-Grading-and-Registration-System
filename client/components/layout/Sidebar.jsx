@@ -5,7 +5,7 @@ import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { NAVIGATION } from '@/routes/navigation'
 
-export function SidebarNav({ collapsed = false, badges = {}, onNavigate }) {
+function SidebarNav({ collapsed = false, badges = {}, onNavigate }) {
   const { user } = useAuth()
   const location = useLocation()
   const sections = NAVIGATION[user?.roleId] ?? []
@@ -66,7 +66,7 @@ export function SidebarNav({ collapsed = false, badges = {}, onNavigate }) {
   )
 }
 
-export function Brand({ collapsed }) {
+function Brand({ collapsed }) {
   const lookups = useLookups()
   return (
     <div className="sidebar__brand">

@@ -10,29 +10,61 @@ import { getStudentCurrentYearOfStudy } from '@/lib/format'
 import { onUserChange } from '@/lib/syncEvents'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
+import { getDepartmentName } from '@/features/admin/users/UserFormDialog'
 
 export function DeptStudentsPage() {
   const { user, profile } = useAuth()
   const lookups = useLookups()
 
+  // Resolve department head's own profile to reliably get the department assigned during Account Provision
+  const { data: self, refetch: refetchSelf } = useQuery(
+    () => (user?.id ? store.users.getUser(user.id).catch(() => null) : Promise.resolve(null)),
+    [user?.id],
+    {
+      enabled: Boolean(user?.id),
+      live: false,
+    },
+  )
+
   const headDeptId =
+    self?.departmentId ??
+    self?.department_id ??
+    self?.profile?.departmentId ??
+    self?.profile?.department_id ??
     profile?.departmentId ??
     profile?.department_id ??
     profile?.department?.id ??
     user?.departmentId ??
-    user?.department_id
+    user?.department_id ??
+    (lookups?.departments ?? []).find(
+      (d) =>
+        (d.headTeacherId && (d.headTeacherId === profile?.id || d.headTeacherId === user?.id || d.headTeacherId === self?.id)) ||
+        (d.head_teacher_id && (d.head_teacher_id === profile?.id || d.head_teacher_id === user?.id || d.head_teacher_id === self?.id))
+    )?.id ??
+    (lookups?.teachers ?? []).find(
+      (t) => (t.userId && t.userId === user?.id) || (t.user_id && t.user_id === user?.id) || t.id === profile?.id
+    )?.departmentId ??
+    'dep_cs'
 
   const dept =
     (lookups?.departments ?? []).find(
       (d) =>
-        (d.headTeacherId && d.headTeacherId === profile?.id) ||
-        (d.head_teacher_id && d.head_teacher_id === profile?.id) ||
-        d.id === headDeptId,
+        d.id === headDeptId ||
+        (d.headTeacherId && (d.headTeacherId === profile?.id || d.headTeacherId === user?.id || d.headTeacherId === self?.id)) ||
+        (d.head_teacher_id && (d.head_teacher_id === profile?.id || d.head_teacher_id === user?.id || d.head_teacher_id === self?.id)),
     ) ||
     (headDeptId ? (lookups?.departments ?? []).find((d) => d.id === headDeptId) : null) ||
+    (self?.departmentName ? { id: headDeptId, name: self.departmentName } : null) ||
     lookups?.departments?.find((d) => d.id === 'dep_cs') ||
     lookups?.departments?.[0]
-  const deptId = dept?.id
+
+  const deptId = dept?.id || headDeptId
+  const deptName =
+    self?.departmentName ||
+    self?.department_name ||
+    dept?.name ||
+    getDepartmentName(deptId) ||
+    'Department'
 
   const { data, loading, error, refetch } = useQuery(
     () => store.users.listUsers({ departmentId: deptId, role: 'student', pageSize: 100 }),
@@ -42,11 +74,19 @@ export function DeptStudentsPage() {
 
   useEffect(() => {
     return onUserChange(() => {
+      refetchSelf()
       refetch()
     })
-  }, [refetch])
+  }, [refetchSelf, refetch])
 
-  useWebSocketEvent('USER_UPDATED', () => refetch())
+  useWebSocketEvent('USER_UPDATED', () => {
+    refetchSelf()
+    refetch()
+  })
+  useWebSocketEvent('USER_DELETED', () => {
+    refetchSelf()
+    refetch()
+  })
   useWebSocketEvent('STUDENT_UPDATED', () => refetch())
   useWebSocketEvent('WITHDRAWAL_APPROVED', () => refetch())
   useWebSocketEvent('WITHDRAWAL_UPDATED', () => refetch())
@@ -54,6 +94,23 @@ export function DeptStudentsPage() {
   const columns = [
     { key: 'identifier', header: 'Student ID', cell: (s) => <span className="font-mono text-xs">{s.identifier || s.student_number || s.studentNumber}</span> },
     { key: 'name', header: 'Student Name', cell: (s) => <span className="font-semibold">{(s.name || `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`).trim()}</span> },
+    {
+      key: 'department',
+      header: 'Department',
+      value: (s) =>
+        (s.departmentName && s.departmentName !== '—' ? s.departmentName : null) ||
+        (s.departmentId ? getDepartmentName(s.departmentId) : null) ||
+        deptName ||
+        '—',
+      cell: (s) => {
+        const dName =
+          (s.departmentName && s.departmentName !== '—' ? s.departmentName : null) ||
+          (s.departmentId ? getDepartmentName(s.departmentId) : null) ||
+          deptName ||
+          '—'
+        return <span className="font-medium text-foreground">{dName}</span>
+      },
+    },
     {
       key: 'yearOfStudy',
       header: 'Current Year',
@@ -90,7 +147,7 @@ export function DeptStudentsPage() {
   return (
     <>
       <PageHeader
-        title={`${dept?.name ?? 'Department'} — Students`}
+        title={`${deptName} — Students`}
         description="Students currently enrolled and studying in this department."
         centered
       />

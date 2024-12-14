@@ -30,9 +30,6 @@ export const helmetSecurity = helmet({
   xssFilter: true,
 });
 
-// Backward-compatible alias
-export const securityHeaders = helmetSecurity;
-
 /**
  * Sanitizes input string to prevent script injection
  */

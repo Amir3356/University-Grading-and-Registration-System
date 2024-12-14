@@ -12,7 +12,7 @@ export { subject };
  * @returns {MongoAbility} CASL Ability instance
  */
 export function defineAbilityFor(user) {
-  const { can, cannot, build } = new AbilityBuilder(createMongoAbility);
+  const { can, build } = new AbilityBuilder(createMongoAbility);
 
   if (!user) {
     // Unauthenticated guest: can only view public lookups

@@ -14,11 +14,6 @@ export const DEFAULT_GRADE_SCALE = [
   { letter: 'F', min: 0, max: 49.99, points: 0.0 },
 ];
 
-export const SPECIAL_GRADES = {
-  W: { letter: 'W', label: 'Withdrawn' },
-  I: { letter: 'I', label: 'Incomplete' },
-};
-
 export const ASSESSMENT_TYPES = [
   { value: 'assignment', label: 'Assignment' },
   { value: 'quiz', label: 'Quiz' },
@@ -27,10 +22,3 @@ export const ASSESSMENT_TYPES = [
   { value: 'practical', label: 'Practical Exam' },
   { value: 'project', label: 'Project' },
 ];
-
-export const ACADEMIC_LIMITS = {
-  MIN_CREDITS_PER_SEMESTER: 12,
-  MAX_CREDITS_PER_SEMESTER: 21,
-  PASSING_GRADE_POINTS: 2.0,
-  MAX_GPA: 4.0,
-};

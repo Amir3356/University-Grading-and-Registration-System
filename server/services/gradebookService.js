@@ -1,7 +1,6 @@
 import * as gbRepo from '../repositories/gradebookRepository.js';
 import { getOfferingById } from '../repositories/offeringRepository.js';
 import { ConflictError, NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
-import { roundTo2 } from '../utils/gpaCalculator.js';
 import { logAudit } from '../utils/auditLogger.js';
 
 export async function getGradebook(offeringId, caller) {
@@ -222,24 +221,6 @@ export async function importScores(offeringId, { records, dryRun = true, reason 
   return result;
 }
 
-export async function getImportTemplate(offeringId) {
-  const gradebook = await gbRepo.getGradebookData(offeringId);
-  if (!gradebook) throw new NotFoundError('Course offering');
-
-  const headers = ['student_id', 'name', ...gradebook.assessments.map((a) => a.name)];
-  const rows = gradebook.rows
-    .filter((r) => r.enrollment.status !== 'withdrawn')
-    .map((r) => {
-      const line = [r.student.studentNumber, `"${r.student.name}"`];
-      for (const a of gradebook.assessments) {
-        line.push(r.marks[a.id] ?? '');
-      }
-      return line.join(',');
-    });
-
-  return [headers.join(','), ...rows].join('\n');
-}
-
 export async function getGradeHistory(offeringId) {
   return await gbRepo.getGradeHistory(offeringId);
 }
@@ -259,41 +240,6 @@ export async function getOfferingPerformance(offeringId) {
     stats: gradebook.stats,
     struggling,
     passMark: gradebook.passMark,
-  };
-}
-
-export async function getStudentOfferingPerformance(offeringId, enrollmentId) {
-  const gradebook = await gbRepo.getGradebookData(offeringId);
-  if (!gradebook) throw new NotFoundError('Course offering');
-
-  const row = gradebook.rows.find((r) => r.enrollmentId === enrollmentId);
-  if (!row) throw new NotFoundError('Student enrollment');
-
-  const assessmentDetails = gradebook.assessments.map((a) => {
-    const mark = row.marks[a.id] ?? null;
-    const percent = mark !== null && a.maxMarks > 0 ? roundTo2((mark / a.maxMarks) * 100) : null;
-    const avgObj = gradebook.stats.assessmentAverages.find((avg) => avg.assessmentId === a.id);
-    return {
-      ...a,
-      marks: mark,
-      percent,
-      classAveragePercent: avgObj?.averagePercent || 0,
-    };
-  });
-
-  const atRisk = row.runningPercent < gradebook.passMark;
-
-  return {
-    offering: gradebook.offering,
-    student: row.student,
-    enrollment: row.enrollment,
-    total: row.total,
-    runningPercent: row.runningPercent,
-    letter: row.letter,
-    complete: row.complete,
-    assessments: assessmentDetails,
-    classAverage: gradebook.stats.runningAverage || 0,
-    atRisk,
   };
 }
 

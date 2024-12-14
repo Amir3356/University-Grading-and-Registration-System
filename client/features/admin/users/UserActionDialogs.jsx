@@ -134,7 +134,19 @@ export function UserActionDialogs({ action, onClose }) {
         variant="destructive"
         onConfirm={async () => {
           const res = await remove(user.id)
-          return res.ok ? undefined : false
+          if (!res.ok) {
+            if (
+              res.error?.kind === 'not_found' ||
+              res.error?.status === 404 ||
+              String(res.error?.message || '').toLowerCase().includes('not found')
+            ) {
+              onClose()
+              return undefined
+            }
+            return false
+          }
+          onClose()
+          return undefined
         }}
       />
       <TempPasswordDialog result={temp} onClose={() => setTemp(null)} />

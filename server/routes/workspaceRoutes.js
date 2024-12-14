@@ -20,6 +20,5 @@ studentWorkspaceRouter.get('/courses', wsCtrl.listStudentCourses);
 studentWorkspaceRouter.get('/courses/:enrollmentId', wsCtrl.getStudentCourseDetail);
 studentWorkspaceRouter.get('/assessments', wsCtrl.listStudentAssessments);
 studentWorkspaceRouter.get('/grades', wsCtrl.getStudentGrades);
-studentWorkspaceRouter.get('/grade-report', wsCtrl.getStudentGradeReport);
 studentWorkspaceRouter.get('/progress', wsCtrl.getStudentProgress);
 studentWorkspaceRouter.get('/transcript', wsCtrl.getStudentTranscript);

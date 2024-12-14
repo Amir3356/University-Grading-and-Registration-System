@@ -1,12 +1,12 @@
 import { query, withTransaction } from '../config/database.js';
 import { newId } from '../utils/idGenerator.js';
 
-export function encodeCursor(val, id) {
+function encodeCursor(val, id) {
   if (!id) return null;
   return Buffer.from(JSON.stringify({ v: val, id })).toString('base64url');
 }
 
-export function decodeCursor(cursorStr) {
+function decodeCursor(cursorStr) {
   if (!cursorStr || typeof cursorStr !== 'string') return null;
   try {
     const raw = Buffer.from(cursorStr, 'base64url').toString('utf8');

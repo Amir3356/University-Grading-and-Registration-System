@@ -2,6 +2,7 @@ import * as deptRepo from '../repositories/departmentRepository.js';
 import * as progRepo from '../repositories/programRepository.js';
 import * as courseRepo from '../repositories/courseRepository.js';
 import * as calRepo from '../repositories/calendarRepository.js';
+import { query } from '../config/database.js';
 import { newId } from '../utils/idGenerator.js';
 import { ConflictError, NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
 import { logAudit } from '../utils/auditLogger.js';
@@ -148,6 +149,12 @@ export async function getCourseById(id) {
 
 export async function createCourse(data, user) {
   if (user?.roleId === 'dept_head') {
+    if (!user.departmentId && user.id) {
+      const tRes = await query(`SELECT department_id FROM teachers WHERE user_id = $1 LIMIT 1`, [user.id]);
+      if (tRes.rows.length > 0 && tRes.rows[0].department_id) {
+        user.departmentId = tRes.rows[0].department_id;
+      }
+    }
     if (!user.departmentId) {
       throw new ForbiddenError('Department head does not have an assigned department.');
     }

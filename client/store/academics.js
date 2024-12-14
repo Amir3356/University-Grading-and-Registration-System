@@ -58,7 +58,7 @@ export function getCachedCourses() {
   return coursesMemoryCache;
 }
 
-export function clearCoursesCache() {
+function clearCoursesCache() {
   coursesMemoryCache = null;
 }
 

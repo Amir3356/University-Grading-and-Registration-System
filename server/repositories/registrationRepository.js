@@ -491,19 +491,25 @@ export async function createStudentRegistration({ id, studentId, semesterId, per
     `INSERT INTO semester_registrations (
        id, student_id, semester_id, period_id, registration_type_id, cafe_status, status, submitted_at
      ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', now())
+     ON CONFLICT (student_id, semester_id) DO UPDATE
+     SET period_id = EXCLUDED.period_id,
+         registration_type_id = EXCLUDED.registration_type_id,
+         cafe_status = EXCLUDED.cafe_status,
+         status = CASE WHEN semester_registrations.status = 'registered' THEN 'registered' ELSE 'pending' END,
+         updated_at = now()
      RETURNING *`,
     [id, studentId, semesterId, periodId, registrationTypeId, cafeStatus]
   );
   return res.rows[0];
 }
 
-/** Re-submit a registration the student had cancelled (one row per student and semester). */
+/** Re-submit a registration the student had cancelled or had rejected (one row per student and semester). */
 export async function resubmitStudentRegistration({ id, periodId, registrationTypeId, cafeStatus = 'cafe' }) {
   const res = await query(
     `UPDATE semester_registrations
      SET status = 'pending', period_id = $2, registration_type_id = $3, cafe_status = $4, submitted_at = now(),
          reviewed_by = NULL, reviewed_at = NULL, remarks = NULL, updated_at = now()
-     WHERE id = $1 AND status = 'cancelled'
+     WHERE id = $1 AND (status = 'cancelled' OR status = 'rejected')
      RETURNING *`,
     [id, periodId, registrationTypeId, cafeStatus]
   );

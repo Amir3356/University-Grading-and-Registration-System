@@ -1,10 +1,6 @@
 import axios from 'axios';
 import { StoreError } from '@/store/helpers';
 import {
-  TOKEN_KEY,
-  REFRESH_TOKEN_KEY,
-  USER_KEY,
-  PROFILE_KEY,
   isJwtExpired,
   getStoredToken,
   getStoredRefreshToken,
@@ -14,27 +10,11 @@ import {
   clearStoredSession,
 } from '@/lib/storage';
 import { transformKeysToCamel } from '@/lib/caseTransform';
-
-// Re-export storage helpers for backward compatibility
-export {
-  TOKEN_KEY,
-  REFRESH_TOKEN_KEY,
-  USER_KEY,
-  PROFILE_KEY,
-  isJwtExpired,
-  getStoredToken,
-  getStoredRefreshToken,
-  getStoredUser,
-  getStoredProfile,
-  setStoredSession,
-  clearStoredSession,
-};
-
 import { API_BASE_URL, API_TIMEOUT, DEFAULT_HEADERS, ENDPOINTS } from '@/config/api.config';
 
-export const API_BASE = API_BASE_URL;
+const API_BASE = API_BASE_URL;
 
-export const apiClient = axios.create({
+const apiClient = axios.create({
   baseURL: API_BASE,
   timeout: API_TIMEOUT,
   withCredentials: true,
@@ -225,12 +205,14 @@ apiClient.interceptors.response.use(
           ? 'forbidden'
           : res.status === 401
           ? 'unauthenticated'
+          : res.status === 409
+          ? 'conflict'
           : res.status === 422
           ? 'validation'
           : 'error');
       const message = err?.message || errData?.message || res.statusText || 'Request failed';
       const fieldErrors = err?.fieldErrors || errData?.fieldErrors || err?.details || null;
-      throw new StoreError(kind, message, fieldErrors);
+      throw new StoreError(kind, message, fieldErrors, res.status);
     }
 
     throw new StoreError('error', error.message || 'Network connection failed');
@@ -246,33 +228,6 @@ function cleanParams(params) {
     }
   }
   return clean;
-}
-
-/**
- * Backward-compatible apiRequest wrapper backed by Axios
- */
-export async function apiRequest(endpoint, options = {}) {
-  const config = {
-    url: endpoint,
-    method: (options.method || 'GET').toUpperCase(),
-    headers: options.headers ? { ...options.headers } : {},
-    ...options,
-  };
-
-  if (options.body) {
-    if (typeof options.body === 'string') {
-      try {
-        config.data = JSON.parse(options.body);
-      } catch {
-        config.data = options.body;
-      }
-    } else {
-      config.data = options.body;
-    }
-  }
-
-  const response = await apiClient(config);
-  return response.data;
 }
 
 /**

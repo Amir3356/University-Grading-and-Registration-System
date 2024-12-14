@@ -13,7 +13,7 @@ export function MyCoursesPage() {
   const lookups = useLookups()
   const [academicYearChoice, setAcademicYearChoice] = useState('all')
   const [semesterChoice, setSemesterChoice] = useState('all')
-  const [yearOfStudyChoice, setYearOfStudyChoice] = useState('all')
+  const [yearOfStudyChoice, setYearOfStudyChoice] = useState('')
 
   const { data, loading, error, refetch } = useQuery(() => store.teacher.listMyOfferings())
 
@@ -39,7 +39,7 @@ export function MyCoursesPage() {
   }, [data])
 
   // Distinct years of study assigned to the teacher by the Department Head in Teacher Assignments
-  const teacherYearOptions = useMemo(() => {
+  const yearOfStudyOptions = useMemo(() => {
     const map = new Map()
     for (const o of rawList) {
       const rawYear =
@@ -61,16 +61,13 @@ export function MyCoursesPage() {
     return Array.from(map.values()).sort((a, b) => Number(a.value) - Number(b.value))
   }, [rawList])
 
-  const yearOfStudyOptions = [
-    { value: 'all', label: 'Year of Study' },
-    ...teacherYearOptions,
-  ]
-
+  const defaultYear = yearOfStudyOptions[0]?.value || ''
   const effectiveYearOfStudyChoice = useMemo(() => {
-    if (yearOfStudyChoice === 'all') return 'all'
-    const exists = teacherYearOptions.some((o) => o.value === yearOfStudyChoice)
-    return exists ? yearOfStudyChoice : 'all'
-  }, [yearOfStudyChoice, teacherYearOptions])
+    if (yearOfStudyChoice && yearOfStudyOptions.some((o) => o.value === yearOfStudyChoice)) {
+      return yearOfStudyChoice
+    }
+    return defaultYear
+  }, [yearOfStudyChoice, yearOfStudyOptions, defaultYear])
 
   const filteredData = useMemo(() => {
     return rawList.filter((o) => {
@@ -118,7 +115,7 @@ export function MyCoursesPage() {
         }
       }
 
-      if (effectiveYearOfStudyChoice !== 'all') {
+      if (effectiveYearOfStudyChoice) {
         const yStr = formatYearOfStudy(
           o.yearOfStudy ?? o.year_of_study ?? o.course?.yearOfStudy ?? o.course?.level ?? o.course?.code
         )
@@ -139,7 +136,7 @@ export function MyCoursesPage() {
   const isFiltered =
     academicYearChoice !== 'all' ||
     semesterChoice !== 'all' ||
-    effectiveYearOfStudyChoice !== 'all'
+    effectiveYearOfStudyChoice !== defaultYear
 
   const toolbar = (
     <div
@@ -174,7 +171,7 @@ export function MyCoursesPage() {
           value={effectiveYearOfStudyChoice}
           onChange={setYearOfStudyChoice}
           options={yearOfStudyOptions}
-          placeholder="Year of Study"
+          placeholder="Select Year"
           includeAll={false}
         />
       </div>
@@ -185,7 +182,7 @@ export function MyCoursesPage() {
           onClick={() => {
             setAcademicYearChoice('all')
             setSemesterChoice('all')
-            setYearOfStudyChoice('all')
+            setYearOfStudyChoice(defaultYear)
           }}
           className="text-xs text-muted-foreground hover:text-foreground h-9"
         >

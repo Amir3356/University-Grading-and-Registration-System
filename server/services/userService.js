@@ -713,16 +713,31 @@ export async function setUserStatus(id, { status, reason }, caller) {
 }
 
 export async function deleteUser(id, caller) {
-  if (caller.id === id) {
+  if (caller?.id === id) {
     throw new ConflictError('You cannot delete your own account.');
   }
 
-  const oldDetail = await getUserDetail(id, caller, { skipScopeCheck: true });
+  // Idempotent: If user is already removed from DB, return ok immediately
+  const user = await userRepo.findById(id);
+  if (!user) {
+    return { ok: true, alreadyDeleted: true };
+  }
+
+  let oldDetail = null;
+  try {
+    oldDetail = await getUserDetail(id, caller, { skipScopeCheck: true });
+  } catch {
+    oldDetail = {
+      user: {
+        id: user.id,
+        name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username || id,
+        roleId: user.role_id,
+      },
+    };
+  }
 
   if (caller?.roleId === 'dept_head') {
-    const userRes = await query(`SELECT role_id FROM users WHERE id = $1`, [id]);
-    if (userRes.rows.length === 0) throw new NotFoundError('User');
-    if (!['student', 'teacher'].includes(userRes.rows[0].role_id)) {
+    if (!['student', 'teacher'].includes(user.role_id)) {
       throw new ForbiddenError('Department heads can only delete student and teacher accounts.');
     }
     await assertDeptHeadCanManage(caller, id, 'You can only delete users in your department or accounts you created.');
@@ -747,7 +762,10 @@ export async function deleteUser(id, caller) {
     throw new ConflictError('Cannot delete user: teacher has assigned course offerings. Deactivate the user instead.');
   }
 
-  const createdUser = await withTransaction(async (client) => {
+  const adminQueryRes = await query("SELECT id FROM users WHERE role_id = 'admin' ORDER BY created_at ASC LIMIT 1");
+  const fallbackAdminId = caller?.id || adminQueryRes.rows[0]?.id || 'usr_0001';
+
+  await withTransaction(async (client) => {
     // 1. Delete student withdrawal clearances & requests
     await client.query(
       `DELETE FROM withdrawal_clearances WHERE request_id IN (
@@ -760,7 +778,13 @@ export async function deleteUser(id, caller) {
       [id]
     );
 
-    // 2. Delete student assessments, grades, and enrollments
+    // 2. Delete student complaints
+    await client.query(
+      `DELETE FROM complaints WHERE student_id IN (SELECT id FROM students WHERE user_id = $1)`,
+      [id]
+    );
+
+    // 3. Delete student assessments, grades, and enrollments
     await client.query(
       `DELETE FROM assessment_scores WHERE enrollment_id IN (
          SELECT id FROM course_enrollments WHERE student_id IN (SELECT id FROM students WHERE user_id = $1)
@@ -778,28 +802,38 @@ export async function deleteUser(id, caller) {
       [id]
     );
 
-    // 3. Delete student semester registrations
+    // 4. Delete student semester registrations
     await client.query(
       `DELETE FROM semester_registrations WHERE student_id IN (SELECT id FROM students WHERE user_id = $1)`,
       [id]
     );
 
-    // 4. Delete student profile
+    // 5. Delete student profile
     await client.query(`DELETE FROM students WHERE user_id = $1`, [id]);
 
-    // 5. Clean up teacher records if teacher
+    // 6. Clean up teacher records if teacher
     await client.query(
       `UPDATE departments SET head_teacher_id = NULL WHERE head_teacher_id IN (SELECT id FROM teachers WHERE user_id = $1)`,
       [id]
     );
     await client.query(`DELETE FROM teachers WHERE user_id = $1`, [id]);
 
-    // 6. Nullify any audit/review references if present
+    // 7. Nullify or reassign any audit/review references if present
     await client.query(`UPDATE semester_registrations SET reviewed_by = NULL WHERE reviewed_by = $1`, [id]);
     await client.query(`UPDATE withdrawal_requests SET decided_by = NULL WHERE decided_by = $1`, [id]);
     await client.query(`UPDATE withdrawal_clearances SET cleared_by = NULL WHERE cleared_by = $1`, [id]);
+    await client.query(`UPDATE complaints SET responded_by = NULL WHERE responded_by = $1`, [id]);
+    await client.query(`UPDATE academic_policies SET updated_by = NULL WHERE updated_by = $1`, [id]);
+    await client.query(`UPDATE university_settings SET updated_by = NULL WHERE updated_by = $1`, [id]);
+    await client.query(`UPDATE grade_scales SET created_by = NULL WHERE created_by = $1`, [id]);
+    await client.query(`UPDATE users SET created_by = NULL WHERE created_by = $1`, [id]);
+    await client.query(`UPDATE registration_periods SET created_by = $2 WHERE created_by = $1`, [id, fallbackAdminId]);
+    await client.query(`UPDATE announcements SET author_id = $2 WHERE author_id = $1`, [id, fallbackAdminId]);
+    await client.query(`UPDATE assessment_scores SET updated_by = $2 WHERE updated_by = $1`, [id, fallbackAdminId]);
+    await client.query(`UPDATE grade_submissions SET submitted_by = $2 WHERE submitted_by = $1`, [id, fallbackAdminId]);
+    await client.query(`UPDATE grade_submission_reviews SET reviewer_id = $2 WHERE reviewer_id = $1`, [id, fallbackAdminId]);
 
-    // 7. Clean up notifications, refresh tokens, and user row
+    // 8. Clean up notifications, refresh tokens, and user row
     await client.query(`DELETE FROM notifications WHERE user_id = $1`, [id]);
     await client.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [id]);
     await client.query(`DELETE FROM users WHERE id = $1`, [id]);
@@ -807,18 +841,22 @@ export async function deleteUser(id, caller) {
     return { ok: true };
   });
 
-  await logAudit({
-    actor: caller,
-    action: 'delete',
-    entityType: 'user',
-    entityId: id,
-    entityName: `${oldDetail?.user?.name || id} (${oldDetail?.user?.roleId || 'user'})`,
-    departmentId: oldDetail?.department?.id || caller.departmentId,
-    description: `Deleted ${oldDetail?.user?.roleId || 'user'} account for ${oldDetail?.user?.name || id}`,
-    details: {
-      before: oldDetail?.user || { id },
-    },
-  });
+  try {
+    await logAudit({
+      actor: caller,
+      action: 'delete',
+      entityType: 'user',
+      entityId: id,
+      entityName: `${oldDetail?.user?.name || id} (${oldDetail?.user?.roleId || user.role_id || 'user'})`,
+      departmentId: oldDetail?.department?.id || caller?.departmentId,
+      description: `Deleted ${oldDetail?.user?.roleId || user.role_id || 'user'} account for ${oldDetail?.user?.name || id}`,
+      details: {
+        before: oldDetail?.user || { id },
+      },
+    });
+  } catch (err) {
+    console.warn('[deleteUser] Audit logging skipped:', err.message);
+  }
 
   return { ok: true };
 }

@@ -20,7 +20,7 @@ export async function logout(refreshToken) {
 }
 
 /** Current user and role profile (e.g. the student's student_number). */
-export async function getProfile() {
+async function getProfile() {
   return await api.get('/auth/me');
 }
 
@@ -42,4 +42,3 @@ export const logoutApi = logout;
 export const getProfileApi = getProfile;
 export const updateProfileApi = updateProfile;
 export const changePasswordApi = changePassword;
-export const refreshAccessTokenApi = refreshAccessToken;

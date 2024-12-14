@@ -109,7 +109,6 @@ export const NAVIGATION = {
         { to: '/student/courses', label: 'My Courses', icon: BookOpen },
         { to: '/student/assessments', label: 'Teacher Assessment', icon: ListChecks },
         { to: '/student/grades', label: 'My Grades', icon: BookOpenCheck },
-        { to: '/student/grade-report', label: 'Report', icon: FileBarChart },
         { to: '/student/transcript', label: 'Transcript', icon: FileText },
         { to: '/student/withdrawals', label: 'Withdrawal Request', icon: UserMinus },
         { to: '/student/complaints', label: 'Complain', icon: MessageSquareWarning },

@@ -269,15 +269,6 @@ export async function updateOffering(id, { courseId, semesterId, teacherId, sect
   return res.rows[0] || null;
 }
 
-export async function updateOfferingGradeStatus(id, gradeStatus, client = null) {
-  const runner = client || { query };
-  const res = await runner.query(
-    `UPDATE course_offerings SET grade_status = $2, updated_at = now() WHERE id = $1 RETURNING *`,
-    [id, gradeStatus]
-  );
-  return res.rows[0] || null;
-}
-
 export async function deleteOffering(id) {
   await query(`DELETE FROM course_offerings WHERE id = $1`, [id]);
 }
