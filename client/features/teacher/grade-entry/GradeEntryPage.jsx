@@ -89,14 +89,16 @@ function Gradebook({ gb, refetch, university }) {
   const changes = []
   const computed = []
   for (const row of gb.rows) {
-    const withdrawn = row.enrollment.status === 'withdrawn'
+    const withdrawn = row.enrollment?.status === 'withdrawn' || row.withdrawn
+    const withdrawalPending = Boolean(row.withdrawalPending || row.enrollment?.withdrawalPending)
+    const cannotEnterMarks = withdrawn || withdrawalPending
     const marks = {}
     const errors = {}
     const dirty = {}
     for (const a of assessments) {
       const k = cellKey(row.enrollmentId, a.id)
       const orig = row.marks?.[a.id] ?? row.marks?.[a.id.replace(/_([a-z])/g, (_, l) => l.toUpperCase())] ?? null
-      if (!(k in edits) || withdrawn) {
+      if (!(k in edits) || cannotEnterMarks) {
         marks[a.id] = orig
         continue
       }
@@ -119,12 +121,14 @@ function Gradebook({ gb, refetch, university }) {
     computed.push({
       row,
       withdrawn,
+      withdrawalPending,
+      cannotEnterMarks,
       errors,
       dirty,
       calc,
-      letter: withdrawn ? 'W' : (grade?.letter ?? null),
-      points: withdrawn || !calc.complete ? null : points,
-      passed: withdrawn || !calc.complete ? null : (grade?.letter && grade.letter.toUpperCase() === 'F' ? false : calc.total >= passMark),
+      letter: withdrawn ? 'W' : (withdrawalPending ? 'W (Pending)' : (grade?.letter ?? null)),
+      points: cannotEnterMarks || !calc.complete ? null : points,
+      passed: cannotEnterMarks || !calc.complete ? null : (grade?.letter && grade.letter.toUpperCase() === 'F' ? false : calc.total >= passMark),
     })
   }
   const invalidCount = computed.reduce((n, c) => n + Object.keys(c.errors).length, 0)
@@ -132,7 +136,7 @@ function Gradebook({ gb, refetch, university }) {
   const dirtyCount = changes.length + invalidCount
   useUnsavedChangesGuard(dirtyCount > 0)
 
-  const active = computed.filter((c) => !c.withdrawn)
+  const active = computed.filter((c) => !c.cannotEnterMarks)
   const complete = active.filter((c) => c.calc.complete)
   const classAverage = average(complete.map((c) => c.calc.total))
   const runningAverage = average(active.map((c) => c.calc.runningPercent))
@@ -342,12 +346,13 @@ function Gradebook({ gb, refetch, university }) {
                 {visible.map((c, rowIdx) => {
                   const r = c.row
                   return (
-                    <tr key={r.enrollmentId} className={cn('group', c.withdrawn && 'text-muted-foreground')}>
+                    <tr key={r.enrollmentId} className={cn('group', c.cannotEnterMarks && 'text-muted-foreground')}>
                       <th scope="row" className="sticky left-0 z-10 border-r border-b bg-card px-3 py-1.5 text-left font-normal group-hover:bg-muted">
                         <span className="block truncate font-medium">{r.student.name}</span>
                         <span className="block text-xs text-muted-foreground tabular">
                           {r.student.studentNumber}
                           {c.withdrawn && ' · Withdrawn'}
+                          {c.withdrawalPending && ' · Withdrawal Pending'}
                           {r.enrollment.isRepeat && ' · Repeat'}
                         </span>
                       </th>
@@ -362,6 +367,10 @@ function Gradebook({ gb, refetch, university }) {
                             {c.withdrawn ? (
                               <span className="inline-block w-20 text-right" aria-label={`${a.name}: withdrawn`}>
                                 W
+                              </span>
+                            ) : c.withdrawalPending ? (
+                              <span className="inline-block w-20 text-right text-xs font-semibold text-amber-600 dark:text-amber-400" title="Withdrawal request submitted (pending review) - mark entry locked">
+                                W (Pending)
                               </span>
                             ) : (
                               <>
@@ -409,7 +418,7 @@ function Gradebook({ gb, refetch, university }) {
                         )
                       })}
                       <td className="border-b border-l px-3 py-1.5 text-right font-medium tabular group-hover:bg-muted/50">
-                        {c.withdrawn ? '—' : c.calc.enteredCount ? (
+                        {c.cannotEnterMarks ? '—' : c.calc.enteredCount ? (
                           <span title={c.calc.complete ? 'Final weighted total' : `Partial total (${c.calc.enteredCount}/${assessments.length} marked)`}>
                             {formatNumber(c.calc.total, 2)}
                             {!c.calc.complete && <span className="text-xs font-normal text-muted-foreground">*</span>}
@@ -425,7 +434,15 @@ function Gradebook({ gb, refetch, university }) {
                         {c.points != null ? Number(c.points).toFixed(2) : '—'}
                       </td>
                       <td className="border-b px-3 py-1.5 group-hover:bg-muted/50">
-                        {c.withdrawn ? <span className="text-xs">Withdrawn</span> : c.calc.complete ? <PassFailBadge passed={c.passed} /> : <span className="text-xs text-muted-foreground">Incomplete</span>}
+                        {c.withdrawn ? (
+                          <span className="text-xs">Withdrawn</span>
+                        ) : c.withdrawalPending ? (
+                          <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Withdrawal Pending</span>
+                        ) : c.calc.complete ? (
+                          <PassFailBadge passed={c.passed} />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Incomplete</span>
+                        )}
                       </td>
                     </tr>
                   )

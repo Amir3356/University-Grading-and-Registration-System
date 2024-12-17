@@ -4,7 +4,7 @@
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
-export const API_TIMEOUT = 30000; // 30 seconds
+export const API_TIMEOUT = 15000; // 15 seconds
 
 export const DEFAULT_HEADERS = {
   Accept: 'application/json',

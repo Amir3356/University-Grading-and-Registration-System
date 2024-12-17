@@ -183,6 +183,12 @@ export function DeptApprovalsPage() {
         offeringId: s.offering?.id,
         courseCode: s.offering?.course?.code || s.courseCode || 'CS101',
         courseName: s.offering?.course?.title || s.courseTitle || 'Course',
+        yearOfStudy:
+          s.offering?.yearOfStudy ??
+          s.offering?.year_of_study ??
+          s.offering?.course?.yearOfStudy ??
+          s.offering?.course?.level ??
+          s.yearOfStudy,
         teacherName: s.teacher?.name || 'Teacher',
         teacherId: s.teacher?.employeeNumber || 'TCH',
         totalStudent: s.studentCount || 0,
@@ -243,11 +249,13 @@ export function DeptApprovalsPage() {
         const cName = String(a.courseName || '').toLowerCase()
         const tName = String(a.teacherName || '').toLowerCase()
         const tId = String(a.teacherId || '').toLowerCase()
+        const yStudy = String(formatYearOfStudy(a.yearOfStudy) || '').toLowerCase()
         if (
           !cCode.includes(q) &&
           !cName.includes(q) &&
           !tName.includes(q) &&
-          !tId.includes(q)
+          !tId.includes(q) &&
+          !yStudy.includes(q)
         ) {
           return false
         }
@@ -391,6 +399,9 @@ export function DeptApprovalsPage() {
                     Course Name
                   </TableHead>
                   <TableHead className="font-semibold text-foreground">
+                    Year of Study
+                  </TableHead>
+                  <TableHead className="font-semibold text-foreground">
                     Teacher Name
                   </TableHead>
                   <TableHead className="font-semibold text-foreground">
@@ -413,7 +424,7 @@ export function DeptApprovalsPage() {
               <TableBody>
                 {filteredApprovals.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
+                    <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">
                       <div className="flex flex-col items-center justify-center gap-1.5">
                         <span className="font-semibold text-foreground text-sm">No grade submissions found</span>
                         <span className="text-xs">
@@ -464,6 +475,11 @@ export function DeptApprovalsPage() {
                       </TableCell>
                       <TableCell>
                         <span className="font-medium text-foreground">{row.courseName}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="tabular text-xs font-medium whitespace-nowrap text-muted-foreground">
+                          {formatYearOfStudy(row.yearOfStudy)}
+                        </span>
                       </TableCell>
                       <TableCell className="text-foreground">
                         <span>{row.teacherName}</span>

@@ -8,14 +8,16 @@ import {
   approveWithdrawalApi,
   rejectWithdrawalApi,
   updateClearanceApi,
+  updateStudentWithdrawalApi,
 } from '@/api/withdrawals';
+import { wsClient } from '@/lib/websocket';
 
 function formatWithdrawal(r) {
   const clearances = r.clearances || [];
   return {
     id: r.id,
-    requestId: r.referenceNo || r.id,
-    referenceNo: r.referenceNo,
+    requestId: r.referenceNo || r.reference_no || r.id,
+    referenceNo: r.referenceNo || r.reference_no,
     studentId: r.student?.studentNumber || r.studentNumber || '—',
     studentName: r.student?.name || r.name || '—',
     department: r.student?.department?.name || r.department || '—',
@@ -32,17 +34,19 @@ function formatWithdrawal(r) {
     scope: r.scope,
     academicYear: r.semester?.academicYear?.name || String(new Date().getFullYear()),
     semester: r.semester?.name || 'First Semester',
-    reasonCategory: r.reasonCategory?.label || r.reasonCategory || 'General',
+    semesterId: r.semester?.id || r.semesterId,
+    reasonCategory: r.reasonCategory?.label || r.reason_category?.label || r.reasonCategory || 'General',
+    reasonCategoryId: r.reasonCategory?.id || r.reason_category?.id || r.reasonCategoryId || 'other',
     reason: r.reason,
     status: r.status,
-    requestDate: r.submittedAt
-      ? new Date(r.submittedAt).toLocaleDateString('en-GB', {
+    requestDate: r.submittedAt || r.submitted_at
+      ? new Date(r.submittedAt || r.submitted_at).toLocaleDateString('en-GB', {
           day: '2-digit',
           month: 'short',
           year: 'numeric',
         })
       : 'Recent',
-    adminNotes: r.adminNotes,
+    adminNotes: r.adminNotes || r.admin_notes,
     clearance: {
       department: clearances.find((c) => c.office === 'department')?.status || 'pending',
       library: clearances.find((c) => c.office === 'library')?.status || 'pending',
@@ -51,6 +55,30 @@ function formatWithdrawal(r) {
     },
     raw: r,
   };
+}
+
+function resolveReasonCategoryId(catId, catLabel) {
+  if (catId && [
+    'medical',
+    'financial',
+    'personal_family',
+    'relocation_transfer',
+    'employment',
+    'academic',
+    'personal_emergency',
+    'other',
+  ].includes(catId.toLowerCase())) {
+    return catId.toLowerCase();
+  }
+  const str = (catLabel || catId || '').toLowerCase();
+  if (str.includes('med')) return 'medical';
+  if (str.includes('finan')) return 'financial';
+  if (str.includes('reloc') || str.includes('trans')) return 'relocation_transfer';
+  if (str.includes('employ') || str.includes('job') || str.includes('work')) return 'employment';
+  if (str.includes('acad')) return 'academic';
+  if (str.includes('emerg')) return 'personal_emergency';
+  if (str.includes('fam') || str.includes('person')) return 'personal_family';
+  return 'other';
 }
 
 export function useWithdrawalRequests() {
@@ -64,8 +92,8 @@ export function useWithdrawalRequests() {
       if (user?.roleId === 'student') {
         list = await listStudentWithdrawalRequestsApi();
       } else {
-        const res = await listWithdrawalRequestsApi({ pageSize: 100 });
-        list = res.items || res;
+        const res = await listWithdrawalRequestsApi({ pageSize: 'all' });
+        list = res?.items || res || [];
       }
       if (Array.isArray(list)) {
         setRequests(list.map(formatWithdrawal));
@@ -77,53 +105,61 @@ export function useWithdrawalRequests() {
     }
   }, []);
 
+  // Initial load
   useEffect(() => {
-    let ignore = false;
-    (async () => {
-      try {
-        const user = getStoredUser();
-        let list = [];
-        if (user?.roleId === 'student') {
-          list = await listStudentWithdrawalRequestsApi();
-        } else {
-          const res = await listWithdrawalRequestsApi({ pageSize: 100 });
-          list = res.items || res;
-        }
-        if (!ignore && Array.isArray(list)) {
-          setRequests(list.map(formatWithdrawal));
-        }
-      } catch (err) {
-        console.error('Failed to fetch withdrawal requests:', err);
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    })();
+    fetchRequests();
+  }, [fetchRequests]);
+
+  // WebSocket real-time reactive sync and window focus listener
+  useEffect(() => {
+    const unsubChanged = wsClient?.subscribe?.('WITHDRAWAL_CHANGED', () => {
+      fetchRequests();
+    });
+    const unsubApproved = wsClient?.subscribe?.('WITHDRAWAL_APPROVED', () => {
+      fetchRequests();
+    });
+    const unsubUpdated = wsClient?.subscribe?.('WITHDRAWAL_UPDATED', () => {
+      fetchRequests();
+    });
+
+    const handleFocus = () => fetchRequests();
+    window.addEventListener('focus', handleFocus);
+
     return () => {
-      ignore = true;
+      unsubChanged?.();
+      unsubApproved?.();
+      unsubUpdated?.();
+      window.removeEventListener('focus', handleFocus);
     };
-  }, []);
+  }, [fetchRequests]);
 
   const addRequest = async (newRecord) => {
     try {
-      const scopeMap = {
-        'Course Withdrawal': 'course',
-        'Semester Withdrawal': 'semester',
-        'University Withdrawal': 'university',
-        'Complete University Withdrawal': 'university',
-      };
-      const isUniv = (newRecord.withdrawalType || '').toLowerCase().includes('university');
-      const scope = isUniv ? 'university' : (scopeMap[newRecord.withdrawalType] || 'semester');
+      const isUniv =
+        (newRecord.withdrawalType || '').toLowerCase().includes('university') ||
+        newRecord.scope === 'university';
+      const isCourse =
+        (newRecord.withdrawalType || '').toLowerCase().includes('course') ||
+        newRecord.scope === 'course';
+      const scope = isUniv ? 'university' : isCourse ? 'course' : 'semester';
+
+      const reasonCategoryId = resolveReasonCategoryId(
+        newRecord.reasonCategoryId,
+        newRecord.reasonCategory
+      );
+
       const payload = {
         scope,
-        semesterId: newRecord.semesterId || 'sem_2026_fall',
-        reasonCategoryId: (newRecord.reasonCategory || 'personal').toLowerCase().includes('med')
-          ? 'medical'
-          : 'personal',
-        reason: newRecord.reason,
+        semesterId: scope === 'university' ? null : (newRecord.semesterId || 'sem_2026_fall'),
+        enrollmentId: newRecord.enrollmentId || null,
+        reasonCategoryId,
+        reason: (newRecord.reason || '').trim(),
         acknowledged: true,
       };
-      await submitStudentWithdrawalApi(payload);
+
+      const res = await submitStudentWithdrawalApi(payload);
       await fetchRequests();
+      return res;
     } catch (err) {
       console.error('Failed to submit withdrawal:', err);
       throw err;
@@ -133,71 +169,52 @@ export function useWithdrawalRequests() {
   const updateStatus = async (requestId, newStatus, adminNotes) => {
     const target = requests.find((r) => r.requestId === requestId || r.id === requestId);
     if (target?.status === 'approved' && newStatus === 'rejected') {
-      console.warn('Cannot reject an already approved withdrawal request.');
-      return;
+      throw new Error('Approved withdrawal requests cannot be rejected.');
     }
 
-    // Optimistically update local state immediately so user sees status change without waiting
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === requestId || r.requestId === requestId
-          ? {
-              ...r,
-              status: newStatus,
-              adminNotes:
-                adminNotes ||
-                (newStatus === 'approved'
-                  ? 'Official withdrawal approved by Registrar Administration.'
-                  : 'Withdrawal request rejected by Registrar Administration.'),
-              clearance:
-                newStatus === 'approved'
-                  ? {
-                      department: 'approved',
-                      library: 'approved',
-                      housing: 'approved',
-                      registrar: 'approved',
-                    }
-                  : r.clearance,
-            }
-          : r
-      )
-    );
+    const targetId = target ? target.id : requestId;
+    const defaultNote =
+      newStatus === 'approved'
+        ? 'Official withdrawal approved by Registrar Administration.'
+        : 'Withdrawal request rejected by Registrar Administration.';
+    const finalNote = (adminNotes && String(adminNotes).trim()) || defaultNote;
 
     try {
-      const match = requests.find((r) => r.requestId === requestId || r.id === requestId);
-      const targetId = match ? match.id : requestId;
-
       if (newStatus === 'approved') {
-        const clearances = ['department', 'library', 'housing', 'registrar'];
-        for (const off of clearances) {
-          try {
-            await updateClearanceApi(targetId, off, { status: 'approved' });
-          } catch {
-            // ignore if already approved
-          }
-        }
-        await approveWithdrawalApi(targetId, {
-          adminNotes: adminNotes || 'Approved by Registrar.',
-        });
+        await approveWithdrawalApi(targetId, { adminNotes: finalNote });
       } else if (newStatus === 'rejected') {
-        await rejectWithdrawalApi(targetId, {
-          adminNotes: adminNotes || 'Rejected by Registrar.',
-        });
+        await rejectWithdrawalApi(targetId, { adminNotes: finalNote });
       }
       await fetchRequests();
     } catch (err) {
-      console.warn('API update failed, local optimistic state retained:', err);
+      console.error('API update status failed:', err);
+      await fetchRequests();
+      throw err;
     }
   };
 
   const updateRequest = async (updatedRecord) => {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === updatedRecord.id || r.requestId === updatedRecord.requestId
-          ? { ...r, ...updatedRecord }
-          : r
-      )
+    const match = requests.find(
+      (r) => r.requestId === updatedRecord.requestId || r.id === updatedRecord.id
     );
+    const targetId = match ? match.id : updatedRecord.id;
+
+    const reasonCategoryId = resolveReasonCategoryId(
+      updatedRecord.reasonCategoryId,
+      updatedRecord.reasonCategory
+    );
+
+    try {
+      await updateStudentWithdrawalApi(targetId, {
+        reason: (updatedRecord.reason || '').trim(),
+        reasonCategoryId,
+      });
+      await fetchRequests();
+    } catch (err) {
+      console.error('API update failed:', err);
+      await fetchRequests();
+      throw err;
+    }
   };
 
   const deleteRequest = async (requestId) => {
@@ -207,10 +224,9 @@ export function useWithdrawalRequests() {
       await cancelStudentWithdrawalApi(targetId);
       await fetchRequests();
     } catch (err) {
-      console.warn('API cancel failed, updating local state:', err);
-      setRequests((prev) =>
-        prev.filter((r) => r.id !== targetId && r.requestId !== targetId && r.requestId !== requestId)
-      );
+      console.error('API cancel failed:', err);
+      await fetchRequests();
+      throw err;
     }
   };
 

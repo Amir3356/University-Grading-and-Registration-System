@@ -34,7 +34,7 @@ export async function getLookups(user) {
   const regTypesRes = await query(
     `SELECT id, label, description
      FROM registration_types
-     WHERE is_active = true
+     WHERE is_active = true AND id <> 'cafe'
      ORDER BY CASE id
        WHEN 'regular' THEN 1
        WHEN 'extension' THEN 2

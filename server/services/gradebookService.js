@@ -61,8 +61,12 @@ export async function saveScores(offeringId, { changes, reason }, caller) {
       fieldErrors[key] = 'Cannot record marks: student does not match the assigned department and year of study.';
       continue;
     }
-    if (enr.enrollment.status === 'withdrawn') {
-      fieldErrors[key] = 'Student has withdrawn from this course.';
+    if (enr.enrollment?.status === 'withdrawn' || enr.withdrawn) {
+      fieldErrors[key] = 'Cannot enter marks: Student has withdrawn from this course.';
+      continue;
+    }
+    if (enr.withdrawalPending || enr.enrollment?.withdrawalPending) {
+      fieldErrors[key] = 'Cannot enter marks: Student has submitted a withdrawal request (pending review).';
       continue;
     }
 

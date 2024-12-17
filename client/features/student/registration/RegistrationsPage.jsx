@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { Plus, UserCheck, Pencil, Trash2 } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { Plus, UserCheck, Pencil, Trash2, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { onPeriodChange, onUserChange, onRegistrationChange } from '@/lib/syncEvents'
 import { setStoredSession } from '@/lib/storage'
@@ -29,7 +29,10 @@ import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { Spinner } from '@/components/common/Loading'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+import { SearchInput } from '@/components/common/SearchInput'
+import { FilterSelect } from '@/components/common/FilterSelect'
 import { useAuth } from '@/context/auth-context'
+import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
 import { getProfileApi } from '@/api/auth'
 import {
@@ -50,13 +53,19 @@ function RegistrationStatus({ status }) {
 function PeriodBanner({ currentPeriod, upcomingPeriod, isAllowedForStudent, programLabel }) {
   if (currentPeriod) {
     const mine = currentPeriod.myRegistration
+    const startDate = currentPeriod.startDate ?? currentPeriod.start_date
+    const deadline = currentPeriod.deadline
+    const semesterName = currentPeriod.semesterName ?? currentPeriod.semester_name
+    const academicYearName = currentPeriod.academicYearName ?? currentPeriod.academic_year_name
+    const cafeStatusVal = mine?.cafeStatus ?? mine?.cafe_status
+
     return (
       <div className="space-y-3">
         <RegistrationCountdown
-          startDate={currentPeriod.start_date}
-          deadline={currentPeriod.deadline}
-          semesterName={currentPeriod.semester_name}
-          academicYearName={currentPeriod.academic_year_name}
+          startDate={startDate}
+          deadline={deadline}
+          semesterName={semesterName}
+          academicYearName={academicYearName}
         />
 
         {!isAllowedForStudent && (
@@ -69,9 +78,9 @@ function PeriodBanner({ currentPeriod, upcomingPeriod, isAllowedForStudent, prog
           <div className="rounded-lg border bg-card p-3 text-sm text-center text-foreground flex items-center justify-center gap-2 flex-wrap">
             <span>Your registration status:</span>
             <RegistrationStatus status={mine.status} />
-            {mine.cafe_status && (
-              <span className={`reg-badge ${mine.cafe_status === 'cafe' ? 'reg-badge--cafe' : 'reg-badge--non-cafe'}`}>
-                {mine.cafe_status === 'cafe' ? 'Cafe' : 'Non-cafe'}
+            {cafeStatusVal && (
+              <span className={`reg-badge ${cafeStatusVal === 'cafe' ? 'reg-badge--cafe' : 'reg-badge--non-cafe'}`}>
+                {cafeStatusVal === 'cafe' ? 'Cafe' : 'Non-cafe'}
               </span>
             )}
             {mine.status === 'rejected' ? (
@@ -87,12 +96,17 @@ function PeriodBanner({ currentPeriod, upcomingPeriod, isAllowedForStudent, prog
   }
 
   if (upcomingPeriod) {
+    const startDate = upcomingPeriod.startDate ?? upcomingPeriod.start_date
+    const deadline = upcomingPeriod.deadline
+    const semesterName = upcomingPeriod.semesterName ?? upcomingPeriod.semester_name
+    const academicYearName = upcomingPeriod.academicYearName ?? upcomingPeriod.academic_year_name
+
     return (
       <RegistrationCountdown
-        startDate={upcomingPeriod.start_date}
-        deadline={upcomingPeriod.deadline}
-        semesterName={upcomingPeriod.semester_name}
-        academicYearName={upcomingPeriod.academic_year_name}
+        startDate={startDate}
+        deadline={deadline}
+        semesterName={semesterName}
+        academicYearName={academicYearName}
       />
     )
   }
@@ -102,6 +116,9 @@ function PeriodBanner({ currentPeriod, upcomingPeriod, isAllowedForStudent, prog
 
 export function RegistrationsPage() {
   const { user, profile } = useAuth()
+  const lookups = useLookups()
+  const semesters = useMemo(() => lookups?.semesters ?? [], [lookups])
+
   // The Student ID is the one the department entered in Account Provision. Load it fresh
   // (it may have been edited since login) and fall back to the profile cached at login.
   const { data: me } = useQuery(getProfileApi, [], { live: false, enabled: Boolean(user) })
@@ -110,6 +127,7 @@ export function RegistrationsPage() {
   const [freshStudentOverride, setFreshStudentOverride] = useState(null)
 
   const currentPeriod = data?.currentPeriod ?? null
+  const activePeriods = data?.activePeriods ?? (currentPeriod ? [currentPeriod] : [])
   const upcomingPeriod = data?.upcomingPeriod ?? null
   const history = data?.history ?? []
 
@@ -117,8 +135,91 @@ export function RegistrationsPage() {
   const [submitting, setSubmitting] = useState(false)
   const submittingRef = useRef(false)
   const [cafeStatus, setCafeStatus] = useState('cafe')
+  const [selectedSemesterId, setSelectedSemesterId] = useState('')
   const [editingRegistration, setEditingRegistration] = useState(null)
   const [deleteConfirmRegistration, setDeleteConfirmRegistration] = useState(null)
+
+  const currentYear = new Date().getFullYear()
+
+  // Auto-incrementing semester options:
+  // Dynamically discovers or generates semesters for the current reached year
+  // (e.g., 2026 First Semester, 2026 Second Semester; 2027 First/Second in 2027, etc.)
+  const semesterOptions = useMemo(() => {
+    // 1. From reference lookups, find semesters matching the reached year
+    const matchingSemesters = semesters.filter((s) => {
+      const yearMatch = (s.name || '').match(/\b(20\d{2})\b/) || (s.academic_year?.name || '').match(/\b(20\d{2})\b/)
+      return yearMatch ? parseInt(yearMatch[1], 10) === currentYear : false
+    })
+
+    let options = matchingSemesters.map((s) => ({
+      id: s.id,
+      name: s.name,
+      term: s.term,
+      sortOrder: s.sort_order ?? s.sortOrder ?? 0,
+    }))
+
+    // 2. If lookups is still loading or doesn't have the current year yet, generate guaranteed options for currentYear
+    if (options.length === 0) {
+      options = [
+        { id: `sem_${currentYear}_fall`, name: `${currentYear} First Semester`, term: 'first', sortOrder: 1 },
+        { id: `sem_${currentYear + 1}_spring`, name: `${currentYear} Second Semester`, term: 'second', sortOrder: 2 },
+      ]
+    }
+
+    // 3. Sort term 1 first, then term 2
+    options.sort((a, b) => {
+      const termA = (a.term || '').toLowerCase()
+      const termB = (b.term || '').toLowerCase()
+      if (termA === 'first' && termB !== 'first') return -1
+      if (termA !== 'first' && termB === 'first') return 1
+      return (a.name || '').localeCompare(b.name || '')
+    })
+
+    // 4. Ensure the current active period's semester is in the list
+    const activeSemId = currentPeriod?.semesterId || currentPeriod?.semester_id
+    const activeSemName = currentPeriod?.semesterName || currentPeriod?.semester_name
+    if (activeSemId && !options.some((s) => s.id === activeSemId)) {
+      options.unshift({
+        id: activeSemId,
+        name: activeSemName || `${currentYear} First Semester`,
+        term: 'first',
+        sortOrder: 0,
+      })
+    }
+
+    // 5. Ensure editing registration's semester is included if editing
+    if (editingRegistration) {
+      const editSemId = editingRegistration.semesterId || editingRegistration.semester_id
+      const editSemName = editingRegistration.semesterName || editingRegistration.semester_name
+      if (editSemId && !options.some((s) => s.id === editSemId)) {
+        options.unshift({
+          id: editSemId,
+          name: editSemName || 'Selected Semester',
+          term: 'first',
+          sortOrder: 0,
+        })
+      }
+    }
+
+    return options
+  }, [semesters, currentYear, currentPeriod, editingRegistration])
+
+  // Synchronize default selected semester with current active period
+  useEffect(() => {
+    if (!selectedSemesterId) {
+      const defaultId = currentPeriod?.semesterId || currentPeriod?.semester_id || semesterOptions[0]?.id || ''
+      if (defaultId) setSelectedSemesterId(defaultId)
+    }
+  }, [currentPeriod, semesterOptions, selectedSemesterId])
+
+  // Resolve active period matching selected semester
+  const selectedPeriod = useMemo(() => {
+    if (!selectedSemesterId) return currentPeriod
+    return (
+      activePeriods.find((p) => (p.semesterId || p.semester_id) === selectedSemesterId) ||
+      ((currentPeriod?.semesterId || currentPeriod?.semester_id) === selectedSemesterId ? currentPeriod : null)
+    )
+  }, [activePeriods, currentPeriod, selectedSemesterId])
 
   // Resolve student's latest Student ID
   const studentId =
@@ -150,11 +251,109 @@ export function RegistrationsPage() {
       ? 'Weekend'
       : studentProgramType.charAt(0).toUpperCase() + studentProgramType.slice(1)
 
+  // Search box and dropfilters state
+  const [search, setSearch] = useState('')
+  const [statusChoice, setStatusChoice] = useState('all')
+  const [semesterChoice, setSemesterChoice] = useState('all')
+
+  const statusOptions = [
+    { value: 'all', label: 'Status' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'registered', label: 'Registered' },
+    { value: 'rejected', label: 'Rejected' },
+    { value: 'cancelled', label: 'Cancelled' },
+  ]
+
+  // Auto-increments dynamically with the current year (e.g. 2026 First Semester, 2026 Second Semester; 2027 in 2027)
+  const semesterFilterOptions = useMemo(() => {
+    const matchingSemesters = semesters.filter((s) => {
+      const yearMatch = (s.name || '').match(/\b(20\d{2})\b/) || (s.academic_year?.name || '').match(/\b(20\d{2})\b/)
+      return yearMatch ? parseInt(yearMatch[1], 10) === currentYear : false
+    })
+
+    let list = matchingSemesters.map((s) => ({
+      value: s.name,
+      label: s.name,
+      term: s.term,
+    }))
+
+    if (list.length === 0) {
+      list = [
+        { value: `${currentYear} First Semester`, label: `${currentYear} First Semester`, term: 'first' },
+        { value: `${currentYear} Second Semester`, label: `${currentYear} Second Semester`, term: 'second' },
+      ]
+    }
+
+    list.sort((a, b) => {
+      const termA = (a.term || '').toLowerCase()
+      const termB = (b.term || '').toLowerCase()
+      if (termA === 'first' && termB !== 'first') return -1
+      if (termA !== 'first' && termB === 'first') return 1
+      return (a.label || '').localeCompare(b.label || '')
+    })
+
+    return [
+      { value: 'all', label: 'Semester' },
+      ...list.map((item) => ({ value: item.value, label: item.label })),
+    ]
+  }, [semesters, currentYear])
+
+  const isFiltered = search.trim() !== '' || statusChoice !== 'all' || semesterChoice !== 'all'
+
+  const handleResetFilters = () => {
+    setSearch('')
+    setStatusChoice('all')
+    setSemesterChoice('all')
+  }
+
+  const filteredHistory = useMemo(() => {
+    return history.filter((r) => {
+      const semName = (r.semesterName ?? r.semester_name ?? '').toLowerCase()
+      const ayName = (r.academicYearName ?? r.academic_year_name ?? '').toLowerCase()
+      const typeLab = (r.typeLabel ?? r.type_label ?? '').toLowerCase()
+      const cafeVal = (r.cafeStatus ?? r.cafe_status ?? '').toLowerCase()
+      const statusVal = (r.status ?? '').toLowerCase()
+      const idVal = (studentId || '').toLowerCase()
+
+      // Search box filter
+      if (search.trim()) {
+        const q = search.trim().toLowerCase()
+        const matches =
+          semName.includes(q) ||
+          ayName.includes(q) ||
+          typeLab.includes(q) ||
+          cafeVal.includes(q) ||
+          statusVal.includes(q) ||
+          idVal.includes(q)
+        if (!matches) return false
+      }
+
+      // Status dropfilter
+      if (statusChoice !== 'all' && statusVal !== statusChoice.toLowerCase()) {
+        return false
+      }
+
+      // Semester dropfilter (with auto-incrementing year, e.g. 2026 First Semester)
+      if (semesterChoice !== 'all') {
+        const choiceLower = semesterChoice.toLowerCase()
+        const exactMatch = semName.includes(choiceLower) || choiceLower.includes(semName)
+        if (!exactMatch) {
+          const termMatch = choiceLower.includes('first') ? 'first' : choiceLower.includes('second') ? 'second' : ''
+          const yearMatch = choiceLower.match(/\b(20\d{2})\b/)?.[1]
+          if (termMatch && !semName.includes(termMatch)) return false
+          if (yearMatch && !semName.includes(yearMatch) && !ayName.includes(yearMatch)) return false
+        }
+      }
+
+      return true
+    })
+  }, [history, search, statusChoice, semesterChoice, studentId])
+
   const isAllowedForStudent = currentPeriod
-    ? (currentPeriod.isAllowedForStudent ?? currentPeriod.allowed_types?.some((t) => (t.id || '').toLowerCase() === studentProgramType.toLowerCase()))
+    ? (currentPeriod.isAllowedForStudent ?? (currentPeriod.allowedTypes || currentPeriod.allowed_types)?.some((t) => (t.id || '').toLowerCase() === studentProgramType.toLowerCase()))
     : false
 
-  const cd = useRegistrationCountdown(currentPeriod?.start_date, currentPeriod?.deadline)
+  const cd = useRegistrationCountdown(currentPeriod?.startDate ?? currentPeriod?.start_date, currentPeriod?.deadline)
   const isPeriodClosed = cd.status === 'ended' || cd.status === 'expired'
 
   const myRegistration = currentPeriod?.myRegistration
@@ -241,7 +440,9 @@ export function RegistrationsPage() {
   const openRegister = () => {
     if (!currentPeriod || isPeriodClosed) {
       if (upcomingPeriod) {
-        toast.info(`Registration for ${upcomingPeriod.semester_name} opens on ${formatDate(upcomingPeriod.start_date)}.`)
+        const uSem = upcomingPeriod.semesterName ?? upcomingPeriod.semester_name
+        const uStart = upcomingPeriod.startDate ?? upcomingPeriod.start_date
+        toast.info(`Registration for ${uSem} opens on ${formatDate(uStart)}.`)
       } else {
         toast.error('The registration deadline has passed. Semester registration is closed.')
       }
@@ -257,7 +458,10 @@ export function RegistrationsPage() {
       return
     }
     setEditingRegistration(null)
-    setCafeStatus(myRegistration?.cafe_status === 'non_cafe' || myRegistration?.cafe_status === 'non-cafe' ? 'non-cafe' : 'cafe')
+    const activeSemId = currentPeriod?.semesterId || currentPeriod?.semester_id || semesterOptions[0]?.id || ''
+    setSelectedSemesterId(activeSemId)
+    const cafeVal = myRegistration?.cafeStatus ?? myRegistration?.cafe_status
+    setCafeStatus(cafeVal === 'non_cafe' || cafeVal === 'non-cafe' ? 'non-cafe' : 'cafe')
     setIsRegisterOpen(true)
   }
 
@@ -267,7 +471,9 @@ export function RegistrationsPage() {
       return
     }
     setEditingRegistration(registration)
-    setCafeStatus(registration.cafe_status === 'non_cafe' || registration.cafe_status === 'non-cafe' ? 'non-cafe' : 'cafe')
+    setSelectedSemesterId(registration.semesterId ?? registration.semester_id ?? '')
+    const cafeVal = registration.cafeStatus ?? registration.cafe_status
+    setCafeStatus(cafeVal === 'non_cafe' || cafeVal === 'non-cafe' ? 'non-cafe' : 'cafe')
     setIsRegisterOpen(true)
   }
 
@@ -286,10 +492,16 @@ export function RegistrationsPage() {
         await updateStudentRegistrationApi(editingRegistration.id, {
           cafeStatus,
         })
-        toast.success(`Registration updated for ${editingRegistration.semester_name}.`)
+        const semName = editingRegistration.semesterName ?? editingRegistration.semester_name
+        toast.success(`Registration updated for ${semName}.`)
       } else {
-        if (!currentPeriod) {
-          toast.error('Semester registration is closed.')
+        const semIdToSubmit = selectedSemesterId || currentPeriod?.semesterId || currentPeriod?.semester_id
+        if (!semIdToSubmit) {
+          toast.error('Please select a semester.')
+          return
+        }
+        if (!currentPeriod && !selectedPeriod) {
+          toast.error('Registration is currently closed for this semester.')
           setIsRegisterOpen(false)
           return
         }
@@ -299,11 +511,16 @@ export function RegistrationsPage() {
           return
         }
         await submitStudentRegistrationApi({
-          semesterId: currentPeriod.semester_id,
+          semesterId: semIdToSubmit,
           registrationTypeId: studentProgramType,
           cafeStatus,
         })
-        toast.success(`Registration submitted for ${currentPeriod.semester_name}. It is now pending approval.`)
+        const semLabel =
+          semesterOptions.find((s) => s.id === semIdToSubmit)?.name ||
+          currentPeriod?.semesterName ||
+          currentPeriod?.semester_name ||
+          'semester'
+        toast.success(`Registration submitted for ${semLabel}. It is now pending approval.`)
       }
       setIsRegisterOpen(false)
       setEditingRegistration(null)
@@ -391,6 +608,51 @@ export function RegistrationsPage() {
 
           {/* Registration Records Table */}
           <Card className="overflow-hidden">
+            {/* Controls Toolbar: Search Box & Dropfilters */}
+            <div className="p-4 border-b border-border bg-card/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="w-full sm:w-72">
+                <SearchInput
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="Search registrations…"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-36 sm:w-40">
+                  <FilterSelect
+                    value={statusChoice}
+                    onChange={setStatusChoice}
+                    options={statusOptions}
+                    placeholder="Status"
+                    includeAll={false}
+                  />
+                </div>
+
+                <div className="w-48 sm:w-56">
+                  <FilterSelect
+                    value={semesterChoice}
+                    onChange={setSemesterChoice}
+                    options={semesterFilterOptions}
+                    placeholder="Semester"
+                    includeAll={false}
+                  />
+                </div>
+
+                {isFiltered && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleResetFilters}
+                    className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <RotateCcw className="size-3.5 mr-1" />
+                    Reset
+                  </Button>
+                )}
+              </div>
+            </div>
+
             <CardContent className="p-0">
               {history.length === 0 ? (
                 <div className="py-12 px-4 text-center">
@@ -398,6 +660,14 @@ export function RegistrationsPage() {
                     icon={UserCheck}
                     title="No registration records"
                     description="You have not registered for any semesters yet."
+                  />
+                </div>
+              ) : filteredHistory.length === 0 ? (
+                <div className="py-12 px-4 text-center">
+                  <EmptyState
+                    icon={UserCheck}
+                    title="No matching records found"
+                    description="No registration records match your search or filter criteria. Try clearing filters."
                   />
                 </div>
               ) : (
@@ -414,22 +684,22 @@ export function RegistrationsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {history.map((r) => (
+                    {filteredHistory.map((r) => (
                       <TableRow key={r.id}>
                         <TableCell className="font-semibold text-foreground">{studentId || '—'}</TableCell>
-                        <TableCell className="font-medium text-foreground">{r.academic_year_name}</TableCell>
-                        <TableCell className="font-medium text-foreground">{r.semester_name}</TableCell>
+                        <TableCell className="font-medium text-foreground">{r.academicYearName ?? r.academic_year_name}</TableCell>
+                        <TableCell className="font-medium text-foreground">{r.semesterName ?? r.semester_name}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-medium text-foreground">{r.type_label}</span>
-                            {r.cafe_status && (
-                              <span className={`reg-badge ${r.cafe_status === 'cafe' ? 'reg-badge--cafe' : 'reg-badge--non-cafe'}`}>
-                                {r.cafe_status === 'cafe' ? 'Cafe' : 'Non-cafe'}
+                            <span className="font-medium text-foreground">{r.typeLabel ?? r.type_label}</span>
+                            {(r.cafeStatus || r.cafe_status) && (
+                              <span className={`reg-badge ${(r.cafeStatus || r.cafe_status) === 'cafe' ? 'reg-badge--cafe' : 'reg-badge--non-cafe'}`}>
+                                {(r.cafeStatus || r.cafe_status) === 'cafe' ? 'Cafe' : 'Non-cafe'}
                               </span>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>{formatDate(r.submitted_at)}</TableCell>
+                        <TableCell>{formatDate(r.submittedAt ?? r.submitted_at)}</TableCell>
                         <TableCell className="text-center">
                           <RegistrationStatus status={r.status} />
                         </TableCell>
@@ -443,7 +713,7 @@ export function RegistrationsPage() {
                                     size="icon-sm"
                                     className="text-primary hover:text-primary hover:bg-primary/10"
                                     title="Edit registration"
-                                    aria-label={`Edit registration for ${r.semester_name}`}
+                                    aria-label={`Edit registration for ${r.semesterName ?? r.semester_name}`}
                                     onClick={() => handleOpenEdit(r)}
                                   >
                                     <Pencil className="size-4" />
@@ -453,7 +723,7 @@ export function RegistrationsPage() {
                                     size="icon-sm"
                                     className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                     title="Delete registration"
-                                    aria-label={`Delete registration for ${r.semester_name}`}
+                                    aria-label={`Delete registration for ${r.semesterName ?? r.semester_name}`}
                                     onClick={() => setDeleteConfirmRegistration(r)}
                                   >
                                     <Trash2 className="size-4" />
@@ -490,7 +760,7 @@ export function RegistrationsPage() {
             <DialogTitle>{editingRegistration ? 'Edit Registration' : 'Register for Semester'}</DialogTitle>
             <DialogDescription>
               {editingRegistration
-                ? `Update your meal service choice for ${editingRegistration.semester_name}. Other fields are locked.`
+                ? `Update your meal service choice for ${editingRegistration.semesterName ?? editingRegistration.semester_name}. Other fields are locked.`
                 : 'Confirm your registration for the active semester. Your program is automatically applied based on your account enrollment.'}
             </DialogDescription>
           </DialogHeader>
@@ -506,25 +776,46 @@ export function RegistrationsPage() {
               />
             </FormField>
 
-            <FormField label="Semester">
-              <input
-                type="text"
-                value={
-                  editingRegistration
-                    ? `${editingRegistration.semester_name || ''} (${editingRegistration.academic_year_name || ''})`
-                    : currentPeriod
-                    ? `${currentPeriod.semester_name || ''} (${currentPeriod.academic_year_name || ''})`
-                    : ''
-                }
-                disabled
-                className="input cursor-not-allowed bg-muted text-muted-foreground w-full"
-              />
+            <FormField label="Semester" required>
+              {editingRegistration ? (
+                <input
+                  type="text"
+                  value={editingRegistration.semesterName ?? editingRegistration.semester_name ?? ''}
+                  disabled
+                  className="input cursor-not-allowed bg-muted text-muted-foreground w-full"
+                />
+              ) : (
+                <Select
+                  value={selectedSemesterId}
+                  onValueChange={setSelectedSemesterId}
+                >
+                  <SelectTrigger id="student-semester-select" className="w-full">
+                    <SelectValue placeholder="Select semester" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {semesterOptions.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {selectedPeriod ? (
+                <p className="text-xs text-emerald-500 dark:text-emerald-400 mt-1">
+                  Registration window is open and accepting submissions.
+                </p>
+              ) : !editingRegistration ? (
+                <p className="text-xs text-amber-500 mt-1">
+                  Registration window for this semester has not opened yet.
+                </p>
+              ) : null}
             </FormField>
 
             <FormField label="Assigned Program / Registration Type">
               <input
                 type="text"
-                value={editingRegistration ? (editingRegistration.type_label || '') : (programLabel || '')}
+                value={editingRegistration ? (editingRegistration.typeLabel ?? editingRegistration.type_label ?? '') : (programLabel || '')}
                 disabled
                 className="input cursor-not-allowed bg-muted text-foreground font-semibold w-full"
               />
@@ -559,7 +850,7 @@ export function RegistrationsPage() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting}>
+              <Button type="submit" disabled={submitting || (!editingRegistration && !selectedPeriod)}>
                 {submitting
                   ? (editingRegistration ? 'Saving...' : 'Submitting...')
                   : (editingRegistration ? 'Save Changes' : 'Submit Registration')}
@@ -575,7 +866,7 @@ export function RegistrationsPage() {
         title="Delete Registration"
         description={
           deleteConfirmRegistration
-            ? `Are you sure you want to delete your pending registration for ${deleteConfirmRegistration.semester_name}? You can re-register anytime while the semester registration period is open.`
+            ? `Are you sure you want to delete your pending registration for ${deleteConfirmRegistration.semesterName ?? deleteConfirmRegistration.semester_name}? You can re-register anytime while the semester registration period is open.`
             : ''
         }
         confirmLabel="Delete"

@@ -28,6 +28,10 @@ async function submitStudentWithdrawal(data) {
   return await api.post('/student/withdrawal-requests', data);
 }
 
+export async function updateStudentWithdrawal(id, data) {
+  return await api.patch(`/student/withdrawal-requests/${id}`, data);
+}
+
 export async function cancelStudentWithdrawal(id) {
   return await api.post(`/student/withdrawal-requests/${id}/cancel`);
 }
@@ -39,4 +43,5 @@ export const rejectWithdrawalApi = rejectWithdrawal;
 export const updateClearanceApi = updateClearance;
 export const listStudentWithdrawalRequestsApi = listStudentWithdrawalRequests;
 export const submitStudentWithdrawalApi = submitStudentWithdrawal;
+export const updateStudentWithdrawalApi = updateStudentWithdrawal;
 export const cancelStudentWithdrawalApi = cancelStudentWithdrawal;

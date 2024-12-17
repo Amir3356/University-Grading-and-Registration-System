@@ -192,6 +192,17 @@ apiClient.interceptors.response.use(
       }
     }
 
+    // Automatic 1-time retry for transient GET network drops or server restarts
+    if (
+      originalRequest.method?.toLowerCase() === 'get' &&
+      !originalRequest._retryNetwork &&
+      (error.code === 'ECONNABORTED' || !error.response || error.response?.status === 503)
+    ) {
+      originalRequest._retryNetwork = true;
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      return apiClient(originalRequest);
+    }
+
     // Normalize error response to StoreError
     const res = error.response;
     if (res) {

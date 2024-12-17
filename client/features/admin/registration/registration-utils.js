@@ -11,7 +11,11 @@ export function toDateInput(value) {
 
 export function formatDate(value) {
   if (!value) return '—'
-  const d = new Date(value)
+  // Support YYYY-MM-DD by appending local midnight T00:00:00 to avoid timezone shift
+  const val = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())
+    ? value.trim() + 'T00:00:00'
+    : value
+  const d = new Date(val)
   if (Number.isNaN(d.getTime())) return '—'
   // DD/MM/YYYY, matching the form fields.
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -23,6 +27,9 @@ export const TYPE_BADGE_CLASS = {
   regular: 'reg-badge--regular',
   extension: 'reg-badge--extension',
   weekend: 'reg-badge--weekend',
+  cafe: 'reg-badge--cafe',
+  non_cafe: 'reg-badge--non-cafe',
+  'non-cafe': 'reg-badge--non-cafe',
 }
 
 export function errorMessage(err, fallback) {

@@ -28,6 +28,9 @@ export function TranscriptPage() {
   useWebSocketEvent('GRADE_SCALE_UPDATED', handleRealtimeUpdate)
   useWebSocketEvent('GRADING_POLICY_UPDATED', handleRealtimeUpdate)
   useWebSocketEvent('ASSESSMENT_UPDATED', handleRealtimeUpdate)
+  useWebSocketEvent('WITHDRAWAL_APPROVED', handleRealtimeUpdate)
+  useWebSocketEvent('WITHDRAWAL_UPDATED', handleRealtimeUpdate)
+  useWebSocketEvent('REGISTRATION_CHANGED', handleRealtimeUpdate)
 
   // Cross-tab and local window sync fallback
   useEffect(() => {

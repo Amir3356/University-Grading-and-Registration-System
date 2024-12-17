@@ -543,12 +543,14 @@ export function EntermarkPage() {
           effectiveMarks[a.id] = saved
         }
       }
-      const isWithdrawn = r.enrollment?.status === 'withdrawn'
+      const isWithdrawn = r.enrollment?.status === 'withdrawn' || r.withdrawn || r.enrollment?.withdrawn
+      const isWithdrawalPending = Boolean(r.withdrawalPending || r.enrollment?.withdrawalPending)
+      const cannotEnterMarks = isWithdrawn || isWithdrawalPending
       const calc = computeWeightedTotal(rowAssessments, effectiveMarks)
       const grade = calc.complete ? gradeForScore(calc.total, scale) : null
       const points = grade != null ? (grade.points ?? grade.gradePoints ?? 0) : null
       const isF = (grade?.letter || '').toUpperCase() === 'F'
-      const passed = isWithdrawn
+      const passed = cannotEnterMarks
         ? null
         : isF
           ? false
@@ -578,10 +580,12 @@ export function EntermarkPage() {
         calc,
         grade,
         totalScore: calc.total,
-        letter: grade?.letter || null,
-        points: isWithdrawn ? null : points,
+        letter: isWithdrawn ? 'W' : (isWithdrawalPending ? 'W (Pending)' : (grade?.letter || null)),
+        points: cannotEnterMarks ? null : points,
         passed,
         withdrawn: isWithdrawn,
+        withdrawalPending: isWithdrawalPending,
+        cannotEnterMarks,
         row: r,
       }
     })
@@ -589,12 +593,13 @@ export function EntermarkPage() {
 
   const summaryStats = useMemo(() => {
     const total = tableData.length
-    const active = tableData.filter((t) => !t.withdrawn)
+    const active = tableData.filter((t) => !t.cannotEnterMarks)
     const complete = active.filter((t) => t.calc?.complete).length
     const incomplete = active.filter((t) => !t.calc?.complete).length
     const passed = active.filter((t) => t.passed === true && (t.grade?.letter || '').toUpperCase() !== 'F').length
     const failed = active.filter((t) => t.passed === false || (t.grade?.letter || '').toUpperCase() === 'F').length
     const withdrawn = tableData.filter((t) => t.withdrawn).length
+    const withdrawalPending = tableData.filter((t) => t.withdrawalPending).length
 
     // Average score across active students with computed totals
     const validScores = active
@@ -790,7 +795,7 @@ export function EntermarkPage() {
                 step="any"
                 min="0"
                 max={concreteMax}
-                disabled={rowLocked || s.withdrawn}
+                disabled={rowLocked || s.cannotEnterMarks}
                 value={currentVal}
                 onChange={(e) => {
                   const val = e.target.value
@@ -815,7 +820,7 @@ export function EntermarkPage() {
                   isEdited && "tea-grid-input--dirty",
                   errorMsg && "tea-grid-input--error"
                 )}
-                title={errorMsg || (s.withdrawn ? 'Withdrawn' : undefined)}
+                title={errorMsg || (s.withdrawn ? 'Withdrawn — marks locked' : s.withdrawalPending ? 'Withdrawal Pending — marks locked' : undefined)}
               />
             )
           },
@@ -872,7 +877,6 @@ export function EntermarkPage() {
       {
         id: 'status',
         accessorFn: (row) => {
-          if (row.withdrawn) return 'withdrawn'
           const rowOffering = offerings?.find((o) => o.id === row.offeringId) || currentOffering
           const status = rowOffering?.gradeStatus || offeringGradeStatus
           if (status === 'submitted') return 'pending'
@@ -883,14 +887,6 @@ export function EntermarkPage() {
         },
         header: 'Status',
         cell: ({ row }) => {
-          if (row.original.withdrawn) {
-            return (
-              <Badge variant="muted" className="px-2.5 py-0.5">
-                Withdrawn
-              </Badge>
-            )
-          }
-
           const rowOffering = offerings?.find((o) => o.id === row.original.offeringId) || currentOffering
           const status = rowOffering?.gradeStatus || offeringGradeStatus
 
@@ -1363,11 +1359,7 @@ export function EntermarkPage() {
                               )
                             })()}
                             <TableCell className="text-center whitespace-nowrap">
-                              {st.withdrawn ? (
-                                <Badge variant="muted" className="text-[10px] py-0 px-1.5 font-medium">
-                                  Withdrawn
-                                </Badge>
-                              ) : isComplete ? (
+                              {isComplete ? (
                                 <Badge variant="success" className="text-[10px] py-0 px-1.5 font-medium inline-flex items-center gap-1">
                                   <CheckCircle2 className="size-2.5" /> Complete
                                 </Badge>
@@ -1722,8 +1714,9 @@ function EnterMarkDialog({
   const candidateStudents = useMemo(() => {
     const map = new Map()
 
-    // 1. Enrolled students from gradebook rows
+    // 1. Enrolled students from gradebook rows (excluding withdrawn or pending withdrawal)
     for (const r of students) {
+      if (r.cannotEnterMarks || r.withdrawn || r.withdrawalPending) continue
       const s = r.student || {}
       const sId = s.id || r.enrollmentId
       if (!sId) continue
@@ -1911,6 +1904,10 @@ function EnterMarkDialog({
     }
   }
 
+  const isRowLockedForWithdrawal = Boolean(
+    initialRow?.cannotEnterMarks || initialRow?.withdrawn || initialRow?.withdrawalPending
+  )
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="md" className="sm:max-w-xl">
@@ -1923,6 +1920,16 @@ function EnterMarkDialog({
                 : 'Update assessment mark for the student.'}
             </DialogDescription>
           </DialogHeader>
+
+          {isRowLockedForWithdrawal && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {initialRow?.withdrawn
+                  ? 'This student has withdrawn from this course. Mark entry is locked.'
+                  : 'This student has submitted a withdrawal request (pending review). Mark entry is locked.'}
+              </AlertDescription>
+            </Alert>
+          )}
 
           {error && (
             <Alert variant="destructive">
@@ -2196,6 +2203,7 @@ function EnterMarkDialog({
                   step="any"
                   min="0"
                   max={targetMax}
+                  disabled={isRowLockedForWithdrawal}
                   value={mark}
                   onChange={(e) => {
                     const val = e.target.value
@@ -2238,7 +2246,7 @@ function EnterMarkDialog({
             <Button
               type="submit"
               loading={submitting}
-              disabled={submitting || Boolean(validationError) || mark === '' || (isNew && filteredStudents.length === 0)}
+              disabled={submitting || Boolean(validationError) || mark === '' || (isNew && filteredStudents.length === 0) || isRowLockedForWithdrawal}
             >
               Save Mark
             </Button>

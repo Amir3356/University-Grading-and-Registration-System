@@ -1,5 +1,6 @@
 import * as wrService from '../services/withdrawalService.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
+import { broadcastEvent } from '../config/websocket.js';
 
 // Student
 export async function listStudentWithdrawals(req, res, next) {
@@ -14,7 +15,18 @@ export async function listStudentWithdrawals(req, res, next) {
 export async function createStudentWithdrawal(req, res, next) {
   try {
     const result = await wrService.createStudentWithdrawalRequest(req.body, req.user);
+    broadcastEvent('WITHDRAWAL_CHANGED', { action: 'create', id: result.id, studentId: req.user.studentId });
     sendCreated(res, result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateStudentWithdrawal(req, res, next) {
+  try {
+    const result = await wrService.updateStudentWithdrawalRequest(req.params.id, req.body, req.user);
+    broadcastEvent('WITHDRAWAL_CHANGED', { action: 'update', id: req.params.id, studentId: req.user.studentId });
+    sendSuccess(res, result);
   } catch (err) {
     next(err);
   }
@@ -23,6 +35,7 @@ export async function createStudentWithdrawal(req, res, next) {
 export async function cancelStudentWithdrawal(req, res, next) {
   try {
     const result = await wrService.cancelStudentWithdrawalRequest(req.params.id, req.user);
+    broadcastEvent('WITHDRAWAL_CHANGED', { action: 'cancel', id: req.params.id, studentId: req.user.studentId });
     sendSuccess(res, result);
   } catch (err) {
     next(err);
@@ -61,6 +74,7 @@ export async function updateClearance(req, res, next) {
   try {
     const { id, office } = req.params;
     const result = await wrService.updateClearance(id, office, req.body, req.user);
+    broadcastEvent('WITHDRAWAL_CHANGED', { action: 'clearance', id, office });
     sendSuccess(res, result);
   } catch (err) {
     next(err);
@@ -70,6 +84,7 @@ export async function updateClearance(req, res, next) {
 export async function approveWithdrawal(req, res, next) {
   try {
     const result = await wrService.approveWithdrawal(req.params.id, req.body, req.user);
+    broadcastEvent('WITHDRAWAL_CHANGED', { action: 'approve', id: req.params.id });
     sendSuccess(res, result);
   } catch (err) {
     next(err);
@@ -79,6 +94,7 @@ export async function approveWithdrawal(req, res, next) {
 export async function rejectWithdrawal(req, res, next) {
   try {
     const result = await wrService.rejectWithdrawal(req.params.id, req.body, req.user);
+    broadcastEvent('WITHDRAWAL_CHANGED', { action: 'reject', id: req.params.id });
     sendSuccess(res, result);
   } catch (err) {
     next(err);

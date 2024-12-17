@@ -7,7 +7,7 @@ import { query, withTransaction } from '../config/database.js';
  */
 export async function ensureAcademicCalendarYears() {
   const currentYear = new Date().getFullYear();
-  const targetYear = currentYear;
+  const targetYear = Math.max(currentYear + 5, 2035);
 
   // Automatically close semesters whose end_date has passed
   await query(`

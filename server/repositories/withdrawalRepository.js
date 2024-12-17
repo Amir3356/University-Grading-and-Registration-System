@@ -11,8 +11,20 @@ export async function listStudentWithdrawals(studentId) {
   const sql = `
     SELECT wr.id, wr.reference_no, wr.scope, wr.status, wr.submitted_at, wr.reason,
            wr.admin_notes, wr.decided_at,
+           json_build_object(
+             'id', s.id,
+             'studentNumber', s.student_number,
+             'name', (u.first_name || ' ' || u.last_name),
+             'programType', s.program_type,
+             'department', json_build_object('id', d.id, 'code', d.code, 'name', d.name)
+           ) as student,
+           json_build_object(
+             'id', sem.id,
+             'name', sem.name,
+             'term', sem.term,
+             'academicYear', json_build_object('id', ay.id, 'name', ay.name)
+           ) as semester,
            json_build_object('id', rc.id, 'label', rc.label) as reason_category,
-           json_build_object('id', s.id, 'name', s.name, 'term', s.term) as semester,
            COALESCE(
              json_agg(
                json_build_object(
@@ -24,11 +36,15 @@ export async function listStudentWithdrawals(studentId) {
              ) FILTER (WHERE wc.office IS NOT NULL), '[]'
            ) as clearances
     FROM withdrawal_requests wr
+    JOIN students s ON s.id = wr.student_id
+    JOIN users u ON u.id = s.user_id
+    JOIN departments d ON d.id = s.department_id
     JOIN withdrawal_reason_categories rc ON rc.id = wr.reason_category_id
-    LEFT JOIN semesters s ON s.id = wr.semester_id
+    LEFT JOIN semesters sem ON sem.id = wr.semester_id
+    LEFT JOIN academic_years ay ON ay.id = sem.academic_year_id
     LEFT JOIN withdrawal_clearances wc ON wc.request_id = wr.id
     WHERE wr.student_id = $1
-    GROUP BY wr.id, rc.id, s.id
+    GROUP BY wr.id, s.id, u.id, d.id, rc.id, sem.id, ay.id
     ORDER BY wr.submitted_at DESC
   `;
   const res = await query(sql, [studentId]);
@@ -107,6 +123,33 @@ export async function cancelWithdrawalRequest(id, studentId) {
 
     return res.rows[0];
   });
+}
+
+export async function updateWithdrawalRequest(id, studentId, { reason, reasonCategoryId }) {
+  const updates = [];
+  const params = [id, studentId];
+  if (reason && String(reason).trim()) {
+    params.push(String(reason).trim());
+    updates.push(`reason = $${params.length}`);
+  }
+  if (reasonCategoryId) {
+    params.push(reasonCategoryId);
+    updates.push(`reason_category_id = $${params.length}`);
+  }
+  if (updates.length === 0) return null;
+  updates.push(`updated_at = now()`);
+
+  const sql = `
+    UPDATE withdrawal_requests
+    SET ${updates.join(', ')}
+    WHERE id = $1 AND student_id = $2 AND status = 'pending'
+    RETURNING *
+  `;
+  const res = await query(sql, params);
+  if (res.rows.length === 0) {
+    throw new ConflictError('Withdrawal request cannot be updated (not found or not pending).');
+  }
+  return res.rows[0];
 }
 
 export async function listAdminWithdrawals({ status, scope, departmentId, semesterId, programType, search, page = 1, pageSize = 10 } = {}) {

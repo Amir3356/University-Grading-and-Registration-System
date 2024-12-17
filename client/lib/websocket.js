@@ -102,7 +102,7 @@ class WebSocketClient {
   }
 }
 
-const wsClient = new WebSocketClient();
+export const wsClient = new WebSocketClient();
 
 /**
  * React hook to listen for real-time WebSocket events
@@ -111,10 +111,7 @@ const wsClient = new WebSocketClient();
  */
 export function useWebSocketEvent(eventType, handler) {
   const handlerRef = useRef(handler);
-
-  useEffect(() => {
-    handlerRef.current = handler;
-  });
+  handlerRef.current = handler;
 
   useEffect(() => {
     const unsubscribe = wsClient.subscribe(eventType, (payload) => {

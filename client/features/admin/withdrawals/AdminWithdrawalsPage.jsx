@@ -54,6 +54,7 @@ export function AdminWithdrawalsPage() {
   const [selectedRequest, setSelectedRequest] = useState(null)
   const [actionConfirm, setActionConfirm] = useState(null) // { request, action: 'approved' | 'rejected' }
   const [adminNoteInput, setAdminNoteInput] = useState('')
+  const [processingAction, setProcessingAction] = useState(false)
 
   // Filter States
   const [search, setSearch] = useState('')
@@ -147,7 +148,7 @@ export function AdminWithdrawalsPage() {
     )
   }
 
-  const handleConfirmAction = () => {
+  const handleConfirmAction = async () => {
     if (!actionConfirm) return
     const { request, action } = actionConfirm
     if (action === 'rejected' && request.status === 'approved') {
@@ -155,35 +156,51 @@ export function AdminWithdrawalsPage() {
       setActionConfirm(null)
       return
     }
-    updateStatus(request.id, action, adminNoteInput.trim() || undefined)
 
-    if (action === 'approved') {
-      toast.success(`Withdrawal request for ${request.studentName} (${request.studentId}) approved.`)
-    } else {
-      toast.error(`Withdrawal request for ${request.studentName} (${request.studentId}) rejected.`)
+    setProcessingAction(true)
+    const note =
+      adminNoteInput.trim() ||
+      (action === 'approved'
+        ? 'Official withdrawal approved by Registrar Administration.'
+        : 'Withdrawal request rejected by Registrar Administration.')
+
+    try {
+      await updateStatus(request.id, action, note)
+      if (action === 'approved') {
+        toast.success(`Withdrawal request for ${request.studentName} (${request.studentId}) approved.`)
+      } else {
+        toast.error(`Withdrawal request for ${request.studentName} (${request.studentId}) rejected.`)
+      }
+      setActionConfirm(null)
+      setAdminNoteInput('')
+    } catch (err) {
+      toast.error(err?.message || `Failed to ${action} withdrawal request.`)
+    } finally {
+      setProcessingAction(false)
     }
-
-    setActionConfirm(null)
-    setAdminNoteInput('')
   }
 
-  const handleQuickAction = (request, action, e) => {
+  const handleQuickAction = async (request, action, e) => {
     e?.stopPropagation()
     if (action === 'rejected' && request.status === 'approved') {
       toast.error('Approved withdrawal requests cannot be rejected.')
       return
     }
-    updateStatus(
-      request.id,
-      action,
+
+    const note =
       action === 'approved'
         ? 'Official withdrawal approved by Registrar Administration.'
         : 'Withdrawal request rejected by Registrar Administration.'
-    )
-    if (action === 'approved') {
-      toast.success(`Withdrawal request for ${request.studentName} (${request.studentId}) approved.`)
-    } else {
-      toast.error(`Withdrawal request for ${request.studentName} (${request.studentId}) rejected.`)
+
+    try {
+      await updateStatus(request.id, action, note)
+      if (action === 'approved') {
+        toast.success(`Withdrawal request for ${request.studentName} (${request.studentId}) approved.`)
+      } else {
+        toast.error(`Withdrawal request for ${request.studentName} (${request.studentId}) rejected.`)
+      }
+    } catch (err) {
+      toast.error(err?.message || `Failed to ${action} withdrawal request.`)
     }
   }
 
@@ -530,6 +547,7 @@ export function AdminWithdrawalsPage() {
               type="button"
               variant="outline"
               size="sm"
+              disabled={processingAction}
               onClick={() => setActionConfirm(null)}
             >
               Cancel
@@ -537,6 +555,8 @@ export function AdminWithdrawalsPage() {
             <Button
               type="button"
               size="sm"
+              disabled={processingAction}
+              loading={processingAction}
               className={
                 actionConfirm?.action === 'approved'
                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white'

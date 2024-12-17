@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Eye,
   Loader2,
   MessageSquareWarning,
 } from 'lucide-react'
@@ -315,7 +314,7 @@ export function TeacherComplaintsPage() {
         {/* Content Section */}
         {loading && complaints.length === 0 ? (
           <div className="p-6">
-            <TableSkeleton rows={5} columns={8} />
+            <TableSkeleton rows={5} columns={6} />
           </div>
         ) : error ? (
           <div className="p-8">
@@ -349,15 +348,10 @@ export function TeacherComplaintsPage() {
                     <TableHead className="font-semibold text-foreground py-3">Reason</TableHead>
                     <TableHead className="font-semibold text-foreground py-3 text-center">Priority</TableHead>
                     <TableHead className="font-semibold text-foreground py-3">Submitted</TableHead>
-                    <TableHead className="font-semibold text-foreground py-3 text-center">Status</TableHead>
-                    <TableHead className="font-semibold text-foreground py-3 text-right pr-4">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {complaints.map((comp) => {
-                    const isPending = comp.status === 'pending'
-                    const isInReview = comp.status === 'in_review'
-
                     const priorityClass =
                       comp.priority === 'Urgent'
                         ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400'
@@ -396,48 +390,6 @@ export function TeacherComplaintsPage() {
                         </TableCell>
                         <TableCell className="py-3 text-xs text-muted-foreground whitespace-nowrap">
                           {formatDateTime(comp.submittedAt)}
-                        </TableCell>
-                        <TableCell className="py-3 text-center">
-                          <StatusBadge status={comp.status} label={comp.statusLabel || comp.status} />
-                        </TableCell>
-                        <TableCell className="py-3 text-right pr-4" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1.5">
-                            {isPending && (
-                              <Button
-                                size="sm"
-                                variant="default"
-                                className="h-8 px-2.5 text-xs gap-1.5 font-medium bg-blue-600 hover:bg-blue-700 text-white"
-                                onClick={() => handleOpenAccept(comp)}
-                                title="Accept Student Complaint"
-                              >
-                                <CheckCircle2 className="size-3.5" />
-                                Accept
-                              </Button>
-                            )}
-
-                            {isInReview && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 px-2.5 text-xs gap-1.5 font-medium border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
-                                onClick={() => handleOpenResolve(comp)}
-                                title="Resolve Complaint"
-                              >
-                                <Check className="size-3.5" />
-                                Resolve
-                              </Button>
-                            )}
-
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                              onClick={() => handleOpenView(comp)}
-                              title="View Details"
-                            >
-                              <Eye className="size-3.5" />
-                            </Button>
-                          </div>
                         </TableCell>
                       </TableRow>
                     )

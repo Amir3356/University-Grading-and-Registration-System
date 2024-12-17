@@ -53,6 +53,12 @@ async function startServer() {
 
     process.on('SIGINT', () => shutdown('SIGINT'));
     process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.once('SIGUSR2', async () => {
+      server.close(async () => {
+        await closePool();
+        process.kill(process.pid, 'SIGUSR2');
+      });
+    });
   } catch (err) {
     console.error('[Server] Failed to connect to database or start server:', err);
     process.exit(1);

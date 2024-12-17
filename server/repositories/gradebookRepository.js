@@ -127,8 +127,22 @@ export async function getGradebookData(offeringId) {
             s.id as student_id, s.student_number,
             (u.first_name || ' ' || u.last_name) as student_name,
             u.email as student_email,
-            s.department_id, s.year_of_study
+            s.department_id, s.year_of_study,
+            (
+              SELECT wr.status
+              FROM withdrawal_requests wr
+              WHERE wr.student_id = s.id
+                AND wr.status IN ('pending', 'approved')
+                AND (
+                  (wr.scope = 'course' AND wr.enrollment_id = ce.id)
+                  OR (wr.scope = 'semester' AND wr.semester_id = co.semester_id)
+                  OR (wr.scope = 'university')
+                )
+              ORDER BY CASE wr.status WHEN 'approved' THEN 1 ELSE 2 END
+              LIMIT 1
+            ) as withdrawal_request_status
      FROM course_enrollments ce
+     JOIN course_offerings co ON co.id = ce.offering_id
      JOIN students s ON s.id = ce.student_id
      JOIN users u ON u.id = s.user_id
      WHERE ce.offering_id = $1
@@ -202,14 +216,18 @@ export async function getGradebookData(offeringId) {
     const studentScores = scoreMap[enr.enrollment_id] || {};
     const existingFg = fgMap[enr.enrollment_id];
 
+    const isWithdrawn = enr.status === 'withdrawn' || enr.withdrawal_request_status === 'approved';
+    const isWithdrawalPending = !isWithdrawn && enr.withdrawal_request_status === 'pending';
+    const cannotEnterMarks = isWithdrawn || isWithdrawalPending;
+
     let calcResult;
-    if (enr.status === 'withdrawn') {
+    if (cannotEnterMarks) {
       calcResult = {
         weightedTotal: null,
         runningPercent: null,
         complete: false,
         enteredCount: 0,
-        letter: 'W',
+        letter: isWithdrawn ? 'W' : 'W (Pending)',
         gradePoints: null,
         passed: null,
       };
@@ -238,9 +256,15 @@ export async function getGradebookData(offeringId) {
     rows.push({
       enrollmentId: enr.enrollment_id,
       enrollment: {
-        status: enr.status,
+        status: isWithdrawn ? 'withdrawn' : enr.status,
         isRepeat: enr.is_repeat,
+        withdrawn: isWithdrawn,
+        withdrawalPending: isWithdrawalPending,
       },
+      withdrawn: isWithdrawn,
+      withdrawalPending: isWithdrawalPending,
+      cannotEnterMarks,
+      withdrawalNote: isWithdrawn ? 'Withdrawn' : isWithdrawalPending ? 'Withdrawal Pending' : null,
       student: {
         id: enr.student_id,
         studentNumber: enr.student_number,
@@ -254,10 +278,10 @@ export async function getGradebookData(offeringId) {
       runningPercent: calcResult.runningPercent,
       complete: calcResult.complete,
       enteredCount: calcResult.enteredCount,
-      letter: enr.status === 'withdrawn' ? 'W' : (existingFg?.specialGrade || calcResult.letter || existingFg?.letter || null),
-      gradePoints: enr.status === 'withdrawn' ? null : (existingFg?.specialGrade ? (existingFg?.gradePoints ?? null) : (calcResult.gradePoints !== null && calcResult.gradePoints !== undefined ? calcResult.gradePoints : (existingFg?.gradePoints ?? null))),
-      points: enr.status === 'withdrawn' ? null : (existingFg?.specialGrade ? (existingFg?.gradePoints ?? null) : (calcResult.gradePoints !== null && calcResult.gradePoints !== undefined ? calcResult.gradePoints : (existingFg?.gradePoints ?? null))),
-      passed: enr.status === 'withdrawn' ? null : (calcResult.passed !== null && calcResult.passed !== undefined ? calcResult.passed : ((existingFg?.specialGrade || calcResult.letter || existingFg?.letter) ? (existingFg?.specialGrade || calcResult.letter || existingFg?.letter) !== 'F' : false)),
+      letter: isWithdrawn ? 'W' : (isWithdrawalPending ? 'W (Pending)' : (existingFg?.specialGrade || calcResult.letter || existingFg?.letter || null)),
+      gradePoints: cannotEnterMarks ? null : (existingFg?.specialGrade ? (existingFg?.gradePoints ?? null) : (calcResult.gradePoints !== null && calcResult.gradePoints !== undefined ? calcResult.gradePoints : (existingFg?.gradePoints ?? null))),
+      points: cannotEnterMarks ? null : (existingFg?.specialGrade ? (existingFg?.gradePoints ?? null) : (calcResult.gradePoints !== null && calcResult.gradePoints !== undefined ? calcResult.gradePoints : (existingFg?.gradePoints ?? null))),
+      passed: cannotEnterMarks ? null : (calcResult.passed !== null && calcResult.passed !== undefined ? calcResult.passed : ((existingFg?.specialGrade || calcResult.letter || existingFg?.letter) ? (existingFg?.specialGrade || calcResult.letter || existingFg?.letter) !== 'F' : false)),
       finalGrade: existingFg || null,
     });
   }
@@ -267,7 +291,9 @@ export async function getGradebookData(offeringId) {
     let sum = 0;
     let count = 0;
     for (const enr of enrRes.rows) {
-      if (enr.status !== 'withdrawn') {
+      const isWithdrawn = enr.status === 'withdrawn' || enr.withdrawal_request_status === 'approved';
+      const isWithdrawalPending = !isWithdrawn && enr.withdrawal_request_status === 'pending';
+      if (!isWithdrawn && !isWithdrawalPending) {
         const mark = scoreMap[enr.enrollment_id]?.[a.id];
         if (mark !== undefined && mark !== null) {
           sum += mark;
@@ -277,7 +303,7 @@ export async function getGradebookData(offeringId) {
     }
     const avg = count > 0 ? roundTo2(sum / count) : 0;
     const avgPercent = a.maxMarks > 0 ? roundTo2((avg / a.maxMarks) * 100) : 0;
-    const activeStudentCount = enrRes.rows.filter((e) => e.status !== 'withdrawn').length;
+    const activeStudentCount = enrRes.rows.filter((e) => e.status !== 'withdrawn' && e.withdrawal_request_status !== 'approved' && e.withdrawal_request_status !== 'pending').length;
     return {
       assessmentId: a.id,
       name: a.name,
@@ -289,7 +315,7 @@ export async function getGradebookData(offeringId) {
     };
   });
 
-  const activeStudentCount = enrRes.rows.filter((e) => e.status !== 'withdrawn').length;
+  const activeStudentCount = enrRes.rows.filter((e) => e.status !== 'withdrawn' && e.withdrawal_request_status !== 'approved' && e.withdrawal_request_status !== 'pending').length;
   const missingMarks = (activeStudentCount * assessments.length) - scoresRes.rows.length;
 
   const average = studentScoredCount > 0 ? roundTo2(totalScoreSum / studentScoredCount) : null;
@@ -507,6 +533,7 @@ export async function saveScoreChanges(offeringId, changes, reason, user) {
 
     const offStatusRes = await client.query(`SELECT grade_status FROM course_offerings WHERE id = $1`, [offeringId]);
     const offGradeStatus = offStatusRes.rows[0]?.grade_status || 'draft';
+    const fgStatus = ['submitted', 'approved', 'published'].includes(offGradeStatus) ? offGradeStatus : 'draft';
 
     for (const enr of allEnrsRes.rows) {
       if (enr.status === 'withdrawn') continue;
@@ -539,7 +566,7 @@ export async function saveScoreChanges(offeringId, changes, reason, user) {
            grade_points = EXCLUDED.grade_points,
            is_stale = false,
            updated_at = now()`,
-        [fgId, enr.id, scaleId, totalScore, letter, gradePoints, offGradeStatus]
+        [fgId, enr.id, scaleId, totalScore, letter, gradePoints, fgStatus]
       );
     }
 

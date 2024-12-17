@@ -13,8 +13,10 @@ export function FilterSelect({ value, onChange, options, allLabel = 'All', place
     value == null ||
     (value === 'all' && !options.some((o) => String(o.value) === 'all'))
 
+  const selectValue = isAll ? (includeAll ? ALL : '') : String(value)
+
   return (
-    <Select value={isAll ? (includeAll ? ALL : undefined) : String(value)} onValueChange={(v) => onChange(v === ALL ? '' : v)}>
+    <Select value={selectValue} onValueChange={(v) => onChange(v === ALL ? '' : v)}>
       <SelectTrigger className={cn('filter-select', className)} aria-label={label ?? placeholder ?? allLabel}>
         <SelectValue placeholder={placeholder ?? allLabel} />
       </SelectTrigger>

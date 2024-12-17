@@ -192,6 +192,8 @@ export async function closeRegistrationPeriod(id) {
 }
 
 export async function deleteRegistrationPeriod(id) {
+  await query(`DELETE FROM semester_registrations WHERE period_id = $1`, [id]);
+  await query(`DELETE FROM registration_period_types WHERE period_id = $1`, [id]);
   await query(`DELETE FROM registration_periods WHERE id = $1`, [id]);
 }
 
@@ -381,7 +383,14 @@ export async function deleteRegistration(id) {
   await query(`DELETE FROM semester_registrations WHERE id = $1`, [id]);
 }
 
-export async function getCurrentPeriodForStudent(studentId) {
+export async function getCurrentPeriodForStudent(studentId, semesterId = null) {
+  const params = [];
+  let semesterCondition = '';
+  if (semesterId) {
+    params.push(semesterId);
+    semesterCondition = `AND rp.semester_id = $${params.length}`;
+  }
+
   const periodRes = await query(`
     SELECT rp.*,
            s.name as semester_name, s.term,
@@ -392,11 +401,11 @@ export async function getCurrentPeriodForStudent(studentId) {
     JOIN academic_years ay ON ay.id = s.academic_year_id
     JOIN registration_period_types rpt ON rpt.period_id = rp.id
     JOIN registration_types rt ON rt.id = rpt.registration_type_id
-    WHERE ${ACCEPTING_NOW}
+    WHERE ${ACCEPTING_NOW} ${semesterCondition}
     GROUP BY rp.id, s.id, ay.id
     ORDER BY rp.start_date DESC, rp.created_at DESC
     LIMIT 1
-  `);
+  `, params);
 
   if (periodRes.rows.length === 0) return null;
   const p = periodRes.rows[0];
@@ -430,6 +439,57 @@ export async function getCurrentPeriodForStudent(studentId) {
     isAllowedForStudent,
     myRegistration: regRes.rows[0] || null,
   };
+}
+
+export async function getActivePeriodsForStudent(studentId) {
+  const periodRes = await query(`
+    SELECT rp.*,
+           s.name as semester_name, s.term,
+           ay.name as academic_year_name,
+           json_agg(DISTINCT jsonb_build_object('id', rt.id, 'label', rt.label)) as allowed_types
+    FROM registration_periods rp
+    JOIN semesters s ON s.id = rp.semester_id
+    JOIN academic_years ay ON ay.id = s.academic_year_id
+    JOIN registration_period_types rpt ON rpt.period_id = rp.id
+    JOIN registration_types rt ON rt.id = rpt.registration_type_id
+    WHERE ${ACCEPTING_NOW}
+    GROUP BY rp.id, s.id, ay.id
+    ORDER BY rp.start_date DESC, rp.created_at DESC
+  `);
+
+  if (periodRes.rows.length === 0) return [];
+
+  const studentRes = await query(
+    `SELECT id, student_number, program_type, academic_status FROM students WHERE id = $1`,
+    [studentId]
+  );
+  const studentNumber = studentRes.rows[0]?.student_number || null;
+  const studentProgramType = (studentRes.rows[0]?.program_type || 'regular').toLowerCase();
+
+  const regRes = await query(
+    `SELECT sr.*, rt.label as registration_type_label
+     FROM semester_registrations sr
+     JOIN registration_types rt ON rt.id = sr.registration_type_id
+     WHERE sr.student_id = $1`,
+    [studentId]
+  );
+  const registrationsBySem = new Map(regRes.rows.map((r) => [r.semester_id, r]));
+
+  const today = new Date();
+  return periodRes.rows.map((p) => {
+    const deadlineDate = new Date(p.deadline);
+    const diffTime = deadlineDate.getTime() - today.getTime();
+    const daysLeft = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    const isAllowedForStudent = Array.isArray(p.allowed_types) && p.allowed_types.some((t) => (t.id || '').toLowerCase() === studentProgramType);
+    return {
+      ...p,
+      daysLeft,
+      studentNumber,
+      studentProgramType,
+      isAllowedForStudent,
+      myRegistration: registrationsBySem.get(p.semester_id) || null,
+    };
+  });
 }
 
 export async function getStudentProfile(studentId) {

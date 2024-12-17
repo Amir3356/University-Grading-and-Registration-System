@@ -34,7 +34,7 @@ export function StudentRegistrationsPage() {
   const programs = useMemo(() => lookups?.programs ?? [], [lookups])
   const registrationTypes = useMemo(() => lookups?.registrationTypes ?? [], [lookups])
   const typeLabels = useMemo(
-    () => Object.fromEntries(registrationTypes.map((t) => [t.id, t.label])),
+    () => Object.fromEntries(registrationTypes.map((t) => [t.id, t.id === 'regular' ? 'Regular' : t.label])),
     [registrationTypes]
   )
 
@@ -322,7 +322,6 @@ export function StudentRegistrationsPage() {
                   <tr>
                     <th>Student ID</th>
                     <th>Student Name</th>
-                    <th>Academic Year</th>
                     <th>Semester</th>
                     <th>Registration Type</th>
                     <th>Status</th>
@@ -338,7 +337,6 @@ export function StudentRegistrationsPage() {
                       <tr key={student.student_id}>
                         <td style={{ fontWeight: 500, color: 'var(--foreground)' }}>{student.student_number}</td>
                         <td>{student.name}</td>
-                        <td>{selectedSemester?.academic_year?.name || '—'}</td>
                         <td>{selectedSemester?.name || '—'}</td>
                         <td>
                           {typeId ? (
@@ -409,7 +407,7 @@ export function StudentRegistrationsPage() {
                   {students.length === 0 && (
                     <tr>
                       <td
-                        colSpan={8}
+                        colSpan={7}
                         style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted-foreground)' }}
                       >
                         No student registrations found matching your filters.

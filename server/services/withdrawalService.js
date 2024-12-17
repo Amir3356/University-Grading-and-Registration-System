@@ -94,6 +94,12 @@ export async function cancelStudentWithdrawalRequest(id, caller) {
   return await wrRepo.cancelWithdrawalRequest(id, caller.studentId);
 }
 
+export async function updateStudentWithdrawalRequest(id, data, caller) {
+  if (!caller.studentId) throw new ForbiddenError('Only students can update their withdrawal requests.');
+  const { reason, reasonCategoryId } = data;
+  return await wrRepo.updateWithdrawalRequest(id, caller.studentId, { reason, reasonCategoryId });
+}
+
 export async function listAdminWithdrawals(params, caller) {
   const queryParams = { ...params };
   if (caller.roleId === 'dept_head') {

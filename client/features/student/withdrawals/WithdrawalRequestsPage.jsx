@@ -19,12 +19,26 @@ import { FormField } from '@/components/common/FormField'
 import { PageHeader } from '@/components/common/PageHeader'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import { useAuth } from '@/context/auth-context'
+import { useLookups } from '@/context/lookups-context'
 import { useWithdrawalRequests } from '@/store/withdrawalsStore'
+
+const DEFAULT_REASON_CATEGORIES = [
+  { id: 'medical', label: 'Medical / Health' },
+  { id: 'financial', label: 'Financial Hardship' },
+  { id: 'personal_family', label: 'Personal / Family' },
+  { id: 'relocation_transfer', label: 'Relocation / Transfer' },
+  { id: 'employment', label: 'Employment' },
+  { id: 'academic', label: 'Academic Difficulty' },
+  { id: 'personal_emergency', label: 'Personal Emergency' },
+  { id: 'other', label: 'Other' },
+]
 
 export function WithdrawalRequestsPage() {
   const { user } = useAuth()
+  const lookups = useLookups()
   const {
-    requests: allRequests,
+    requests,
+    loading,
     addRequest,
     updateRequest,
     deleteRequest,
@@ -34,15 +48,10 @@ export function WithdrawalRequestsPage() {
   const [editingRequest, setEditingRequest] = useState(null)
   const [requestToDelete, setRequestToDelete] = useState(null)
 
-  // Show requests relevant to the student (or initial student requests)
-  const requests = useMemo(() => {
-    // If student user is logged in, show their requests or all matching requests
-    const myId = user?.studentNumber || 'UGR/24/0001'
-    const studentSpecific = allRequests.filter(
-      (r) => r.studentId === myId || r.requestId === 'WR-001' || r.requestId === 'WR-002'
-    )
-    return studentSpecific.length > 0 ? studentSpecific : allRequests.slice(0, 3)
-  }, [allRequests, user])
+  const reasonCategoryOptions = useMemo(() => {
+    const list = lookups?.withdrawalReasonCategories ?? []
+    return list.length > 0 ? list : DEFAULT_REASON_CATEGORIES
+  }, [lookups])
 
   const currentYear = String(new Date().getFullYear())
   const academicYearOptions = useMemo(() => [currentYear], [currentYear])
@@ -61,6 +70,7 @@ export function WithdrawalRequestsPage() {
     academicYear: currentYear,
     semester: 'First Semester',
     programType: 'Regular',
+    reasonCategoryId: 'medical',
     reasonCategory: 'Medical / Health',
     reason: '',
   })
@@ -73,6 +83,7 @@ export function WithdrawalRequestsPage() {
       academicYear: currentYear,
       semester: 'First Semester',
       programType: 'Regular',
+      reasonCategoryId: 'medical',
       reasonCategory: 'Medical / Health',
       reason: '',
     })
@@ -80,7 +91,7 @@ export function WithdrawalRequestsPage() {
     setIsSubmitOpen(true)
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!newRequest.reason.trim()) {
       setFormError('Please enter a reason for withdrawal.')
@@ -88,41 +99,38 @@ export function WithdrawalRequestsPage() {
     }
 
     setSubmitting(true)
-    setTimeout(() => {
-      const nextNum = allRequests.length + 1
-      const createdRecord = {
-        id: `WR-${String(nextNum).padStart(3, '0')}`,
-        requestId: `WR-${String(nextNum).padStart(3, '0')}`,
-        studentId: user?.studentNumber || 'UGR/24/0001',
-        studentName: user ? `${user.firstName} ${user.lastName}` : 'Abebe Kebede',
-        department: 'Computer Science',
-        departmentCode: 'CS',
-        withdrawalType: newRequest.withdrawalType,
-        programType: newRequest.programType || 'Regular',
-        academicYear: newRequest.academicYear,
-        semester: newRequest.semester,
-        requestDate: new Date().toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-        }),
-        status: 'pending',
-        reasonCategory: newRequest.reasonCategory,
-        reason: newRequest.reason.trim(),
-        adminNotes: 'Submitted by student. Under initial departmental review.',
-        clearance: {
-          department: 'pending',
-          library: 'pending',
-          housing: 'pending',
-          registrar: 'pending',
-        },
+    setFormError('')
+    try {
+      let semesterId = null
+      if (newRequest.withdrawalType !== 'Complete University Withdrawal') {
+        const found = lookups?.semesters?.find(
+          (s) =>
+            newRequest.withdrawalType.includes(s.name) ||
+            (newRequest.semester && s.name.includes(newRequest.semester))
+        )
+        semesterId = found?.id || lookups?.currentSemester?.id || 'sem_2026_fall'
       }
 
-      addRequest(createdRecord)
-      setSubmitting(false)
+      await addRequest({
+        withdrawalType: newRequest.withdrawalType,
+        semesterId,
+        programType: newRequest.programType,
+        academicYear: newRequest.academicYear,
+        semester: newRequest.semester,
+        reasonCategoryId: newRequest.reasonCategoryId,
+        reasonCategory: newRequest.reasonCategory,
+        reason: newRequest.reason.trim(),
+      })
+
       setIsSubmitOpen(false)
-      toast.success(`Withdrawal request ${createdRecord.requestId} submitted successfully.`)
-    }, 350)
+      toast.success('Withdrawal request submitted successfully.')
+    } catch (err) {
+      const msg = err?.message || 'Failed to submit withdrawal request.'
+      setFormError(msg)
+      toast.error(msg)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const [editForm, setEditForm] = useState({
@@ -130,10 +138,12 @@ export function WithdrawalRequestsPage() {
     academicYear: currentYear,
     semester: 'First Semester',
     programType: 'Regular',
+    reasonCategoryId: 'medical',
     reasonCategory: 'Medical / Health',
     reason: '',
   })
   const [editFormError, setEditFormError] = useState('')
+  const [updating, setUpdating] = useState(false)
 
   const handleOpenEdit = (req) => {
     setEditingRequest(req)
@@ -142,6 +152,7 @@ export function WithdrawalRequestsPage() {
       academicYear: req.academicYear || currentYear,
       semester: req.semester || 'First Semester',
       programType: req.programType || 'Regular',
+      reasonCategoryId: req.reasonCategoryId || 'medical',
       reasonCategory: req.reasonCategory || 'Medical / Health',
       reason: req.reason || '',
     })
@@ -149,27 +160,32 @@ export function WithdrawalRequestsPage() {
     setIsEditOpen(true)
   }
 
-  const handleEditSubmit = (e) => {
+  const handleEditSubmit = async (e) => {
     e.preventDefault()
     if (!editForm.reason.trim()) {
       setEditFormError('Please enter a reason for withdrawal.')
       return
     }
 
-    const updatedRecord = {
-      ...editingRequest,
-      withdrawalType: editForm.withdrawalType,
-      academicYear: editForm.academicYear,
-      semester: editForm.semester,
-      programType: editForm.programType,
-      reasonCategory: editForm.reasonCategory,
-      reason: editForm.reason.trim(),
+    setUpdating(true)
+    setEditFormError('')
+    try {
+      await updateRequest({
+        ...editingRequest,
+        reasonCategory: editForm.reasonCategory,
+        reasonCategoryId: editForm.reasonCategoryId,
+        reason: editForm.reason.trim(),
+      })
+      setIsEditOpen(false)
+      setEditingRequest(null)
+      toast.success(`Withdrawal request updated successfully.`)
+    } catch (err) {
+      const msg = err?.message || 'Failed to update withdrawal request.'
+      setEditFormError(msg)
+      toast.error(msg)
+    } finally {
+      setUpdating(false)
     }
-
-    updateRequest(updatedRecord)
-    setIsEditOpen(false)
-    setEditingRequest(null)
-    toast.success(`Withdrawal request ${editingRequest.requestId} updated successfully.`)
   }
 
   return (
@@ -272,33 +288,37 @@ export function WithdrawalRequestsPage() {
 
                       {/* Action */}
                       <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label="Edit withdrawal request"
-                            title="Edit withdrawal request"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenEdit(r)
-                            }}
-                          >
-                            <Pencil className="size-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            aria-label="Delete withdrawal request"
-                            title="Delete withdrawal request"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setRequestToDelete(r)
-                            }}
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        </div>
+                        {r.status === 'pending' ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label="Edit withdrawal request"
+                              title="Edit withdrawal request"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenEdit(r)
+                              }}
+                            >
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              aria-label="Cancel withdrawal request"
+                              title="Cancel withdrawal request"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setRequestToDelete(r)
+                              }}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   )
@@ -396,6 +416,32 @@ export function WithdrawalRequestsPage() {
                   <SelectItem value="Regular">Regular</SelectItem>
                   <SelectItem value="Extension">Extension</SelectItem>
                   <SelectItem value="Weekend">Weekend</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            {/* Reason Category Dropdown */}
+            <FormField label="Reason Category" required>
+              <Select
+                value={newRequest.reasonCategoryId}
+                onValueChange={(val) => {
+                  const found = reasonCategoryOptions.find((c) => c.id === val)
+                  setNewRequest((prev) => ({
+                    ...prev,
+                    reasonCategoryId: val,
+                    reasonCategory: found?.label || 'Other',
+                  }))
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Reason Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {reasonCategoryOptions.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </FormField>
@@ -524,6 +570,32 @@ export function WithdrawalRequestsPage() {
               </Select>
             </FormField>
 
+            {/* Reason Category Dropdown */}
+            <FormField label="Reason Category" required>
+              <Select
+                value={editForm.reasonCategoryId}
+                onValueChange={(val) => {
+                  const found = reasonCategoryOptions.find((c) => c.id === val)
+                  setEditForm((prev) => ({
+                    ...prev,
+                    reasonCategoryId: val,
+                    reasonCategory: found?.label || 'Other',
+                  }))
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Reason Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {reasonCategoryOptions.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+
             {/* Reason Text Input Field */}
             <FormField label="Reason" required error={editFormError}>
               <Textarea
@@ -546,10 +618,11 @@ export function WithdrawalRequestsPage() {
                   setIsEditOpen(false)
                   setEditingRequest(null)
                 }}
+                disabled={updating}
               >
                 Cancel
               </Button>
-              <Button type="submit" size="sm">
+              <Button type="submit" size="sm" loading={updating}>
                 Save Changes
               </Button>
             </DialogFooter>

@@ -55,18 +55,23 @@ function effectiveStatus(period) {
 }
 
 function mapPeriod(p) {
+  const startDateRaw = p.startDate ?? p.start_date
+  const deadlineRaw = p.deadline
+  const regTypes = p.registrationTypes ?? p.registration_types ?? []
+  const semesterId = p.semesterId ?? p.semester_id
+
   return {
     id: p.id,
-    semesterId: p.semester_id,
-    academicYear: p.semester?.academicYear?.name || '—',
+    semesterId,
+    academicYear: p.semester?.academicYear?.name || p.semester?.academic_year?.name || '—',
     semester: p.semester?.name || '—',
     term: p.semester?.term || '',
-    registrationTypes: p.registration_types || [],
-    startDate: toDateInput(p.start_date),
-    deadline: toDateInput(p.deadline),
+    registrationTypes: regTypes,
+    startDate: toDateInput(startDateRaw),
+    deadline: toDateInput(deadlineRaw),
     status: p.status,
-    registeredCount: Number(p.registered_count || 0),
-    pendingCount: Number(p.pending_count || 0),
+    registeredCount: Number(p.registeredCount ?? p.registered_count ?? 0),
+    pendingCount: Number(p.pendingCount ?? p.pending_count ?? 0),
   }
 }
 
@@ -74,10 +79,19 @@ export function RegistrationPeriodsPage() {
   const lookups = useLookups()
   const semesters = useMemo(() => lookups?.semesters ?? [], [lookups])
   const registrationTypes = useMemo(() => {
-    const list = lookups?.registrationTypes ?? []
+    const list = (lookups?.registrationTypes ?? []).filter((t) => {
+      const id = (t.id || '').toLowerCase()
+      const label = (t.label || '').toLowerCase().trim()
+      return id !== 'cafe' && label !== 'regular (cafe)' && label !== 'regular (café)'
+    }).map((t) => {
+      if (t.id === 'regular') {
+        return { ...t, label: 'Regular (Cafe & Non cafe)' }
+      }
+      return t
+    })
     if (list.length > 0) return list
     return [
-      { id: 'regular', label: 'Regular' },
+      { id: 'regular', label: 'Regular (Cafe & Non cafe)' },
       { id: 'extension', label: 'Extension' },
       { id: 'weekend', label: 'Weekend' },
     ]
@@ -125,27 +139,50 @@ export function RegistrationPeriodsPage() {
   }, [periods])
 
   // A semester can only have one registration period.
-  // Dynamically increments for every year: displays only the current arrived year's semesters
-  // (e.g. 2026 First Semester and 2026 Second Semester in 2026; 2027 First and Second in 2027).
+  // Dynamically increments for every year: displays the current reached year's semesters
+  // (e.g. 2026 First Semester and 2026 Second Semester in 2026; 2027 First and Second in 2027, etc.).
   const availableSemesters = useMemo(() => {
     const currentYear = new Date().getFullYear()
     const used = new Set(periods.map((p) => p.semesterId))
-    return semesters
-      .filter((s) => {
-        if (s.id === formState.semesterId) return true
-        if (used.has(s.id)) return false
-        if (s.status === 'closed') return false
 
-        // Extract year from semester name (e.g. "2026 First Semester" -> 2026)
-        const yearMatch = (s.name || '').match(/\b(20\d{2})\b/) || (s.academic_year?.name || '').match(/\b(20\d{2})\b/)
-        if (yearMatch) {
-          const semYear = parseInt(yearMatch[1], 10)
-          // Display ONLY the current arrived year's semesters (e.g. 2027 First/Second in 2027)
-          if (semYear !== currentYear) return false
-        }
-        return true
-      })
-      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+    // Semesters not yet configured or currently being edited
+    const unconfigured = semesters.filter((s) => {
+      if (s.id === formState.semesterId) return true
+      if (used.has(s.id)) return false
+      if (s.status === 'closed') return false
+      return true
+    })
+
+    // Filter by the reached year: e.g. in 2026 -> 2026 First/Second; in 2027 -> 2027 First/Second; in 2028 -> 2028 First/Second
+    const forCurrentYear = unconfigured.filter((s) => {
+      const yearMatch = (s.name || '').match(/\b(20\d{2})\b/) || (s.academic_year?.name || '').match(/\b(20\d{2})\b/)
+      return yearMatch ? parseInt(yearMatch[1], 10) === currentYear : true
+    })
+
+    // If the reached year has available semesters, return them
+    if (forCurrentYear.length > 0) {
+      return forCurrentYear.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+    }
+
+    // If all semesters for the current year already have periods, show the next upcoming year (e.g. 2027)
+    const forUpcomingYear = unconfigured.filter((s) => {
+      const yearMatch = (s.name || '').match(/\b(20\d{2})\b/) || (s.academic_year?.name || '').match(/\b(20\d{2})\b/)
+      return yearMatch ? parseInt(yearMatch[1], 10) === currentYear + 1 : false
+    })
+
+    if (forUpcomingYear.length > 0) {
+      return forUpcomingYear.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+    }
+
+    if (unconfigured.length > 0) {
+      return unconfigured.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+    }
+
+    // Dynamic auto-incrementing fallback guarantee whenever a new calendar year is reached
+    return [
+      { id: `sem_${currentYear}_fall`, name: `${currentYear} First Semester`, term: 'first' },
+      { id: `sem_${currentYear + 1}_spring`, name: `${currentYear} Second Semester`, term: 'second' },
+    ]
   }, [semesters, periods, formState.semesterId])
 
   const filteredPeriods = useMemo(() => {
@@ -181,7 +218,12 @@ export function RegistrationPeriodsPage() {
 
   const handleOpenNewConfig = () => {
     setEditingPeriodId(null)
-    setFormState({ ...EMPTY_FORM, registrationTypeIds: registrationTypes.map((t) => t.id) })
+    const defaultSemId = availableSemesters[0]?.id || ''
+    setFormState({
+      ...EMPTY_FORM,
+      semesterId: defaultSemId,
+      registrationTypeIds: registrationTypes.map((t) => t.id),
+    })
     setIsDrawerOpen(true)
   }
 
@@ -418,15 +460,15 @@ export function RegistrationPeriodsPage() {
                             <div className="reg-table-types">
                               {period.registrationTypes.map((type) => (
                                 <span key={type.id} className={`reg-badge ${TYPE_BADGE_CLASS[type.id] || 'reg-badge--regular'}`}>
-                                  {type.label}
+                                  {type.id === 'regular' ? 'Regular (Cafe & Non cafe)' : type.label}
                                 </span>
                               ))}
                             </div>
                           </td>
-                          <td>{formatDate(period.startDate + 'T00:00:00')}</td>
+                          <td>{formatDate(period.startDate)}</td>
                           <td>
                             <div className="flex flex-col gap-1 items-start">
-                              <span>{formatDate(period.deadline + 'T00:00:00')}</span>
+                              <span>{formatDate(period.deadline)}</span>
                               {effectiveStatus(period) !== 'closed' && (
                                 <RegistrationCountdown
                                   startDate={period.startDate}

@@ -74,7 +74,14 @@ export async function listSubmissions({ status, semesterId, departmentId, search
              json_build_object(
                'id', co.id,
                'section', co.section,
-               'course', json_build_object('id', c.id, 'code', c.code, 'title', c.title),
+               'yearOfStudy', COALESCE(co.year_of_study, CASE WHEN c.level >= 100 THEN c.level / 100 ELSE c.level END),
+               'course', json_build_object(
+                 'id', c.id,
+                 'code', c.code,
+                 'title', c.title,
+                 'level', c.level,
+                 'yearOfStudy', CASE WHEN c.level >= 100 THEN c.level / 100 ELSE c.level END
+               ),
                'semester', json_build_object('id', sem.id, 'name', sem.name)
              ) as offering,
              json_build_object(

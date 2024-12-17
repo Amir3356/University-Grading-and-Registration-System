@@ -143,9 +143,10 @@ export async function getStudentRegistrations(req, res, next) {
     if (!req.user.studentId) throw new ForbiddenError('Only students can access registration self-service.');
     const student = await regService.getStudentProfile(req.user.studentId);
     const currentPeriod = await regService.getStudentCurrentPeriod(req.user.studentId);
+    const activePeriods = await regService.getActivePeriodsForStudent(req.user.studentId);
     const history = await regService.listStudentHistory(req.user.studentId);
     const upcomingPeriod = currentPeriod ? null : await regService.getUpcomingPeriod();
-    sendSuccess(res, { currentPeriod, upcomingPeriod, history, student });
+    sendSuccess(res, { currentPeriod, activePeriods, upcomingPeriod, history, student });
   } catch (err) {
     next(err);
   }

@@ -7,20 +7,22 @@ import { formatDate, formatGpa, formatSemesterName } from '@/lib/format'
 
 /** Read-only transcript rendering shared by the admin and student transcript pages. */
 export function TranscriptView({ transcript: t }) {
-  const s = t.student
+  if (!t) return null
+  const s = t.student || {}
+  const semesters = Array.isArray(t.semesters) ? t.semesters : []
   return (
     <div className="stack stack--lg">
       <Card>
         <CardContent className="transcript-summary">
           <div>
             <p className="text-xs text-muted">Student</p>
-            <p className="font-semibold">{s.name}</p>
-            <p className="text-sm text-muted">{s.studentNumber}</p>
+            <p className="font-semibold">{s.name || '—'}</p>
+            <p className="text-sm text-muted">{s.studentNumber || '—'}</p>
           </div>
           <div>
             <p className="text-xs text-muted">Programme</p>
-            <p className="font-medium">{s.program}</p>
-            <p className="text-sm text-muted">{s.department?.name}</p>
+            <p className="font-medium">{s.program || '—'}</p>
+            <p className="text-sm text-muted">{s.department?.name || '—'}</p>
           </div>
           <div>
             <p className="text-xs text-muted">Cumulative GPA</p>
@@ -33,18 +35,18 @@ export function TranscriptView({ transcript: t }) {
           </div>
           <div>
             <p className="text-xs text-muted">Credits earned</p>
-            <p className="big-number">{t.earnedCredits}</p>
+            <p className="big-number">{t.earnedCredits ?? 0}</p>
             <p className="text-sm text-muted">Issued {formatDate(t.generatedAt)}</p>
           </div>
         </CardContent>
       </Card>
 
-      {t.semesters.length === 0 ? (
+      {semesters.length === 0 ? (
         <Card>
           <EmptyState title="No published results yet" description="Results appear here once grades have been approved and published." />
         </Card>
       ) : (
-        t.semesters.map((sem) => (
+        semesters.map((sem) => (
           <Card key={sem.semesterId} className="card--table">
             <CardHeader>
               <CardTitle>{formatSemesterName(sem.name)}</CardTitle>

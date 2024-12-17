@@ -16,6 +16,7 @@ export const studentWithdrawalRouter = Router();
 studentWithdrawalRouter.use(authenticate, requireRoles('student'));
 studentWithdrawalRouter.get('/', wrCtrl.listStudentWithdrawals);
 studentWithdrawalRouter.post('/', validateRequest(createWithdrawalSchema), wrCtrl.createStudentWithdrawal);
+studentWithdrawalRouter.patch('/:id', wrCtrl.updateStudentWithdrawal);
 studentWithdrawalRouter.post('/:id/cancel', wrCtrl.cancelStudentWithdrawal);
 
 // Admin & Dept Head management

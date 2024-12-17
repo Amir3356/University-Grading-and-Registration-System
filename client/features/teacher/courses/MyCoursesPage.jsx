@@ -15,7 +15,7 @@ export function MyCoursesPage() {
   const [semesterChoice, setSemesterChoice] = useState('all')
   const [yearOfStudyChoice, setYearOfStudyChoice] = useState('')
 
-  const { data, loading, error, refetch } = useQuery(() => store.teacher.listMyOfferings())
+  const { data, loading, error, refetch } = useQuery(() => store.teacher.listMyOfferings({ pageSize: 'all' }), [])
 
   // Autoincrements dynamically when the new calendar year arrives (e.g. 2026, 2027 when reached)
   const availableYears = useMemo(() => {

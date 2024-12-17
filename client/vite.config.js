@@ -16,6 +16,8 @@ export default defineConfig({
       '/api/v1': {
         target: 'http://127.0.0.1:5000',
         changeOrigin: true,
+        timeout: 15000,
+        proxyTimeout: 15000,
         configure: (proxy) => {
           proxy.on('error', (_err, _req, res) => {
             if (res && !res.headersSent && typeof res.writeHead === 'function') {
@@ -26,7 +28,7 @@ export default defineConfig({
                 JSON.stringify({
                   error: {
                     kind: 'service_unavailable',
-                    message: 'Backend server is temporarily unavailable or restarting.',
+                    message: 'Backend server is temporarily restarting or unavailable. Please try again.',
                   },
                 })
               );

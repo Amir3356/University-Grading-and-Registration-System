@@ -2,7 +2,13 @@ import { CheckIcon, ChevronDownIcon } from 'lucide-react'
 import { Select as SelectPrimitive } from 'radix-ui'
 import { cn } from '@/lib/utils'
 
-export const Select = (props) => <SelectPrimitive.Root {...props} />
+export function Select({ value, onValueChange, ...props }) {
+  // Prevent Radix warning: "Select is changing from uncontrolled to controlled"
+  // When onValueChange is provided or value prop is present, ensure value is consistently controlled
+  const isControlled = onValueChange !== undefined || 'value' in props
+  const controlledValue = isControlled ? (value ?? '') : value
+  return <SelectPrimitive.Root value={controlledValue} onValueChange={onValueChange} {...props} />
+}
 export const SelectGroup = (props) => <SelectPrimitive.Group {...props} />
 export const SelectValue = (props) => <SelectPrimitive.Value {...props} />
 

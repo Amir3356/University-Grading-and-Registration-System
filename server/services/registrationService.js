@@ -195,8 +195,12 @@ export async function getStudentProfile(studentId) {
   return await regRepo.getStudentProfile(studentId);
 }
 
-export async function getStudentCurrentPeriod(studentId) {
-  return await regRepo.getCurrentPeriodForStudent(studentId);
+export async function getStudentCurrentPeriod(studentId, semesterId = null) {
+  return await regRepo.getCurrentPeriodForStudent(studentId, semesterId);
+}
+
+export async function getActivePeriodsForStudent(studentId) {
+  return await regRepo.getActivePeriodsForStudent(studentId);
 }
 
 export async function getUpcomingPeriod() {
@@ -222,9 +226,9 @@ function isPeriodPastDeadline(deadline) {
 }
 
 export async function submitStudentRegistration({ semesterId, registrationTypeId: _registrationTypeId, cafeStatus = 'cafe' }, studentId, user) {
-  const currentPeriod = await regRepo.getCurrentPeriodForStudent(studentId);
+  const currentPeriod = await regRepo.getCurrentPeriodForStudent(studentId, semesterId);
   if (!currentPeriod) {
-    throw new ConflictError('Semester registration is not open right now.');
+    throw new ConflictError('Registration is not currently open for the requested semester.');
   }
 
   // Strict backend deadline validation
@@ -232,7 +236,7 @@ export async function submitStudentRegistration({ semesterId, registrationTypeId
     throw new ConflictError('The registration deadline has passed. Semester registration is now closed.');
   }
 
-  if (currentPeriod.semester_id !== semesterId) {
+  if (semesterId && currentPeriod.semester_id !== semesterId) {
     throw new ConflictError('Registration is not currently open for the requested semester.');
   }
 
