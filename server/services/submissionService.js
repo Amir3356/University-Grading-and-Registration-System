@@ -6,6 +6,8 @@ export async function listSubmissions(params, caller) {
   const queryParams = { ...params };
   if (caller.roleId === 'dept_head') {
     queryParams.departmentId = caller.departmentId;
+  } else if (caller.roleId === 'teacher') {
+    queryParams.teacherId = caller.teacherId;
   }
   return await subRepo.listSubmissions(queryParams);
 }
@@ -16,6 +18,9 @@ export async function getSubmissionDetail(id, caller) {
 
   if (caller.roleId === 'dept_head' && detail.offering.departmentId !== caller.departmentId) {
     throw new ForbiddenError('You can only review submissions for courses within your department.');
+  }
+  if (caller.roleId === 'teacher' && detail.offering.teacherId !== caller.teacherId) {
+    throw new ForbiddenError('You can only review submissions for your own courses.');
   }
 
   return detail;

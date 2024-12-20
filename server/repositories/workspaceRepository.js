@@ -659,15 +659,59 @@ export async function getStudentCourseDetail(studentId, enrollmentId) {
   };
 }
 
+function encodeCursor(val, id) {
+  if (!id) return null;
+  return Buffer.from(JSON.stringify({ v: val, id })).toString('base64url');
+}
+
+function decodeCursor(cursorStr) {
+  if (!cursorStr || typeof cursorStr !== 'string') return null;
+  try {
+    const raw = Buffer.from(cursorStr, 'base64url').toString('utf8');
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && parsed.id) return parsed;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+const studentSortConfig = {
+  coursecode: { expr: 'c.code', cast: 'text', getVal: (r) => r.course_code || r.courseCode },
+  courseCode: { expr: 'c.code', cast: 'text', getVal: (r) => r.course_code || r.courseCode },
+  coursetitle: { expr: 'c.title', cast: 'text', getVal: (r) => r.course_title || r.courseTitle },
+  courseTitle: { expr: 'c.title', cast: 'text', getVal: (r) => r.course_title || r.courseTitle },
+  teachername: { expr: "(u.first_name || ' ' || u.last_name)", cast: 'text', getVal: (r) => r.teacher_name || r.teacherName },
+  teacherName: { expr: "(u.first_name || ' ' || u.last_name)", cast: 'text', getVal: (r) => r.teacher_name || r.teacherName },
+  name: { expr: 'a.name', cast: 'text', getVal: (r) => r.name },
+  type: { expr: 'a.type', cast: 'text', getVal: (r) => r.type },
+  assessmenttype: { expr: 'a.type', cast: 'text', getVal: (r) => r.type },
+  assessmentType: { expr: 'a.type', cast: 'text', getVal: (r) => r.type },
+  maxmarks: { expr: 'a.max_marks', cast: 'numeric', getVal: (r) => parseFloat(r.max_marks || '0') },
+  maxMarks: { expr: 'a.max_marks', cast: 'numeric', getVal: (r) => parseFloat(r.max_marks || '0') },
+  totalmark: { expr: 'a.max_marks', cast: 'numeric', getVal: (r) => parseFloat(r.max_marks || '0') },
+  totalMark: { expr: 'a.max_marks', cast: 'numeric', getVal: (r) => parseFloat(r.max_marks || '0') },
+  weight: { expr: 'a.weight', cast: 'numeric', getVal: (r) => parseFloat(r.weight || '0') },
+  marks: { expr: 'COALESCE(scr.marks, -1)', cast: 'numeric', getVal: (r) => parseFloat(r.marks ?? -1) },
+  markobtained: { expr: 'COALESCE(scr.marks, -1)', cast: 'numeric', getVal: (r) => parseFloat(r.marks ?? -1) },
+  markObtained: { expr: 'COALESCE(scr.marks, -1)', cast: 'numeric', getVal: (r) => parseFloat(r.marks ?? -1) },
+  duedate: { expr: 'a.due_date', cast: 'date', getVal: (r) => r.due_date_text || r.due_date || r.dueDate },
+  dueDate: { expr: 'a.due_date', cast: 'date', getVal: (r) => r.due_date_text || r.due_date || r.dueDate },
+};
+
 export async function listStudentAssessments(studentId, {
   academicYearId,
   semesterId,
   offeringId,
   courseId,
   courseCode,
+  teacherId,
   status,
   search,
   cursor,
+  direction = 'next',
+  after,
+  before,
   limit: limitParam,
   pageSize,
   sortBy = 'dueDate',
@@ -699,6 +743,11 @@ export async function listStudentAssessments(studentId, {
   if (courseCode && courseCode !== 'all') {
     params.push(courseCode);
     conditions.push(`c.code = $${params.length}`);
+  }
+
+  if (teacherId && teacherId !== 'all') {
+    params.push(teacherId);
+    conditions.push(`co.teacher_id = $${params.length}`);
   }
 
   if (search && search.trim()) {
@@ -735,81 +784,64 @@ export async function listStudentAssessments(studentId, {
   const countRes = await query(countSql, params);
   const total = parseInt(countRes.rows[0]?.total || '0', 10);
 
-  // 2. Sorting
-  const sortMap = {
-    coursecode: 'c.code',
-    courseCode: 'c.code',
-    coursetitle: 'c.title',
-    courseTitle: 'c.title',
-    teachername: `(u.first_name || ' ' || u.last_name)`,
-    teacherName: `(u.first_name || ' ' || u.last_name)`,
-    name: 'a.name',
-    type: 'a.type',
-    assessmenttype: 'a.type',
-    assessmentType: 'a.type',
-    maxmarks: 'a.max_marks',
-    maxMarks: 'a.max_marks',
-    totalmark: 'a.max_marks',
-    totalMark: 'a.max_marks',
-    weight: 'a.weight',
-    marks: 'COALESCE(scr.marks, -1)',
-    markobtained: 'COALESCE(scr.marks, -1)',
-    markObtained: 'COALESCE(scr.marks, -1)',
-    duedate: 'a.due_date',
-    dueDate: 'a.due_date',
-    status: `CASE WHEN scr.marks IS NOT NULL THEN 'graded' WHEN a.due_date < CURRENT_DATE THEN 'pending' ELSE 'upcoming' END`,
-  };
+  // 2. Keyset cursor-based pagination
+  const isAll = limitParam === 'all' || pageSize === 'all';
+  const limit = isAll ? null : Math.max(1, parseInt(limitParam || pageSize, 10) || 4);
 
-  const direction = String(sortDir).toLowerCase() === 'desc' ? 'DESC' : 'ASC';
-  const sortCol = sortMap[sortBy] || 'a.due_date';
+  let activeCursor = cursor || null;
+  let navDirection = direction === 'prev' ? 'prev' : 'next';
 
-  // 3. Cursor-based Server Pagination (4 real data rows per page)
-  const limit = Math.max(1, parseInt(limitParam || pageSize, 10) || 4);
-
-  const queryParams = [...params];
-  let cteClause = '';
-  let cursorJoin = '';
-  let cursorCondition = '';
-
-  if (cursor) {
-    queryParams.push(cursor);
-    const cursorIdx = queryParams.length;
-    cteClause = `
-      WITH cur AS (
-        SELECT a.id, ${sortCol} as cur_sort
-        FROM assessments a
-        JOIN course_offerings co ON co.id = a.offering_id
-        JOIN courses c ON c.id = co.course_id
-        JOIN semesters s ON s.id = co.semester_id
-        JOIN academic_years ay ON ay.id = s.academic_year_id
-        JOIN course_enrollments ce ON ce.offering_id = co.id
-        LEFT JOIN teachers t ON t.id = co.teacher_id
-        LEFT JOIN users u ON u.id = t.user_id
-        LEFT JOIN assessment_scores scr ON scr.assessment_id = a.id AND scr.enrollment_id = ce.id
-        WHERE a.id = $${cursorIdx}
-        LIMIT 1
-      )
-    `;
-    cursorJoin = `CROSS JOIN cur`;
-    cursorCondition = direction === 'ASC'
-      ? `AND (${sortCol}, a.id) > (cur.cur_sort, cur.id)`
-      : `AND (${sortCol}, a.id) < (cur.cur_sort, cur.id)`;
+  if (after) {
+    activeCursor = after;
+    navDirection = 'next';
+  } else if (before) {
+    activeCursor = before;
+    navDirection = 'prev';
   }
 
-  // Fetch limit + 1 to detect whether there is a next page
-  queryParams.push(limit + 1);
-  const limitIdx = queryParams.length;
-  const limitClause = `LIMIT $${limitIdx}`;
+  const decoded = decodeCursor(activeCursor);
+  const selectedSortKey = sortBy && studentSortConfig[sortBy] ? sortBy : 'dueDate';
+  const sortInfo = studentSortConfig[selectedSortKey];
+  const sortExpr = sortInfo.expr;
+  const cast = sortInfo.cast;
+  const isDesc = String(sortDir).toLowerCase() === 'desc';
+  const primaryDirection = isDesc ? 'DESC' : 'ASC';
 
-  const fullWhereClause = whereClause
-    ? `${whereClause} ${cursorCondition}`
-    : cursorCondition
-    ? `WHERE 1=1 ${cursorCondition}`
-    : '';
+  const queryConditions = [...conditions];
+  const queryParams = [...params];
+  let orderClause;
+
+  if (!isAll && decoded) {
+    const op = navDirection === 'next' ? (isDesc ? '<' : '>') : (isDesc ? '>' : '<');
+    if (navDirection === 'next') {
+      orderClause = `ORDER BY ${sortExpr} ${primaryDirection}, a.id ${primaryDirection}`;
+    } else {
+      const reverseDir = isDesc ? 'ASC' : 'DESC';
+      orderClause = `ORDER BY ${sortExpr} ${reverseDir}, a.id ${reverseDir}`;
+    }
+
+    queryParams.push(decoded.v);
+    const valIdx = queryParams.length;
+    queryParams.push(decoded.id);
+    const idIdx = queryParams.length;
+
+    queryConditions.push(`(${sortExpr} ${op} $${valIdx}::${cast} OR (${sortExpr} = $${valIdx}::${cast} AND a.id ${op} $${idIdx}))`);
+  } else {
+    orderClause = `ORDER BY ${sortExpr} ${primaryDirection}, a.id ${primaryDirection}`;
+  }
+
+  let limitClause = '';
+  if (!isAll) {
+    queryParams.push(limit + 1);
+    const limitIdx = queryParams.length;
+    limitClause = `LIMIT $${limitIdx}`;
+  }
+
+  const finalWhere = queryConditions.length > 0 ? `WHERE ${queryConditions.join(' AND ')}` : '';
 
   const dataSql = `
-    ${cteClause}
     SELECT a.id, a.name, a.type, a.max_marks, a.weight, a.due_date, a.is_released,
+           to_char(a.due_date, 'YYYY-MM-DD') as due_date_text,
            c.code as course_code, c.title as course_title,
            co.id as offering_id, co.grade_status as offering_grade_status,
            (u.first_name || ' ' || u.last_name) as teacher_name,
@@ -823,19 +855,39 @@ export async function listStudentAssessments(studentId, {
     LEFT JOIN teachers t ON t.id = co.teacher_id
     LEFT JOIN users u ON u.id = t.user_id
     LEFT JOIN assessment_scores scr ON scr.assessment_id = a.id AND scr.enrollment_id = ce.id
-    ${cursorJoin}
-    ${fullWhereClause}
-    GROUP BY a.id, c.code, c.title, co.id, co.grade_status, u.first_name, u.last_name, scr.marks ${cursor ? ', cur.cur_sort, cur.id' : ''}
-    ORDER BY ${sortCol} ${direction}, a.id ${direction}
+    ${finalWhere}
+    GROUP BY a.id, c.code, c.title, co.id, co.grade_status, u.first_name, u.last_name, scr.marks
+    ${orderClause}
     ${limitClause}
   `;
 
   const res = await query(dataSql, queryParams);
-  const hasMore = res.rows.length > limit;
-  const returnedRows = hasMore ? res.rows.slice(0, limit) : res.rows;
-  const nextCursor = hasMore ? returnedRows[returnedRows.length - 1].id : null;
+  const rows = res.rows;
+  const hasExtra = limit !== null && rows.length > limit;
+  let pageRows = hasExtra ? rows.slice(0, limit) : rows;
 
-  const mapped = returnedRows.map((r) => {
+  if (decoded && navDirection === 'prev') {
+    pageRows.reverse();
+  }
+
+  let hasNextPage = false;
+  let hasPrevPage = false;
+
+  if (isAll) {
+    hasNextPage = false;
+    hasPrevPage = false;
+  } else if (!decoded) {
+    hasPrevPage = false;
+    hasNextPage = hasExtra;
+  } else if (navDirection === 'next') {
+    hasPrevPage = true;
+    hasNextPage = hasExtra;
+  } else if (navDirection === 'prev') {
+    hasNextPage = true;
+    hasPrevPage = hasExtra;
+  }
+
+  const mapped = pageRows.map((r) => {
     const isGraded = r.marks !== null;
     const marks = isGraded ? parseFloat(r.marks) : null;
     const maxMarks = parseFloat(r.max_marks);
@@ -855,6 +907,7 @@ export async function listStudentAssessments(studentId, {
       maxMarks,
       weight: parseFloat(r.weight),
       dueDate: r.due_date,
+      dueDateText: r.due_date_text,
       courseCode: r.course_code,
       courseTitle: r.course_title,
       offeringId: r.offering_id,
@@ -865,15 +918,32 @@ export async function listStudentAssessments(studentId, {
     };
   });
 
+  let startCursor = null;
+  let endCursor = null;
+  if (pageRows.length > 0) {
+    const first = pageRows[0];
+    const last = pageRows[pageRows.length - 1];
+    startCursor = encodeCursor(sortInfo.getVal(first), first.id);
+    endCursor = encodeCursor(sortInfo.getVal(last), last.id);
+  }
+
+  const nextCursor = hasNextPage ? endCursor : null;
+  const prevCursor = hasPrevPage ? startCursor : null;
+
   return {
     items: mapped,
     total,
+    pageInfo: {
+      hasNextPage,
+      hasPrevPage,
+      startCursor,
+      endCursor,
+      nextCursor,
+      prevCursor,
+    },
     nextCursor,
-    prevCursor: cursor || null,
-    hasMore: Boolean(nextCursor),
-    hasPrev: Boolean(cursor),
-    limit,
-    pageSize: limit,
+    prevCursor,
+    hasMore: hasNextPage,
   };
 }
 

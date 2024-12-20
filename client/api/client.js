@@ -8,6 +8,7 @@ import {
   getStoredProfile,
   setStoredSession,
   clearStoredSession,
+  parseJwtPayload,
 } from '@/lib/storage';
 import { transformKeysToCamel } from '@/lib/caseTransform';
 import { API_BASE_URL, API_TIMEOUT, DEFAULT_HEADERS, ENDPOINTS } from '@/config/api.config';
@@ -206,6 +207,25 @@ apiClient.interceptors.response.use(
     // Normalize error response to StoreError
     const res = error.response;
     if (res) {
+      // If 403 occurs due to user/token identity or role desynchronization across tabs/ports/roles, clear stale session
+      if (res.status === 403) {
+        const token = getStoredToken();
+        const storedUser = getStoredUser();
+        if (token && storedUser) {
+          const payload = parseJwtPayload(token);
+          if (
+            (payload?.userId && storedUser.id && payload.userId !== storedUser.id) ||
+            (payload?.roleId && storedUser.roleId && payload.roleId !== storedUser.roleId) ||
+            storedUser.roleId === 'admin'
+          ) {
+            clearStoredSession();
+            if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+              window.location.href = '/login';
+            }
+          }
+        }
+      }
+
       const errData = res.data;
       const err = errData?.error;
       const kind =

@@ -23,7 +23,7 @@ export function MyGradesPage() {
   const [studentOverride, setStudentOverride] = useState(null)
 
   const { data: realCourses, refetch: refetchCourses } = useQuery(() => store.student.listMyCourses(), [])
-  const { data: realAssessments, refetch: refetchAssessments } = useQuery(() => store.student.listMyAssessments(), [])
+  const { data: realAssessments, refetch: refetchAssessments } = useQuery(() => store.student.listMyAssessments({ pageSize: 'all' }), [])
   const { data: gradingConfig, refetch: refetchGradingConfig } = useQuery(
     () => store.grades.getGradingConfig(),
     [],

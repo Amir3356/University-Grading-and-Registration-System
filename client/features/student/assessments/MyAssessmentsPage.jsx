@@ -29,7 +29,7 @@ import { typeLabel } from '../components/policy'
 
 export function MyAssessmentsPage() {
   // 1. Enrolled courses for filter dropdown
-  const { data: coursesData } = useQuery(() => store.student.listMyCourses(), [])
+  const { data: coursesData, refetch: refetchCourses } = useQuery(() => store.student.listMyCourses(), [])
 
   // Dynamic Academic Year options autoincrementing when the calendar year arrives
   const availableYears = useMemo(() => {
@@ -48,15 +48,32 @@ export function MyAssessmentsPage() {
     { value: 'second', label: 'Second Semester' },
   ]
 
-  // 2. Server-side Cursor Pagination Query State (4 real data rows per page)
+  // 2. Server-side Keyset Cursor-Based Pagination State
+  const [pageSize, setPageSize] = useState(4)
   const [cursor, setCursor] = useState(null)
-  const [cursorHistory, setCursorHistory] = useState([]) // Stack of previous cursors
+  const [direction, setDirection] = useState('next')
+  const [pageNumber, setPageNumber] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [academicYearChoice, setAcademicYearChoice] = useState('all')
   const [semesterChoice, setSemesterChoice] = useState('all')
   const [courseFilter, setCourseFilter] = useState('all')
-  const [sort] = useState({ key: 'dueDate', dir: 'asc' })
+  const [sort, setSort] = useState({ key: 'dueDate', dir: 'asc' })
+
+  const resetPagination = () => {
+    setCursor(null)
+    setDirection('next')
+    setPageNumber(1)
+  }
+
+  const handleSort = (key) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: 'asc' }
+      if (prev.dir === 'asc') return { key, dir: 'desc' }
+      return { key: 'dueDate', dir: 'asc' }
+    })
+    resetPagination()
+  }
 
   const courseOptions = useMemo(() => {
     const list = Array.isArray(coursesData) ? coursesData : (coursesData?.items || coursesData?.courses || [])
@@ -94,26 +111,22 @@ export function MyAssessmentsPage() {
 
   const handleSearchChange = (val) => {
     setSearch(val)
-    setCursor(null)
-    setCursorHistory([])
+    resetPagination()
   }
 
   const handleAcademicYearChange = (val) => {
     setAcademicYearChoice(val)
-    setCursor(null)
-    setCursorHistory([])
+    resetPagination()
   }
 
   const handleSemesterChange = (val) => {
     setSemesterChoice(val)
-    setCursor(null)
-    setCursorHistory([])
+    resetPagination()
   }
 
   const handleCourseChange = (val) => {
     setCourseFilter(val || 'all')
-    setCursor(null)
-    setCursorHistory([])
+    resetPagination()
   }
 
   const isFiltered =
@@ -124,11 +137,10 @@ export function MyAssessmentsPage() {
     setAcademicYearChoice('all')
     setSemesterChoice('all')
     setCourseFilter('all')
-    setCursor(null)
-    setCursorHistory([])
+    resetPagination()
   }
 
-  // 3. Server-side Cursor Paginated Query (4 items per page)
+  // 3. Server-side Cursor Paginated Query
   const {
     data: assessmentData,
     loading: assessmentsLoading,
@@ -138,7 +150,8 @@ export function MyAssessmentsPage() {
     () =>
       store.student.listMyAssessmentsPaginated({
         cursor: cursor || undefined,
-        limit: 4,
+        direction,
+        pageSize,
         search: debouncedSearch.trim() || undefined,
         academicYearId: academicYearChoice !== 'all' ? academicYearChoice : undefined,
         semesterId: semesterChoice !== 'all' ? semesterChoice : undefined,
@@ -146,7 +159,7 @@ export function MyAssessmentsPage() {
         sortBy: sort?.key,
         sortDir: sort?.dir,
       }),
-    [cursor, debouncedSearch, academicYearChoice, semesterChoice, courseFilter, sort?.key, sort?.dir]
+    [cursor, direction, pageSize, debouncedSearch, academicYearChoice, semesterChoice, courseFilter, sort?.key, sort?.dir]
   )
 
   // Real-time synchronization
@@ -154,7 +167,22 @@ export function MyAssessmentsPage() {
   useWebSocketEvent('ASSESSMENT_CREATED', () => refetchAssessments())
   useWebSocketEvent('ASSESSMENT_DELETED', () => refetchAssessments())
   useWebSocketEvent('SCORES_UPDATED', () => refetchAssessments())
-  useWebSocketEvent('OFFERING_UPDATED', () => refetchAssessments())
+  useWebSocketEvent('OFFERING_UPDATED', () => {
+    refetchAssessments()
+    refetchCourses()
+  })
+  useWebSocketEvent('OFFERING_CREATED', () => {
+    refetchAssessments()
+    refetchCourses()
+  })
+  useWebSocketEvent('COURSE_ENROLLED', () => {
+    refetchAssessments()
+    refetchCourses()
+  })
+  useWebSocketEvent('ENROLLMENT_UPDATED', () => {
+    refetchAssessments()
+    refetchCourses()
+  })
 
   useEffect(() => {
     const unsub = onAssessmentChange(() => {
@@ -166,22 +194,31 @@ export function MyAssessmentsPage() {
   // 4. Computed Cursor Pagination Values
   const assessments = assessmentData?.items ?? (Array.isArray(assessmentData) ? assessmentData : [])
   const total = assessmentData?.total ?? assessments.length
-  const nextCursor = assessmentData?.nextCursor ?? null
-  const hasMore = Boolean(assessmentData?.hasMore ?? nextCursor)
-  const hasPrev = cursorHistory.length > 0
-
-  const handlePrevPage = () => {
-    if (cursorHistory.length === 0) return
-    const prevHistory = [...cursorHistory]
-    const prevCursor = prevHistory.pop()
-    setCursorHistory(prevHistory)
-    setCursor(prevCursor ?? null)
-  }
+  const pageInfo = assessmentData?.pageInfo || {}
+  const hasNextPage = Boolean(pageInfo.hasNextPage ?? assessmentData?.hasMore)
+  const hasPrevPage = Boolean(pageInfo.hasPrevPage)
+  const nextCursor = pageInfo.nextCursor || assessmentData?.nextCursor || null
+  const prevCursor = pageInfo.prevCursor || assessmentData?.prevCursor || null
 
   const handleNextPage = () => {
-    if (!hasMore || !nextCursor) return
-    setCursorHistory((prev) => [...prev, cursor])
-    setCursor(nextCursor)
+    if (hasNextPage && nextCursor) {
+      setCursor(nextCursor)
+      setDirection('next')
+      setPageNumber((p) => p + 1)
+    }
+  }
+
+  const handlePrevPage = () => {
+    if (hasPrevPage && prevCursor) {
+      setCursor(prevCursor)
+      setDirection('prev')
+      setPageNumber((p) => Math.max(1, p - 1))
+    }
+  }
+
+  const handlePageSizeChange = (val) => {
+    setPageSize(Number(val))
+    resetPagination()
   }
 
   return (
@@ -278,11 +315,41 @@ export function MyAssessmentsPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-b border-border bg-muted/40 text-xs">
-                    <TableHead className="font-semibold text-foreground py-3">Course</TableHead>
-                    <TableHead className="font-semibold text-foreground py-3">Teacher Name</TableHead>
-                    <TableHead className="font-semibold text-foreground py-3">Assessment</TableHead>
-                    <TableHead className="font-semibold text-foreground py-3 text-center">Total Mark</TableHead>
-                    <TableHead className="font-semibold text-foreground py-3 text-center">Weight</TableHead>
+                    <TableHead
+                      className="font-semibold text-foreground py-3 cursor-pointer select-none hover:text-primary transition-colors"
+                      onClick={() => handleSort('courseCode')}
+                      title="Sort by Course Code"
+                    >
+                      Course {sort?.key === 'courseCode' && (sort.dir === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead
+                      className="font-semibold text-foreground py-3 cursor-pointer select-none hover:text-primary transition-colors"
+                      onClick={() => handleSort('teacherName')}
+                      title="Sort by Teacher Name"
+                    >
+                      Teacher Name {sort?.key === 'teacherName' && (sort.dir === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead
+                      className="font-semibold text-foreground py-3 cursor-pointer select-none hover:text-primary transition-colors"
+                      onClick={() => handleSort('name')}
+                      title="Sort by Assessment Name"
+                    >
+                      Assessment {sort?.key === 'name' && (sort.dir === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead
+                      className="font-semibold text-foreground py-3 text-center cursor-pointer select-none hover:text-primary transition-colors"
+                      onClick={() => handleSort('maxMarks')}
+                      title="Sort by Total Mark"
+                    >
+                      Total Mark {sort?.key === 'maxMarks' && (sort.dir === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead
+                      className="font-semibold text-foreground py-3 text-center cursor-pointer select-none hover:text-primary transition-colors"
+                      onClick={() => handleSort('weight')}
+                      title="Sort by Weight"
+                    >
+                      Weight {sort?.key === 'weight' && (sort.dir === 'asc' ? '↑' : '↓')}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -334,29 +401,65 @@ export function MyAssessmentsPage() {
               </Table>
             </div>
 
-            {/* Server-Side Cursor Pagination: Previous and Next arrow icons */}
+            {/* Server-Side Keyset Cursor Pagination: Info & Controls */}
             {total > 0 && (
-              <div className="flex items-center justify-end gap-2 px-6 py-3.5 border-t border-border/80 bg-card/40">
-                <button
-                  type="button"
-                  onClick={handlePrevPage}
-                  disabled={!hasPrev || assessmentsLoading}
-                  title="Previous"
-                  aria-label="Previous"
-                  className="size-9 min-w-9 rounded-xl border border-blue-200/80 dark:border-blue-900/60 bg-white dark:bg-card text-blue-600 dark:text-blue-400 flex items-center justify-center transition-all cursor-pointer hover:bg-blue-50/70 hover:border-blue-300 dark:hover:bg-blue-950/40 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
-                >
-                  <ChevronLeft className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleNextPage}
-                  disabled={!hasMore || assessmentsLoading}
-                  title="Next"
-                  aria-label="Next"
-                  className="size-9 min-w-9 rounded-xl border border-blue-200/80 dark:border-blue-900/60 bg-white dark:bg-card text-blue-600 dark:text-blue-400 flex items-center justify-center transition-all cursor-pointer hover:bg-blue-50/70 hover:border-blue-300 dark:hover:bg-blue-950/40 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
-                >
-                  <ChevronRight className="size-4" />
-                </button>
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-3.5 border-t border-border/80 bg-card/40 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div>
+                    Showing{' '}
+                    <span className="font-medium text-foreground">
+                      {assessments.length > 0 ? (pageNumber - 1) * pageSize + 1 : 0}
+                    </span>
+                    {' '}to{' '}
+                    <span className="font-medium text-foreground">
+                      {(pageNumber - 1) * pageSize + assessments.length}
+                    </span>
+                    {' '}of{' '}
+                    <span className="font-medium text-foreground">{total}</span> assessments
+                  </div>
+
+                  <div className="flex items-center gap-1.5 pl-3 border-l border-border">
+                    <span>Rows per page:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => handlePageSizeChange(e.target.value)}
+                      className="h-7 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+                    >
+                      <option value={4}>4</option>
+                      <option value={8}>8</option>
+                      <option value={12}>12</option>
+                      <option value={20}>20</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    className="size-8"
+                    onClick={handlePrevPage}
+                    disabled={!hasPrevPage || assessmentsLoading}
+                    title="Previous page"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="size-4" />
+                  </Button>
+                  <span className="text-xs px-2 font-medium text-foreground">
+                    Page {pageNumber}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    className="size-8"
+                    onClick={handleNextPage}
+                    disabled={!hasNextPage || assessmentsLoading}
+                    title="Next page"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="size-4" />
+                  </Button>
+                </div>
               </div>
             )}
           </div>

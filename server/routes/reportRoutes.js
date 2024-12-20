@@ -9,7 +9,7 @@ export const studentReportRouter = Router();
 // /reports
 reportRouter.use(authenticate);
 reportRouter.get('/admin-dashboard', requireRoles('admin'), repCtrl.getAdminDashboard);
-reportRouter.get('/withdrawals-registrations', requireRoles('admin'), repCtrl.getWithdrawalRegistrationReport);
+reportRouter.get('/withdrawals-registrations', requireRoles('admin', 'dept_head'), repCtrl.getWithdrawalRegistrationReport);
 reportRouter.get('/dept-dashboard', requireRoles('dept_head'), repCtrl.getDeptDashboard);
 reportRouter.get('/missing-grades', requireRoles('dept_head'), repCtrl.getMissingGradesReport);
 reportRouter.get('/course-results', requireRoles('dept_head'), repCtrl.getCourseResultsReport);

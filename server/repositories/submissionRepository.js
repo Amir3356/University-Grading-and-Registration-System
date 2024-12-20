@@ -2,7 +2,7 @@ import { query, withTransaction } from '../config/database.js';
 import { newId } from '../utils/idGenerator.js';
 import { ConflictError, ValidationError, NotFoundError, ForbiddenError } from '../utils/errors.js';
 
-export async function listSubmissions({ status, semesterId, departmentId, search, page = 1, pageSize = 10 } = {}) {
+export async function listSubmissions({ status, semesterId, departmentId, teacherId, search, page = 1, pageSize = 10 } = {}) {
   const conditions = [];
   const params = [];
 
@@ -19,6 +19,11 @@ export async function listSubmissions({ status, semesterId, departmentId, search
   if (departmentId) {
     params.push(departmentId);
     conditions.push(`c.department_id = $${params.length}`);
+  }
+
+  if (teacherId) {
+    params.push(teacherId);
+    conditions.push(`co.teacher_id = $${params.length}`);
   }
 
   if (search) {
