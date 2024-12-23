@@ -62,7 +62,7 @@ export function TranscriptView({ transcript: t }) {
                   <TableHead className="num">Credits</TableHead>
                   <TableHead className="num">Score</TableHead>
                   <TableHead className="center">Grade</TableHead>
-                  <TableHead className="num">Points</TableHead>
+                  <TableHead className="num">Grade points</TableHead>
                   <TableHead>Note</TableHead>
                 </TableRow>
               </TableHeader>
@@ -76,17 +76,18 @@ export function TranscriptView({ transcript: t }) {
                     <TableCell className="center">
                       <GradeBadge letter={c.letter} />
                     </TableCell>
-                    <TableCell className="num">{c.gradePoints != null ? c.gradePoints.toFixed(2) : '—'}</TableCell>
+                    <TableCell className="num font-semibold">{c.gradePoints != null ? Number(c.gradePoints).toFixed(2) : '—'}</TableCell>
                     <TableCell className="text-xs text-muted">{c.note ?? (c.isRepeat ? 'Repeat attempt' : '')}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={2}>Semester totals (GPA credits)</TableCell>
-                  <TableCell className="num">{sem.credits}</TableCell>
-                  <TableCell colSpan={2} />
-                  <TableCell className="num">{sem.qualityPoints?.toFixed(2)}</TableCell>
+                  <TableCell colSpan={2} className="font-semibold">Semester totals (GPA credits)</TableCell>
+                  <TableCell className="num font-semibold">{sem.credits}</TableCell>
+                  <TableCell className="num text-muted">—</TableCell>
+                  <TableCell className="center font-semibold">GPA {formatGpa(sem.gpa)}</TableCell>
+                  <TableCell className="num font-semibold">{sem.qualityPoints != null ? Number(sem.qualityPoints).toFixed(2) : '—'}</TableCell>
                   <TableCell />
                 </TableRow>
               </TableFooter>

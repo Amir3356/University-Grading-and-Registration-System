@@ -34,7 +34,7 @@ export function downloadTranscriptPdf(t = {}, { official = false } = {}) {
       const courses = Array.isArray(sem.courses) ? sem.courses : []
       y = pdfTable(doc, {
         startY: y + 10,
-        head: ['Code', 'Course title', 'Credits', 'Score', 'Grade', 'Points', 'Note'],
+        head: ['Code', 'Course title', 'Credits', 'Score', 'Grade', 'Grade points', 'Note'],
         body: courses.map((c) => [
           c.courseCode || '—',
           c.courseTitle || '—',
@@ -45,7 +45,7 @@ export function downloadTranscriptPdf(t = {}, { official = false } = {}) {
           c.note ?? '',
         ]),
         foot: ['', `Semester GPA ${formatGpa(sem.gpa)}   ·   Cumulative GPA ${formatGpa(sem.cgpa)}`, sem.credits ?? 0, '', '', '', ''],
-        columnStyles: { 0: { cellWidth: 55 }, 2: { halign: 'center', cellWidth: 45 }, 3: { halign: 'center', cellWidth: 45 }, 4: { halign: 'center', cellWidth: 42 }, 5: { halign: 'center', cellWidth: 45 } },
+        columnStyles: { 0: { cellWidth: 50 }, 2: { halign: 'center', cellWidth: 40 }, 3: { halign: 'center', cellWidth: 40 }, 4: { halign: 'center', cellWidth: 40 }, 5: { halign: 'center', cellWidth: 52 } },
       })
       y += 18
     }

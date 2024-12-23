@@ -9,13 +9,12 @@ import { StatusBadge } from '@/components/common/StatusBadge'
 import { useAuth } from '@/context/auth-context'
 import { getProfileApi } from '@/api/auth'
 import { useQuery } from '@/hooks/useStore'
-import { formatAcademicYear, getCourseStudyYear, getStudentStudyYear } from '@/lib/format'
+import { formatAcademicYear, formatSemesterName, getCourseStudyYear, getStudentStudyYear } from '@/lib/format'
 import { DEFAULT_GRADE_SCALE, formatGradePoints, gradeForScore } from '@/lib/grading'
 import { onAssessmentChange, onGradeChange, onUserChange } from '@/lib/syncEvents'
 import { setStoredSession } from '@/lib/storage'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
-import { typeLabel } from '../components/policy'
 
 export function MyGradesPage() {
   const { user, profile } = useAuth()
@@ -23,7 +22,6 @@ export function MyGradesPage() {
   const [studentOverride, setStudentOverride] = useState(null)
 
   const { data: realCourses, refetch: refetchCourses } = useQuery(() => store.student.listMyCourses(), [])
-  const { data: realAssessments, refetch: refetchAssessments } = useQuery(() => store.student.listMyAssessments({ pageSize: 'all' }), [])
   const { data: gradingConfig, refetch: refetchGradingConfig } = useQuery(
     () => store.grades.getGradingConfig(),
     [],
@@ -35,10 +33,9 @@ export function MyGradesPage() {
 
   const reloadGrades = useCallback(() => {
     refetchCourses?.()
-    refetchAssessments?.()
     refetchMe?.()
     refetchGradingConfig?.()
-  }, [refetchCourses, refetchAssessments, refetchMe, refetchGradingConfig])
+  }, [refetchCourses, refetchMe, refetchGradingConfig])
 
   const handleStudentUpdated = useCallback(
     (payload) => {
@@ -73,10 +70,9 @@ export function MyGradesPage() {
       }
 
       refetchCourses?.()
-      refetchAssessments?.()
       refetchMe?.()
     },
-    [user, profile, refetchCourses, refetchAssessments, refetchMe],
+    [user, profile, refetchCourses, refetchMe],
   )
 
   useWebSocketEvent('STUDENT_UPDATED', handleStudentUpdated)
@@ -137,12 +133,23 @@ export function MyGradesPage() {
               : String(rawScore)
             : '—'
 
-        const grade =
+        let grade =
           c.finalGrade?.letter ||
           c.letter ||
           c.grade ||
           (c.resultStatus === 'published' ? c.letter : '') ||
-          '—'
+          ''
+
+        // Fallback: calculate letter grade from activeScale if score exists
+        if (!grade || grade === '—') {
+          if (rawScore != null && !Number.isNaN(Number(rawScore))) {
+            const entryFromScore = gradeForScore(Number(rawScore), activeScale)
+            if (entryFromScore?.letter) {
+              grade = entryFromScore.letter
+            }
+          }
+        }
+        if (!grade) grade = '—'
 
         const courseObj = c.course || c
         const courseYear = String(
@@ -182,7 +189,14 @@ export function MyGradesPage() {
           gradePoints = Number(c.finalGrade.gradePoints)
         }
 
+        const semObj = c.semester || {}
+        const semName = semObj.name || c.semesterName || 'First Semester'
+        const semTerm = semObj.term || c.term || (semName.toLowerCase().includes('second') ? 'second' : 'first')
+        const semId = semObj.id || c.semesterId || semName
+        const acadYear = formatAcademicYear(c.semester)
+
         return {
+          id: c.enrollmentId || c.id || c.courseCode,
           courseCode: c.course?.code || c.courseCode,
           courseName: c.course?.title || c.courseTitle,
           yearOfStudy: courseYear,
@@ -191,26 +205,45 @@ export function MyGradesPage() {
           gradePoints,
           status: courseStatus,
           gradeStatus: c.gradeStatus || c.offeringGradeStatus,
-          academicYear: formatAcademicYear(c.semester),
-          semester: c.semester?.name || 'First Semester',
+          academicYear: acadYear,
+          semester: semName,
+          semesterName: semName,
+          semesterId: semId,
+          semesterTerm: semTerm,
         }
       })
     }
     return []
   }, [realCourses, activeScale])
 
-  // Only display courses where course year of study equals student's current year of study
+  // Display courses matching student current year, or all enrolled courses
   const coursesList = useMemo(() => {
     if (!studentCurrentYear) return allCourses
-    return allCourses.filter((c) => String(c.yearOfStudy) === String(studentCurrentYear))
+    const match = allCourses.filter((c) => String(c.yearOfStudy) === String(studentCurrentYear))
+    return match.length > 0 ? match : allCourses
   }, [allCourses, studentCurrentYear])
 
-  const currentYear = new Date().getFullYear()
-
-  const academicYearOptions = [
-    { value: 'all', label: 'Academic Year' },
-    { value: String(currentYear), label: String(currentYear) },
-  ]
+  const academicYearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    const startYear = 2026
+    const yearsSet = new Set()
+    for (let y = currentYear; y >= startYear; y--) {
+      yearsSet.add(String(y))
+    }
+    if (Array.isArray(realCourses)) {
+      realCourses.forEach((c) => {
+        const acadYear = formatAcademicYear(c.semester)
+        if (acadYear && acadYear !== '—' && Number(acadYear) >= 2026) {
+          yearsSet.add(String(acadYear))
+        }
+      })
+    }
+    const sorted = Array.from(yearsSet).sort((a, b) => Number(b) - Number(a))
+    return [
+      { value: 'all', label: 'Academic Year' },
+      ...sorted.map((y) => ({ value: y, label: y })),
+    ]
+  }, [realCourses])
 
   const semesterOptions = [
     { value: 'all', label: 'Semester' },
@@ -242,14 +275,28 @@ export function MyGradesPage() {
 
   const filteredCourses = useMemo(() => {
     return coursesList.filter((c) => {
-      if (academicYear && academicYear !== 'all' && c.academicYear !== academicYear && !c.academicYear.includes(academicYear)) return false
+      if (academicYear && academicYear !== 'all') {
+        const ay = String(c.academicYear || '').toLowerCase()
+        if (!ay.includes(String(academicYear).toLowerCase())) return false
+      }
       if (semester && semester !== 'all') {
-        const term = String(c.semester ?? '').toLowerCase()
+        const term = String(c.semesterTerm || c.term || c.semester || '').toLowerCase()
+        const name = String(c.semesterName || c.semester || '').toLowerCase()
         if (semester === 'first') {
-          const isFirst = term.includes('fall') || term === '1' || term.includes('first')
+          const isFirst =
+            term.includes('first') ||
+            term.includes('fall') ||
+            term === '1' ||
+            name.includes('first') ||
+            name.includes('fall')
           if (!isFirst) return false
         } else if (semester === 'second') {
-          const isSecond = term.includes('spring') || term === '2' || term.includes('second')
+          const isSecond =
+            term.includes('second') ||
+            term.includes('spring') ||
+            term === '2' ||
+            name.includes('second') ||
+            name.includes('spring')
           if (!isSecond) return false
         }
       }
@@ -258,25 +305,30 @@ export function MyGradesPage() {
     })
   }, [coursesList, academicYear, semester, courseChoice])
 
-  const filteredAssessments = useMemo(() => {
-    if (!Array.isArray(realAssessments)) return []
-    const matchingCodes = new Set(coursesList.map((c) => c.courseCode))
-    return realAssessments.filter((a) => {
-      if (!matchingCodes.has(a.courseCode)) return false
-      if (courseChoice !== 'all' && a.courseCode !== courseChoice) return false
-      if (isFiltered) {
-        const matchingFilteredCodes = new Set(filteredCourses.map((c) => c.courseCode))
-        if (!matchingFilteredCodes.has(a.courseCode)) return false
+  // Group filtered courses by semester so each semester clearly presents its courses and grades
+  const coursesBySemester = useMemo(() => {
+    const map = new Map()
+    for (const c of filteredCourses) {
+      const semKey = c.semesterId || c.semesterName || 'Current Semester'
+      const semName = c.semesterName || c.semester || 'Current Semester'
+      if (!map.has(semKey)) {
+        map.set(semKey, {
+          semesterId: semKey,
+          semesterName: semName,
+          semesterTerm: c.semesterTerm,
+          courses: [],
+        })
       }
-      return true
-    })
-  }, [realAssessments, coursesList, courseChoice, isFiltered, filteredCourses])
+      map.get(semKey).courses.push(c)
+    }
+    return Array.from(map.values())
+  }, [filteredCourses])
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="My Grades"
-        description="View current course grades and individual assessment results."
+        description="View current course grades and semester performance results."
         centered
       />
 
@@ -339,155 +391,108 @@ export function MyGradesPage() {
         )}
       </div>
 
-      {/* Course Grade Summary Card */}
-      <Card className="overflow-hidden">
-        <CardHeader className="p-5 pb-3 border-b flex items-center justify-center text-center" style={{ justifyContent: 'center', textAlign: 'center' }}>
-          <CardTitle className="text-base font-semibold text-center w-full" style={{ textAlign: 'center' }}>Course Grade Summary</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[150px]">Course Code</TableHead>
-                <TableHead>Course Name</TableHead>
-                <TableHead className="text-center w-[110px]">Total /100</TableHead>
-                <TableHead className="text-center w-[90px]">Grade</TableHead>
-                <TableHead className="text-center w-[120px]">Grade points</TableHead>
-                <TableHead className="text-center w-[180px]">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCourses.map((c) => (
-                <TableRow key={c.courseCode}>
-                  <TableCell className="font-semibold text-foreground">
-                    {c.courseCode}
-                  </TableCell>
-                  <TableCell className="font-medium text-foreground">
-                    {c.courseName}
-                  </TableCell>
-                  <TableCell className="text-center font-semibold tabular-nums">
-                    {c.totalScore}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {c.grade === '—' ? (
-                      <span className="text-muted-foreground">—</span>
-                    ) : c.grade === 'Dropped' ? (
-                      <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-destructive/10 text-destructive border border-destructive/20">
-                        Dropped
-                      </span>
-                    ) : c.grade === 'W' ? (
-                      <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-muted text-muted-foreground">
-                        W
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-primary/10 text-primary">
-                        {c.grade}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center font-semibold tabular-nums">
-                    {c.gradePoints != null ? (
-                      formatGradePoints(c.gradePoints)
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center">
-                      <StatusBadge
-                        status={c.status}
-                        label={
-                          c.status === 'submitted'
-                            ? 'Submitted to Dept Head'
-                            : c.status === 'approved'
-                              ? 'Approved'
-                              : c.status === 'published'
-                                ? 'Published'
-                                : c.status === 'in_progress'
-                                  ? 'In progress'
-                                  : undefined
-                        }
-                      />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredCourses.length === 0 && (
+      {/* Each semester explicitly displays its own card and course grades */}
+      {coursesBySemester.map((semGroup) => (
+        <Card key={semGroup.semesterId} className="overflow-hidden">
+          <CardHeader className="p-5 pb-3 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+            <div>
+              <CardTitle className="text-base font-semibold">{formatSemesterName(semGroup.semesterName)}</CardTitle>
+              <span className="text-xs text-muted-foreground mt-0.5 block">
+                Official course grades and performance for {formatSemesterName(semGroup.semesterName)}
+              </span>
+            </div>
+            <Badge variant="secondary" className="w-fit text-xs font-normal">
+              {semGroup.courses.length} course{semGroup.courses.length === 1 ? '' : 's'}
+            </Badge>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    No course grades found for the selected filter.
-                  </TableCell>
+                  <TableHead className="w-[140px]">Course Code</TableHead>
+                  <TableHead>Course Name</TableHead>
+                  <TableHead className="w-[140px]">Semester</TableHead>
+                  <TableHead className="text-center w-[110px]">Total /100</TableHead>
+                  <TableHead className="text-center w-[90px]">Grade</TableHead>
+                  <TableHead className="text-center w-[120px]">Grade points</TableHead>
+                  <TableHead className="text-center w-[180px]">Status</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {semGroup.courses.map((c) => (
+                  <TableRow key={c.courseCode + c.semesterId}>
+                    <TableCell className="font-semibold text-foreground">
+                      {c.courseCode}
+                    </TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      {c.courseName}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatSemesterName(c.semesterName)}
+                    </TableCell>
+                    <TableCell className="text-center font-semibold tabular-nums">
+                      {c.totalScore}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {c.grade === '—' ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : c.grade === 'Dropped' ? (
+                        <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-destructive/10 text-destructive border border-destructive/20">
+                          Dropped
+                        </span>
+                      ) : c.grade === 'W' ? (
+                        <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-muted text-muted-foreground">
+                          W
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-primary/10 text-primary">
+                          {c.grade}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center font-semibold tabular-nums">
+                      {c.gradePoints != null ? (
+                        formatGradePoints(c.gradePoints)
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center">
+                        <StatusBadge
+                          status={c.status}
+                          label={
+                            c.status === 'submitted'
+                              ? 'Submitted to Dept Head'
+                              : c.status === 'approved'
+                                ? 'Approved'
+                                : c.status === 'published'
+                                  ? 'Published'
+                                  : c.status === 'in_progress'
+                                    ? 'In progress'
+                                    : undefined
+                          }
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ))}
 
-      {/* Assessment Marks Breakdown Card */}
-      <Card className="overflow-hidden">
-        <CardHeader className="p-5 pb-3 border-b">
-          <CardTitle className="text-base font-semibold">Assessment Marks Breakdown</CardTitle>
-          <span className="text-xs text-muted-foreground mt-0.5 block">Individual assessment marks</span>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[140px]">Course Code</TableHead>
-                <TableHead>Assessment</TableHead>
-                <TableHead className="w-[140px]">Type</TableHead>
-                <TableHead className="text-center w-[110px]">Max Mark</TableHead>
-                <TableHead className="text-center w-[90px]">Weight</TableHead>
-                <TableHead className="text-center w-[130px]">Mark Obtained</TableHead>
-                <TableHead className="text-center w-[130px]">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAssessments.map((a) => (
-                <TableRow key={a.id}>
-                  <TableCell className="font-semibold text-foreground">
-                    {a.courseCode}
-                  </TableCell>
-                  <TableCell className="font-medium text-foreground">
-                    {a.name}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {typeLabel(a.type)}
-                  </TableCell>
-                  <TableCell className="text-center tabular-nums">
-                    {a.maxMarks ?? '—'}
-                  </TableCell>
-                  <TableCell className="text-center tabular-nums">
-                    {a.weight != null ? `${a.weight}%` : '—'}
-                  </TableCell>
-                  <TableCell className="text-center font-semibold tabular-nums">
-                    {a.marks != null ? (
-                      <span className="text-primary font-bold">{a.marks}</span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center">
-                      <Badge variant={a.status === 'graded' ? 'success' : a.status === 'pending' ? 'warning' : 'secondary'}>
-                        {a.status}
-                      </Badge>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredAssessments.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
-                    No assessment marks recorded yet for the selected filter.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {coursesBySemester.length === 0 && (
+        <Card className="overflow-hidden">
+          <CardHeader className="p-5 pb-3 border-b text-center">
+            <CardTitle className="text-base font-semibold text-center w-full">Course Grade Summary</CardTitle>
+          </CardHeader>
+          <CardContent className="p-8 text-center text-muted-foreground">
+            No course grades found for the selected {semester !== 'all' ? (semester === 'first' ? 'First Semester' : 'Second Semester') : 'filter'}.
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

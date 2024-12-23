@@ -54,7 +54,15 @@ export function WithdrawalRequestsPage() {
   }, [lookups])
 
   const currentYear = String(new Date().getFullYear())
-  const academicYearOptions = useMemo(() => [currentYear], [currentYear])
+  const academicYearOptions = useMemo(() => {
+    const curr = new Date().getFullYear()
+    const startYear = 2026
+    const years = []
+    for (let y = curr; y >= startYear; y--) {
+      years.push(String(y))
+    }
+    return years
+  }, [])
   const withdrawalTypeOptions = useMemo(
     () => [
       'Complete University Withdrawal',

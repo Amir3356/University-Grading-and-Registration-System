@@ -9,6 +9,7 @@ const page = (loader, name) =>
 const RegistrationsPage = page(() => import('@/features/student/registration/RegistrationsPage'), 'RegistrationsPage');
 const StudentCoursesPage = page(() => import('@/features/student/courses/MyCoursesPage'), 'MyCoursesPage');
 const MyAssessmentsPage = page(() => import('@/features/student/assessments/MyAssessmentsPage'), 'MyAssessmentsPage');
+const AssessmentMarksPage = page(() => import('@/features/student/assessments/AssessmentMarksPage'), 'AssessmentMarksPage');
 const MyGradesPage = page(() => import('@/features/student/grades/MyGradesPage'), 'MyGradesPage');
 const ProgressPage = page(() => import('@/features/student/progress/ProgressPage'), 'ProgressPage');
 const TranscriptPage = page(() => import('@/features/student/transcript/TranscriptPage'), 'TranscriptPage');
@@ -22,6 +23,8 @@ export const studentRoutes = (
     <Route path="/student/registration" element={<RegistrationsPage />} />
     <Route path="/student/courses" element={<StudentCoursesPage />} />
     <Route path="/student/assessments" element={<MyAssessmentsPage />} />
+    <Route path="/student/assessment-marks" element={<AssessmentMarksPage />} />
+    <Route path="/student/assessments-marks" element={<AssessmentMarksPage />} />
     <Route path="/student/grades" element={<MyGradesPage />} />
     <Route path="/student/progress" element={<ProgressPage />} />
     <Route path="/student/transcript" element={<TranscriptPage />} />

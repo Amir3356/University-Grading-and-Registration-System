@@ -17,11 +17,23 @@ export function MyCoursesPage() {
 
   const { data, loading, error, refetch } = useQuery(() => store.teacher.listMyOfferings({ pageSize: 'all' }), [])
 
-  // Autoincrements dynamically when the new calendar year arrives (e.g. 2026, 2027 when reached)
+  // Autoincrements dynamically when the new calendar year arrives starting from 2026 without prior 2024/2025
   const availableYears = useMemo(() => {
     const currentYear = new Date().getFullYear()
-    return [String(currentYear)]
-  }, [])
+    const startYear = 2026
+    const yearsSet = new Set()
+    for (let y = currentYear; y >= startYear; y--) {
+      yearsSet.add(String(y))
+    }
+    const list = Array.isArray(rawOfferings) ? rawOfferings : (rawOfferings?.items || rawOfferings?.courses || [])
+    list.forEach((c) => {
+      const acadYear = formatAcademicYear(c.semester)
+      if (acadYear && acadYear !== '—' && Number(acadYear) >= 2026) {
+        yearsSet.add(String(acadYear))
+      }
+    })
+    return Array.from(yearsSet).sort((a, b) => Number(b) - Number(a))
+  }, [rawOfferings])
 
   const academicYearOptions = [
     { value: 'all', label: 'Academic Year' },

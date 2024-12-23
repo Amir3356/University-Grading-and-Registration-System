@@ -31,11 +31,23 @@ export function MyAssessmentsPage() {
   // 1. Enrolled courses for filter dropdown
   const { data: coursesData, refetch: refetchCourses } = useQuery(() => store.student.listMyCourses(), [])
 
-  // Dynamic Academic Year options autoincrementing when the calendar year arrives
+  // Dynamic Academic Year options autoincrementing when the calendar year arrives starting from 2026 without prior 2024/2025
   const availableYears = useMemo(() => {
     const currentYear = new Date().getFullYear()
-    return [String(currentYear)]
-  }, [])
+    const startYear = 2026
+    const yearsSet = new Set()
+    for (let y = currentYear; y >= startYear; y--) {
+      yearsSet.add(String(y))
+    }
+    const list = Array.isArray(coursesData) ? coursesData : (coursesData?.items || coursesData?.courses || [])
+    list.forEach((c) => {
+      const acadYear = formatAcademicYear(c.semester)
+      if (acadYear && acadYear !== '—' && Number(acadYear) >= 2026) {
+        yearsSet.add(String(acadYear))
+      }
+    })
+    return Array.from(yearsSet).sort((a, b) => Number(b) - Number(a))
+  }, [coursesData])
 
   const academicYearOptions = [
     { value: 'all', label: 'Academic Year' },
