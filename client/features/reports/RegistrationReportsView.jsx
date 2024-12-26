@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react'
-import { format, subDays } from 'date-fns'
 import {
-  CalendarRange,
   FileDown,
   UserMinus,
   UserPlus,
@@ -21,7 +19,6 @@ import {
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/common/PageHeader'
 import { FilterSelect } from '@/components/common/FilterSelect'
-import { DateInput } from '@/components/common/DateInput'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { PageSkeleton } from '@/components/common/Loading'
@@ -36,41 +33,54 @@ import {
 } from '@/components/charts/chart-theme'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
+import { formatSemesterName } from '@/lib/format'
 import { downloadRegistrationReportPdf } from '@/lib/registration-report-pdf'
+import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
 import { KpiCard } from './KpiCard'
-import { PERIOD_OPTIONS, resolvePeriod } from './periods'
 
 const REG_COLOR = 'var(--chart-1)'
 const WD_COLOR = 'var(--chart-2)'
+const ALL = ''
 
 const numberFmt = new Intl.NumberFormat('en-US')
 const formatNumber = (n) => numberFmt.format(n)
 
 /**
- * Registration & withdrawal report (admin) with period filters, charts and PDF download.
+ * Registration & withdrawal report (admin) with semester filter, charts and PDF download.
  * Fetches real operational metrics directly from the backend API.
  */
 export function RegistrationReportsView({ description, university }) {
-  const today = format(new Date(), 'yyyy-MM-dd')
-  const [period, setPeriod] = useState('weekly')
-  const [range, setRange] = useState(() => ({
-    from: format(subDays(new Date(), 29), 'yyyy-MM-dd'),
-    to: today,
-  }))
+  const lookups = useLookups()
+  const [semesterId, setSemesterId] = useState(null)
+  const activeSemester = semesterId ?? ALL
 
-  const rangeInvalid = period === 'custom' && range.from && range.to && range.from > range.to
-  const resolved = useMemo(() => resolvePeriod(period, range), [period, range])
+  const semestersList = useMemo(() => {
+    const list = Array.isArray(lookups?.semesters) ? lookups.semesters : []
+    return list.map((s) => ({
+      value: s.id,
+      label: formatSemesterName(s.name),
+    }))
+  }, [lookups?.semesters])
+
+  const activeSemesterLabel =
+    activeSemester === ALL
+      ? 'All semesters'
+      : semestersList.find((s) => s.value === activeSemester)?.label ?? '—'
 
   const { data: apiData, loading, error, refetch } = useQuery(
     () =>
       store.reports.getWithdrawalRegistrationReportData(
-        period === 'custom' ? { period, startDate: range.from, endDate: range.to } : { period },
+        activeSemester ? { semesterId: activeSemester } : {}
       ),
-    [period, range.from, range.to],
-    { enabled: !rangeInvalid },
+    [activeSemester],
   )
+
+  useWebSocketEvent('REGISTRATION_CHANGED', () => refetch())
+  useWebSocketEvent('WITHDRAWAL_APPROVED', () => refetch())
+  useWebSocketEvent('WITHDRAWAL_UPDATED', () => refetch())
 
   const report = useMemo(() => {
     if (!apiData) return null
@@ -108,7 +118,7 @@ export function RegistrationReportsView({ description, university }) {
       studentId: r.studentNumber || '—',
       course: r.registrationType || r.departmentName || 'Semester Registration',
       type: 'registration',
-      when: r.submittedAt ? format(new Date(r.submittedAt), 'd MMM yyyy') : '—',
+      when: r.submittedAt ? r.submittedAt.slice(0, 10) : '—',
     }))
 
     const recentWdrs = (apiData.withdrawals?.recent || []).map((w) => ({
@@ -117,7 +127,7 @@ export function RegistrationReportsView({ description, university }) {
       studentId: w.studentNumber || '—',
       course: w.reasonCategory || w.reason || w.scope || 'Withdrawal',
       type: 'withdrawal',
-      when: w.submittedAt ? format(new Date(w.submittedAt), 'd MMM yyyy') : '—',
+      when: w.submittedAt ? w.submittedAt.slice(0, 10) : '—',
     }))
 
     const recentActivity = [...recentRegs, ...recentWdrs].slice(0, 10)
@@ -136,16 +146,11 @@ export function RegistrationReportsView({ description, university }) {
     }
   }, [apiData])
 
-  const compareHint = period === 'today' ? 'vs yesterday' : 'vs previous period'
-
   const handleDownload = () => {
-    if (!report || !resolved) return
+    if (!report) return
     try {
       downloadRegistrationReportPdf(report, {
-        periodLabel: PERIOD_OPTIONS.find((o) => o.value === period)?.label ?? period,
-        rangeLabel: resolved.rangeLabel,
-        granularity: resolved.granularity,
-        compareHint,
+        semesterLabel: activeSemesterLabel,
         university,
       })
       toast.success('Report downloaded as PDF.')
@@ -154,69 +159,38 @@ export function RegistrationReportsView({ description, university }) {
     }
   }
 
-  const periodControls = (
-    <div className="rpt-filters">
-      <div className="rpt-filters__field">
-        <span className="rpt-filters__label">Period</span>
-        <FilterSelect
-          value={period}
-          onChange={setPeriod}
-          options={PERIOD_OPTIONS}
-          includeAll={false}
-          label="Report period"
-          className="rpt-filters__select"
-          align="end"
-        />
-      </div>
-      {period === 'custom' && (
-        <div className="rpt-filters__range">
-          <div className="rpt-filters__field">
-            <span className="rpt-filters__label">From</span>
-            <DateInput value={range.from} onChange={(from) => setRange((r) => ({ ...r, from }))} className="rpt-filters__date" />
-          </div>
-          <div className="rpt-filters__field">
-            <span className="rpt-filters__label">To</span>
-            <DateInput
-              value={range.to}
-              min={range.from || undefined}
-              onChange={(to) => setRange((r) => ({ ...r, to }))}
-              className="rpt-filters__date"
-            />
-          </div>
-        </div>
-      )}
-      <Button className="rpt-filters__download" onClick={handleDownload} disabled={!report}>
-        <FileDown /> Download PDF
-      </Button>
-    </div>
-  )
-
-  if (loading && !apiData && !rangeInvalid) return <PageSkeleton />
+  if (loading && !apiData) return <PageSkeleton />
   if (error) return <ErrorState error={error} onRetry={refetch} title="Could not load registration report" />
 
   return (
     <div className="rpt">
-      <PageHeader title="Reports" description={description} centered actions={periodControls} />
+      <PageHeader title="Reports" description={description} centered />
 
-      {resolved && (
-        <div className="rpt-context">
-          <CalendarRange aria-hidden="true" />
-          <span className="rpt-context__range">{resolved.rangeLabel}</span>
-          <span className="rpt-context__dot" aria-hidden="true" />
-          <span>{resolved.granularity} breakdown</span>
+      <div className="rpt-toolbar" style={{ justifyContent: 'flex-end' }}>
+        <div className="rpt-filters" style={{ width: 'auto', marginLeft: 'auto', justifyContent: 'flex-end' }}>
+          <div className="rpt-filters__field">
+            <FilterSelect
+              value={activeSemester}
+              onChange={(v) => setSemesterId(v)}
+              options={semestersList}
+              allLabel="All semesters"
+              label="Semester"
+              className="rpt-filters__select"
+              align="end"
+            />
+          </div>
+          <Button type="button" className="rpt-filters__download" onClick={handleDownload} disabled={!report}>
+            <FileDown /> Download PDF
+          </Button>
         </div>
-      )}
+      </div>
 
-      {!report ? (
+      {!report || (!report.kpis.registrations.value && !report.kpis.withdrawals.value) ? (
         <Card>
           <CardContent>
             <EmptyState
-              title={rangeInvalid ? 'The start date is after the end date' : 'Choose a date range'}
-              description={
-                rangeInvalid
-                  ? 'Adjust the From or To date to see the report.'
-                  : 'Pick both a From and a To date to generate the report.'
-              }
+              title="No registration or withdrawal activity"
+              description="No registration or withdrawal records found for the selected semester."
             />
           </CardContent>
         </Card>
@@ -229,7 +203,7 @@ export function RegistrationReportsView({ description, university }) {
               icon={UserPlus}
               tone="reg"
               change={report.kpis.registrations.change}
-              hint={compareHint}
+              hint={activeSemester === ALL ? 'All time records' : activeSemesterLabel}
             />
             <KpiCard
               label="Withdrawals"
@@ -238,18 +212,18 @@ export function RegistrationReportsView({ description, university }) {
               tone="wd"
               change={report.kpis.withdrawals.change}
               invert
-              hint={compareHint}
+              hint={activeSemester === ALL ? 'All time records' : activeSemesterLabel}
             />
           </section>
 
           <ChartCard
             title="Registrations vs. withdrawals"
-            description={`${resolved?.granularity ?? 'Daily'} totals for the selected period`}
+            description="Daily totals across departments"
             height={320}
             empty={!report.trend.length}
-            emptyText="No registrations or withdrawals recorded in this period."
+            emptyText="No registrations or withdrawals recorded for this semester."
             tableColumns={[
-              { key: 'label', header: 'Period' },
+              { key: 'label', header: 'Date' },
               { key: 'registrations', header: 'Registrations', format: formatNumber },
               { key: 'withdrawals', header: 'Withdrawals', format: formatNumber },
             ]}
@@ -300,7 +274,7 @@ export function RegistrationReportsView({ description, university }) {
               description={`Registrations and withdrawals per ${report.breakdown.dimension.toLowerCase()}`}
               height={300}
               empty={!report.breakdown.rows.length}
-              emptyText="No departmental registration activity in this period."
+              emptyText="No departmental registration activity recorded."
               tableColumns={[
                 { key: 'name', header: report.breakdown.dimension },
                 { key: 'registrations', header: 'Registrations', format: formatNumber },
@@ -323,10 +297,10 @@ export function RegistrationReportsView({ description, university }) {
 
             <ChartCard
               title="Withdrawal reasons"
-              description="Why students withdrew in this period"
+              description="Why students withdrew"
               height={300}
               empty={!report.withdrawalReasons.length}
-              emptyText="No withdrawals in this period."
+              emptyText="No withdrawals recorded for this semester."
               tableColumns={[
                 { key: 'reason', header: 'Reason' },
                 { key: 'count', header: 'Withdrawals', format: formatNumber },

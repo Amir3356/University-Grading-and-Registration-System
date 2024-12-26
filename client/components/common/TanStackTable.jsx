@@ -6,7 +6,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { TableSkeleton } from '@/components/common/Loading'
@@ -157,6 +157,32 @@ export function TanStackTable({
               ))
             )}
           </TableBody>
+          {table.getFooterGroups().some((fg) => fg.headers.some((h) => h.column.columnDef.footer)) && (
+            <TableFooter>
+              {table.getFooterGroups().map((footerGroup) => (
+                <TableRow key={footerGroup.id} className="border-t bg-muted/40 font-semibold">
+                  {footerGroup.headers.map((header) => {
+                    const meta = header.column.columnDef.meta ?? {}
+                    return (
+                      <TableCell
+                        key={header.id}
+                        className={cn(
+                          meta.className,
+                          meta.align === 'right' && 'text-right',
+                          meta.align === 'center' && 'text-center',
+                          'font-semibold text-foreground',
+                        )}
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(header.column.columnDef.footer, header.getContext())}
+                      </TableCell>
+                    )
+                  })}
+                </TableRow>
+              ))}
+            </TableFooter>
+          )}
         </Table>
       </div>
     </div>

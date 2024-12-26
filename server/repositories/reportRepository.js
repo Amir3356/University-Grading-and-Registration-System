@@ -876,9 +876,9 @@ export async function getStudentTranscriptData(studentId) {
 
   return {
     university: {
-      name: university?.name || 'Northbridge University',
+      name: university?.name || 'Kotebe University of Education',
       registrarName: university?.registrarName || 'Registrar',
-      shortName: university?.shortName || 'NBU',
+      shortName: university?.shortName || 'KUE',
       address: university?.address || '',
       email: university?.email || '',
       website: university?.website || '',
@@ -977,7 +977,7 @@ export async function getStudentPerformanceReport(studentId) {
   };
 }
 
-export async function getWithdrawalRegistrationReport({ period = 'monthly', startDate, endDate } = {}) {
+export async function getWithdrawalRegistrationReport({ semesterId, period, startDate, endDate } = {}) {
   let start, end;
   const now = new Date();
   if (period === 'today') {
@@ -996,22 +996,43 @@ export async function getWithdrawalRegistrationReport({ period = 'monthly', star
     start = new Date(startDate);
     end = endDate ? new Date(endDate) : now;
     end.setHours(23, 59, 59, 999);
-  } else {
-    start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    end = now;
   }
 
-  // Period-specific Registrations
+  const regConditions = [];
+  const regParams = [];
+  const wdrConditions = [];
+  const wdrParams = [];
+
+  if (semesterId) {
+    regParams.push(semesterId);
+    regConditions.push(`sr.semester_id = $${regParams.length}`);
+
+    wdrParams.push(semesterId);
+    wdrConditions.push(`(wr.semester_id = $${wdrParams.length} OR wr.semester_id IS NULL)`);
+  }
+
+  if (start && end) {
+    regParams.push(start, end);
+    regConditions.push(`sr.submitted_at BETWEEN $${regParams.length - 1} AND $${regParams.length}`);
+
+    wdrParams.push(start, end);
+    wdrConditions.push(`wr.submitted_at BETWEEN $${wdrParams.length - 1} AND $${wdrParams.length}`);
+  }
+
+  const regWhere = regConditions.length ? `WHERE ${regConditions.join(' AND ')}` : '';
+  const wdrWhere = wdrConditions.length ? `WHERE ${wdrConditions.join(' AND ')}` : '';
+
+  // Registrations (filtered by semester and/or period)
   const regCountsRes = await query(
     `SELECT
        count(*) as total,
-       count(*) FILTER (WHERE status = 'registered') as registered,
-       count(*) FILTER (WHERE status = 'pending') as pending,
-       count(*) FILTER (WHERE status = 'rejected') as rejected,
-       count(*) FILTER (WHERE status = 'cancelled') as cancelled
-     FROM semester_registrations
-     WHERE submitted_at BETWEEN $1 AND $2`,
-    [start, end]
+       count(*) FILTER (WHERE sr.status = 'registered') as registered,
+       count(*) FILTER (WHERE sr.status = 'pending') as pending,
+       count(*) FILTER (WHERE sr.status = 'rejected') as rejected,
+       count(*) FILTER (WHERE sr.status = 'cancelled') as cancelled
+     FROM semester_registrations sr
+     ${regWhere}`,
+    regParams
   );
 
   // Overall Registrations
@@ -1024,20 +1045,20 @@ export async function getWithdrawalRegistrationReport({ period = 'monthly', star
     FROM semester_registrations
   `);
 
-  // Period-specific Withdrawals
+  // Withdrawals (filtered by semester and/or period)
   const wdrCountsRes = await query(
     `SELECT
        count(*) as total,
-       count(*) FILTER (WHERE status = 'approved') as approved,
-       count(*) FILTER (WHERE status = 'pending') as pending,
-       count(*) FILTER (WHERE status = 'rejected') as rejected,
-       count(*) FILTER (WHERE status = 'cancelled') as cancelled,
-       count(*) FILTER (WHERE scope = 'course') as scope_course,
-       count(*) FILTER (WHERE scope = 'semester') as scope_semester,
-       count(*) FILTER (WHERE scope = 'university') as scope_university
-     FROM withdrawal_requests
-     WHERE submitted_at BETWEEN $1 AND $2`,
-    [start, end]
+       count(*) FILTER (WHERE wr.status = 'approved') as approved,
+       count(*) FILTER (WHERE wr.status = 'pending') as pending,
+       count(*) FILTER (WHERE wr.status = 'rejected') as rejected,
+       count(*) FILTER (WHERE wr.status = 'cancelled') as cancelled,
+       count(*) FILTER (WHERE wr.scope = 'course') as scope_course,
+       count(*) FILTER (WHERE wr.scope = 'semester') as scope_semester,
+       count(*) FILTER (WHERE wr.scope = 'university') as scope_university
+     FROM withdrawal_requests wr
+     ${wdrWhere}`,
+    wdrParams
   );
 
   // Overall Withdrawals
@@ -1054,92 +1075,102 @@ export async function getWithdrawalRegistrationReport({ period = 'monthly', star
   `);
 
   // Registrations by type
-  const regByTypeRes = await query(`
-    SELECT COALESCE(rt.label, sr.registration_type_id) as type_name, count(sr.id) as count
-    FROM semester_registrations sr
-    LEFT JOIN registration_types rt ON rt.id = sr.registration_type_id
-    GROUP BY rt.label, sr.registration_type_id
-    ORDER BY count DESC
-  `);
+  const regByTypeRes = await query(
+    `SELECT COALESCE(rt.label, sr.registration_type_id) as type_name, count(sr.id) as count
+     FROM semester_registrations sr
+     LEFT JOIN registration_types rt ON rt.id = sr.registration_type_id
+     ${regWhere}
+     GROUP BY rt.label, sr.registration_type_id
+     ORDER BY count DESC`,
+    regParams
+  );
 
   // Registrations by department
-  const regByDeptRes = await query(`
-    SELECT d.name as department, count(sr.id) as count
-    FROM semester_registrations sr
-    JOIN students s ON s.id = sr.student_id
-    JOIN departments d ON d.id = s.department_id
-    GROUP BY d.name
-    ORDER BY count DESC
-    LIMIT 6
-  `);
+  const regByDeptRes = await query(
+    `SELECT d.name as department, count(sr.id) as count
+     FROM semester_registrations sr
+     JOIN students s ON s.id = sr.student_id
+     JOIN departments d ON d.id = s.department_id
+     ${regWhere}
+     GROUP BY d.name
+     ORDER BY count DESC
+     LIMIT 6`,
+    regParams
+  );
 
   // Withdrawals by category
-  const wdrByCatRes = await query(`
-    SELECT COALESCE(rc.label, wr.reason_category_id) as category, count(wr.id) as count
-    FROM withdrawal_requests wr
-    LEFT JOIN withdrawal_reason_categories rc ON rc.id = wr.reason_category_id
-    GROUP BY rc.label, wr.reason_category_id
-    ORDER BY count DESC
-  `);
+  const wdrByCatRes = await query(
+    `SELECT COALESCE(rc.label, wr.reason_category_id) as category, count(wr.id) as count
+     FROM withdrawal_requests wr
+     LEFT JOIN withdrawal_reason_categories rc ON rc.id = wr.reason_category_id
+     ${wdrWhere}
+     GROUP BY rc.label, wr.reason_category_id
+     ORDER BY count DESC`,
+    wdrParams
+  );
 
   // Recent registrations
-  const recentRegRes = await query(`
-    SELECT
-      sr.id,
-      sr.status,
-      sr.submitted_at,
-      s.student_number,
-      u.first_name || ' ' || u.last_name as student_name,
-      d.name as department_name,
-      COALESCE(rt.label, sr.registration_type_id) as registration_type
-    FROM semester_registrations sr
-    JOIN students s ON s.id = sr.student_id
-    JOIN users u ON u.id = s.user_id
-    LEFT JOIN departments d ON d.id = s.department_id
-    LEFT JOIN registration_types rt ON rt.id = sr.registration_type_id
-    ORDER BY sr.submitted_at DESC
-    LIMIT 10
-  `);
+  const recentRegRes = await query(
+    `SELECT
+       sr.id,
+       sr.status,
+       sr.submitted_at,
+       s.student_number,
+       u.first_name || ' ' || u.last_name as student_name,
+       d.name as department_name,
+       COALESCE(rt.label, sr.registration_type_id) as registration_type
+     FROM semester_registrations sr
+     JOIN students s ON s.id = sr.student_id
+     JOIN users u ON u.id = s.user_id
+     LEFT JOIN departments d ON d.id = s.department_id
+     LEFT JOIN registration_types rt ON rt.id = sr.registration_type_id
+     ${regWhere}
+     ORDER BY sr.submitted_at DESC
+     LIMIT 10`,
+    regParams
+  );
 
   // Recent withdrawals
-  const recentWdrRes = await query(`
-    SELECT
-      wr.id,
-      wr.reference_no,
-      wr.scope,
-      wr.reason,
-      wr.status,
-      wr.submitted_at,
-      s.student_number,
-      u.first_name || ' ' || u.last_name as student_name,
-      d.name as department_name,
-      COALESCE(rc.label, wr.reason_category_id) as reason_category
-    FROM withdrawal_requests wr
-    JOIN students s ON s.id = wr.student_id
-    JOIN users u ON u.id = s.user_id
-    LEFT JOIN departments d ON d.id = s.department_id
-    LEFT JOIN withdrawal_reason_categories rc ON rc.id = wr.reason_category_id
-    ORDER BY wr.submitted_at DESC
-    LIMIT 10
-  `);
+  const recentWdrRes = await query(
+    `SELECT
+       wr.id,
+       wr.reference_no,
+       wr.scope,
+       wr.reason,
+       wr.status,
+       wr.submitted_at,
+       s.student_number,
+       u.first_name || ' ' || u.last_name as student_name,
+       d.name as department_name,
+       COALESCE(rc.label, wr.reason_category_id) as reason_category
+     FROM withdrawal_requests wr
+     JOIN students s ON s.id = wr.student_id
+     JOIN users u ON u.id = s.user_id
+     LEFT JOIN departments d ON d.id = s.department_id
+     LEFT JOIN withdrawal_reason_categories rc ON rc.id = wr.reason_category_id
+     ${wdrWhere}
+     ORDER BY wr.submitted_at DESC
+     LIMIT 10`,
+    wdrParams
+  );
 
   // Time-series trend by date
   const regTrendRes = await query(
-    `SELECT TO_CHAR(submitted_at, 'YYYY-MM-DD') as day, count(*) as count
-     FROM semester_registrations
-     WHERE submitted_at BETWEEN $1 AND $2
-     GROUP BY TO_CHAR(submitted_at, 'YYYY-MM-DD')
+    `SELECT TO_CHAR(sr.submitted_at, 'YYYY-MM-DD') as day, count(*) as count
+     FROM semester_registrations sr
+     ${regWhere}
+     GROUP BY TO_CHAR(sr.submitted_at, 'YYYY-MM-DD')
      ORDER BY day ASC`,
-    [start, end]
+    regParams
   );
 
   const wdrTrendRes = await query(
-    `SELECT TO_CHAR(submitted_at, 'YYYY-MM-DD') as day, count(*) as count
-     FROM withdrawal_requests
-     WHERE submitted_at BETWEEN $1 AND $2
-     GROUP BY TO_CHAR(submitted_at, 'YYYY-MM-DD')
+    `SELECT TO_CHAR(wr.submitted_at, 'YYYY-MM-DD') as day, count(*) as count
+     FROM withdrawal_requests wr
+     ${wdrWhere}
+     GROUP BY TO_CHAR(wr.submitted_at, 'YYYY-MM-DD')
      ORDER BY day ASC`,
-    [start, end]
+    wdrParams
   );
 
   // Also all-time trends for comprehensive overview
@@ -1185,9 +1216,10 @@ export async function getWithdrawalRegistrationReport({ period = 'monthly', star
   const wa = wdrAllTimeRes.rows[0];
 
   return {
-    period,
-    startDate: start.toISOString(),
-    endDate: end.toISOString(),
+    period: period || 'all',
+    semesterId: semesterId || null,
+    startDate: start ? start.toISOString() : null,
+    endDate: end ? end.toISOString() : null,
     registrations: {
       period: {
         total: parseInt(rc.total || '0', 10),

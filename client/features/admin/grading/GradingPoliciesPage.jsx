@@ -13,6 +13,7 @@ import { ErrorState } from '@/components/common/ErrorState'
 import { PageSkeleton } from '@/components/common/Loading'
 import { useQuery } from '@/hooks/useStore'
 import { DEFAULT_GRADE_SCALE, formatGradePoints, validateGradeScale } from '@/lib/grading'
+import { notifyGradeScaleChange } from '@/lib/syncEvents'
 import { store } from '@/store'
 
 let rowSeq = 0
@@ -259,6 +260,7 @@ export function GradingPoliciesPage() {
     setSavingScale(true)
     try {
       await store.grades.updateGradeScale(payloadEntries)
+      notifyGradeScaleChange({ entries: payloadEntries })
       toast.success('Grading scale successfully saved and applied.', {
         description: 'The updated scale is now active across the university system.',
         duration: 3000,

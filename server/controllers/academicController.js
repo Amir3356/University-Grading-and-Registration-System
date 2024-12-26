@@ -1,5 +1,6 @@
 import * as academicService from '../services/academicService.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
+import { broadcastEvent } from '../config/websocket.js';
 
 // Departments
 export async function listDepartments(req, res, next) {
@@ -138,6 +139,7 @@ export async function getCourse(req, res, next) {
 export async function createCourse(req, res, next) {
   try {
     const course = await academicService.createCourse(req.body, req.user);
+    broadcastEvent('COURSE_CREATED', course);
     sendCreated(res, course);
   } catch (err) {
     next(err);
@@ -147,6 +149,7 @@ export async function createCourse(req, res, next) {
 export async function updateCourse(req, res, next) {
   try {
     const course = await academicService.updateCourse(req.params.id, req.body, req.user);
+    broadcastEvent('COURSE_UPDATED', course);
     sendSuccess(res, course);
   } catch (err) {
     next(err);
@@ -156,6 +159,7 @@ export async function updateCourse(req, res, next) {
 export async function deleteCourse(req, res, next) {
   try {
     const result = await academicService.deleteCourse(req.params.id, req.user);
+    broadcastEvent('COURSE_DELETED', { id: req.params.id, ...result });
     sendSuccess(res, result);
   } catch (err) {
     next(err);

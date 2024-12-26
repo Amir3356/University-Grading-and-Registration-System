@@ -12,7 +12,7 @@ const MyAssessmentsPage = page(() => import('@/features/student/assessments/MyAs
 const AssessmentMarksPage = page(() => import('@/features/student/assessments/AssessmentMarksPage'), 'AssessmentMarksPage');
 const MyGradesPage = page(() => import('@/features/student/grades/MyGradesPage'), 'MyGradesPage');
 const ProgressPage = page(() => import('@/features/student/progress/ProgressPage'), 'ProgressPage');
-const TranscriptPage = page(() => import('@/features/student/transcript/TranscriptPage'), 'TranscriptPage');
+const StudentReportPage = page(() => import('@/features/student/reports/StudentReportPage'), 'StudentReportPage');
 const WithdrawalRequestsPage = page(() => import('@/features/student/withdrawals/WithdrawalRequestsPage'), 'WithdrawalRequestsPage');
 const ComplaintsPage = page(() => import('@/features/student/complaints/ComplaintsPage'), 'ComplaintsPage');
 
@@ -26,8 +26,10 @@ export const studentRoutes = (
     <Route path="/student/assessment-marks" element={<AssessmentMarksPage />} />
     <Route path="/student/assessments-marks" element={<AssessmentMarksPage />} />
     <Route path="/student/grades" element={<MyGradesPage />} />
+    <Route path="/student/reports" element={<StudentReportPage />} />
+    <Route path="/student/report" element={<StudentReportPage />} />
     <Route path="/student/progress" element={<ProgressPage />} />
-    <Route path="/student/transcript" element={<TranscriptPage />} />
+    <Route path="/student/transcript" element={<Navigate to="/student/reports" replace />} />
     <Route path="/student/withdrawals" element={<WithdrawalRequestsPage />} />
     <Route path="/student/withdrawal-requests" element={<WithdrawalRequestsPage />} />
     <Route path="/student/complaints" element={<ComplaintsPage />} />

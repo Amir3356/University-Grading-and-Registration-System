@@ -335,4 +335,136 @@ export function onGradeChange(callback) {
   };
 }
 
+/**
+ * Notify all browser tabs and components that a course (e.g. credit hours, title) has changed.
+ */
+export function notifyCourseChange(detail = {}) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.dispatchEvent(new CustomEvent('ugs_course_changed', { detail: { ...detail, timestamp: Date.now() } }));
+  } catch (e) {
+    void e;
+  }
+
+  try {
+    channel?.postMessage({ type: 'ugs_course_changed', ...detail, timestamp: Date.now() });
+  } catch (e) {
+    void e;
+  }
+
+  try {
+    localStorage.setItem('ugs_course_event', JSON.stringify({ ...detail, timestamp: Date.now() }));
+  } catch (e) {
+    void e;
+  }
+}
+
+/**
+ * Listen for course changes across tabs, windows, and local actions.
+ * @param {(detail?: any) => void} callback
+ * @returns {() => void} Unsubscribe function
+ */
+export function onCourseChange(callback) {
+  if (typeof window === 'undefined' || typeof callback !== 'function') return () => {};
+
+  const handleEvent = (e) => {
+    callback(e.detail);
+  };
+
+  window.addEventListener('ugs_course_changed', handleEvent);
+
+  const handleMessage = (e) => {
+    if (e.data?.type === 'ugs_course_changed') {
+      callback(e.data);
+    }
+  };
+  channel?.addEventListener('message', handleMessage);
+
+  const handleStorage = (e) => {
+    if (e.key === 'ugs_course_event') {
+      try {
+        const parsed = JSON.parse(e.newValue || '{}');
+        callback(parsed);
+      } catch {
+        callback();
+      }
+    }
+  };
+  window.addEventListener('storage', handleStorage);
+
+  return () => {
+    window.removeEventListener('ugs_course_changed', handleEvent);
+    channel?.removeEventListener('message', handleMessage);
+    window.removeEventListener('storage', handleStorage);
+  };
+}
+
+/**
+ * Notify all browser tabs and components that a grade scale / grading policy has changed.
+ * @param {object} detail
+ */
+export function notifyGradeScaleChange(detail = {}) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.dispatchEvent(new CustomEvent('ugs_grade_scale_changed', { detail: { ...detail, timestamp: Date.now() } }));
+  } catch (e) {
+    void e;
+  }
+
+  try {
+    channel?.postMessage({ type: 'ugs_grade_scale_changed', ...detail, timestamp: Date.now() });
+  } catch (e) {
+    void e;
+  }
+
+  try {
+    localStorage.setItem('ugs_grade_scale_event', JSON.stringify({ ...detail, timestamp: Date.now() }));
+  } catch (e) {
+    void e;
+  }
+}
+
+/**
+ * Listen for grade scale / grading policy changes across tabs, windows, and local actions.
+ * @param {(detail?: any) => void} callback
+ * @returns {() => void} Unsubscribe function
+ */
+export function onGradeScaleChange(callback) {
+  if (typeof window === 'undefined' || typeof callback !== 'function') return () => {};
+
+  const handleEvent = (e) => {
+    callback(e.detail);
+  };
+
+  window.addEventListener('ugs_grade_scale_changed', handleEvent);
+
+  const handleMessage = (e) => {
+    if (e.data?.type === 'ugs_grade_scale_changed') {
+      callback(e.data);
+    }
+  };
+  channel?.addEventListener('message', handleMessage);
+
+  const handleStorage = (e) => {
+    if (e.key === 'ugs_grade_scale_event') {
+      try {
+        const parsed = JSON.parse(e.newValue || '{}');
+        callback(parsed);
+      } catch {
+        callback();
+      }
+    }
+  };
+  window.addEventListener('storage', handleStorage);
+
+  return () => {
+    window.removeEventListener('ugs_grade_scale_changed', handleEvent);
+    channel?.removeEventListener('message', handleMessage);
+    window.removeEventListener('storage', handleStorage);
+  };
+}
+
+
 

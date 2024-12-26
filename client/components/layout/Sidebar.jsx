@@ -75,8 +75,8 @@ function Brand({ collapsed }) {
       </div>
       {!collapsed && (
         <div style={{ minWidth: 0, lineHeight: 1.25 }}>
-          <p className="sidebar__brand-name truncate">{lookups?.university?.shortName ?? 'UGS'} Grading</p>
-          <p className="sidebar__brand-sub truncate">{lookups?.university?.name ?? 'University Grading System'}</p>
+          <p className="sidebar__brand-name truncate">{lookups?.university?.shortName ?? 'KUE'} Grading</p>
+          <p className="sidebar__brand-sub truncate">{lookups?.university?.name ?? 'Kotebe University of Education'}</p>
         </div>
       )}
     </div>

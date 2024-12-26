@@ -2,16 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { PageHeader } from '@/components/common/PageHeader'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import { useAuth } from '@/context/auth-context'
 import { getProfileApi } from '@/api/auth'
 import { useQuery } from '@/hooks/useStore'
-import { formatAcademicYear, formatSemesterName, getCourseStudyYear, getStudentStudyYear } from '@/lib/format'
+import { formatAcademicYear, formatGpa, formatSemesterName, getCourseStudyYear, getStudentStudyYear } from '@/lib/format'
 import { DEFAULT_GRADE_SCALE, formatGradePoints, gradeForScore } from '@/lib/grading'
-import { onAssessmentChange, onGradeChange, onUserChange } from '@/lib/syncEvents'
+import { onAssessmentChange, onCourseChange, onGradeChange, onGradeScaleChange, onUserChange } from '@/lib/syncEvents'
 import { setStoredSession } from '@/lib/storage'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
@@ -77,6 +77,9 @@ export function MyGradesPage() {
 
   useWebSocketEvent('STUDENT_UPDATED', handleStudentUpdated)
   useWebSocketEvent('USER_UPDATED', handleStudentUpdated)
+  useWebSocketEvent('COURSE_UPDATED', reloadGrades)
+  useWebSocketEvent('COURSE_CREATED', reloadGrades)
+  useWebSocketEvent('COURSE_DELETED', reloadGrades)
   useWebSocketEvent('SCORES_UPDATED', reloadGrades)
   useWebSocketEvent('OFFERING_UPDATED', reloadGrades)
   useWebSocketEvent('OFFERING_CREATED', reloadGrades)
@@ -92,10 +95,14 @@ export function MyGradesPage() {
     const unsubUser = onUserChange(handleStudentUpdated)
     const unsubAsm = onAssessmentChange(() => reloadGrades())
     const unsubGrade = onGradeChange(() => reloadGrades())
+    const unsubCourse = onCourseChange(() => reloadGrades())
+    const unsubScale = onGradeScaleChange(() => reloadGrades())
     return () => {
       unsubUser?.()
       unsubAsm?.()
       unsubGrade?.()
+      unsubCourse?.()
+      unsubScale?.()
     }
   }, [handleStudentUpdated, reloadGrades])
 
@@ -152,6 +159,13 @@ export function MyGradesPage() {
         if (!grade) grade = '—'
 
         const courseObj = c.course || c
+        const creditHours = Number(
+          c.creditHours ??
+          c.credit_hours ??
+          courseObj?.creditHours ??
+          courseObj?.credit_hours ??
+          0
+        )
         const courseYear = String(
           c.courseYearOfStudy ??
           c.yearOfStudy ??
@@ -199,6 +213,7 @@ export function MyGradesPage() {
           id: c.enrollmentId || c.id || c.courseCode,
           courseCode: c.course?.code || c.courseCode,
           courseName: c.course?.title || c.courseTitle,
+          creditHours,
           yearOfStudy: courseYear,
           totalScore,
           grade,
@@ -392,96 +407,207 @@ export function MyGradesPage() {
       </div>
 
       {/* Each semester explicitly displays its own card and course grades */}
-      {coursesBySemester.map((semGroup) => (
-        <Card key={semGroup.semesterId} className="overflow-hidden">
-          <CardHeader className="p-5 pb-3 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-            <div>
-              <CardTitle className="text-base font-semibold">{formatSemesterName(semGroup.semesterName)}</CardTitle>
-              <span className="text-xs text-muted-foreground mt-0.5 block">
-                Official course grades and performance for {formatSemesterName(semGroup.semesterName)}
-              </span>
-            </div>
-            <Badge variant="secondary" className="w-fit text-xs font-normal">
-              {semGroup.courses.length} course{semGroup.courses.length === 1 ? '' : 's'}
-            </Badge>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[140px]">Course Code</TableHead>
-                  <TableHead>Course Name</TableHead>
-                  <TableHead className="w-[140px]">Semester</TableHead>
-                  <TableHead className="text-center w-[110px]">Total /100</TableHead>
-                  <TableHead className="text-center w-[90px]">Grade</TableHead>
-                  <TableHead className="text-center w-[120px]">Grade points</TableHead>
-                  <TableHead className="text-center w-[180px]">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {semGroup.courses.map((c) => (
-                  <TableRow key={c.courseCode + c.semesterId}>
-                    <TableCell className="font-semibold text-foreground">
-                      {c.courseCode}
-                    </TableCell>
-                    <TableCell className="font-medium text-foreground">
-                      {c.courseName}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatSemesterName(c.semesterName)}
-                    </TableCell>
-                    <TableCell className="text-center font-semibold tabular-nums">
-                      {c.totalScore}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {c.grade === '—' ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : c.grade === 'Dropped' ? (
-                        <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-destructive/10 text-destructive border border-destructive/20">
-                          Dropped
-                        </span>
-                      ) : c.grade === 'W' ? (
-                        <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-muted text-muted-foreground">
-                          W
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-primary/10 text-primary">
-                          {c.grade}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center font-semibold tabular-nums">
-                      {c.gradePoints != null ? (
-                        formatGradePoints(c.gradePoints)
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center">
-                        <StatusBadge
-                          status={c.status}
-                          label={
-                            c.status === 'submitted'
-                              ? 'Submitted to Dept Head'
-                              : c.status === 'approved'
-                                ? 'Approved'
-                                : c.status === 'published'
-                                  ? 'Published'
-                                  : c.status === 'in_progress'
-                                    ? 'In progress'
-                                    : undefined
-                          }
-                        />
+      {coursesBySemester.map((semGroup) => {
+        let semesterTotalCredits = 0
+        let semesterQualityPoints = 0
+        let semesterGpaCredits = 0
+
+        for (const c of semGroup.courses) {
+          const credits = Number(c.creditHours) || 0
+          semesterTotalCredits += credits
+
+          if (
+            c.gradePoints != null &&
+            !Number.isNaN(Number(c.gradePoints)) &&
+            c.grade !== '—' &&
+            c.grade !== 'Dropped' &&
+            c.grade !== 'W'
+          ) {
+            semesterQualityPoints += Number(c.gradePoints) * credits
+            semesterGpaCredits += credits
+          }
+        }
+
+        const semesterGpa = semesterGpaCredits > 0 ? semesterQualityPoints / semesterGpaCredits : null
+
+        // Chronological order key for progressive Cumulative GPA (CGPA)
+        const getSemOrderKey = (item) => {
+          const yr = Number(item.academicYear) || 2026
+          const semStr = String(item.semesterTerm || item.semesterName || item.semester || '').toLowerCase()
+          const termWeight = semStr.includes('second') ? 2 : semStr.includes('summer') ? 3 : 1
+          return yr * 10 + termWeight
+        }
+
+        const currentSemOrder = getSemOrderKey(semGroup.courses[0] || semGroup)
+
+        let cumulativeQualityPoints = 0
+        let cumulativeGpaCredits = 0
+
+        for (const c of allCourses) {
+          if (getSemOrderKey(c) <= currentSemOrder) {
+            const credits = Number(c.creditHours) || 0
+            if (
+              c.gradePoints != null &&
+              !Number.isNaN(Number(c.gradePoints)) &&
+              c.grade !== '—' &&
+              c.grade !== 'Dropped' &&
+              c.grade !== 'W'
+            ) {
+              cumulativeQualityPoints += Number(c.gradePoints) * credits
+              cumulativeGpaCredits += credits
+            }
+          }
+        }
+
+        const cumulativeGpa = cumulativeGpaCredits > 0 ? cumulativeQualityPoints / cumulativeGpaCredits : semesterGpa
+
+        return (
+          <Card key={semGroup.semesterId} className="overflow-hidden">
+            <CardHeader
+              className="relative p-5 pb-3 border-b flex flex-col items-center justify-center text-center"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+              }}
+            >
+              <div
+                className="w-full flex flex-col items-center justify-center text-center"
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                }}
+              >
+                <CardTitle
+                  className="text-base font-semibold text-center w-full"
+                  style={{ textAlign: 'center', width: '100%' }}
+                >
+                  {formatSemesterName(semGroup.semesterName)}
+                </CardTitle>
+              </div>
+              <Badge
+                variant="secondary"
+                className="sm:absolute sm:right-5 sm:top-5 w-fit text-xs font-normal mt-2 sm:mt-0"
+              >
+                {semGroup.courses.length} course{semGroup.courses.length === 1 ? '' : 's'}
+              </Badge>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[140px]">Course Code</TableHead>
+                    <TableHead>Course Name</TableHead>
+                    <TableHead className="w-[140px]">Semester</TableHead>
+                    <TableHead className="text-center w-[90px]">Credits</TableHead>
+                    <TableHead className="text-center w-[110px]">Total /100</TableHead>
+                    <TableHead className="text-center w-[90px]">Grade</TableHead>
+                    <TableHead className="text-center w-[120px]">Grade points</TableHead>
+                    <TableHead className="text-center w-[180px]">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {semGroup.courses.map((c) => (
+                    <TableRow key={c.courseCode + c.semesterId}>
+                      <TableCell className="font-semibold text-foreground">
+                        {c.courseCode}
+                      </TableCell>
+                      <TableCell className="font-medium text-foreground">
+                        {c.courseName}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatSemesterName(c.semesterName)}
+                      </TableCell>
+                      <TableCell className="text-center font-medium tabular-nums">
+                        {c.creditHours}
+                      </TableCell>
+                      <TableCell className="text-center font-semibold tabular-nums">
+                        {c.totalScore}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {c.grade === '—' ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : c.grade === 'Dropped' ? (
+                          <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-destructive/10 text-destructive border border-destructive/20">
+                            Dropped
+                          </span>
+                        ) : c.grade === 'W' ? (
+                          <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-muted text-muted-foreground">
+                            W
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center justify-center min-w-[2rem] h-7 px-2 font-bold text-xs rounded-md bg-primary/10 text-primary">
+                            {c.grade}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center font-semibold tabular-nums">
+                        {c.gradePoints != null ? (
+                          formatGradePoints(c.gradePoints)
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center">
+                          <StatusBadge
+                            status={c.status}
+                            label={
+                              c.status === 'submitted'
+                                ? 'Submitted to Dept Head'
+                                : c.status === 'approved'
+                                  ? 'Approved'
+                                  : c.status === 'published'
+                                    ? 'Published'
+                                    : c.status === 'in_progress'
+                                      ? 'In progress'
+                                      : undefined
+                            }
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+                <TableFooter>
+                  <TableRow className="border-t bg-muted/40 font-semibold">
+                    <TableCell colSpan={8} className="py-3 pl-4 text-left font-semibold text-foreground">
+                      <div className="flex flex-wrap items-center gap-6 text-sm">
+                        <div className="flex items-center gap-1.5">
+                          <span>Total credit:</span>
+                          <strong className="font-bold text-foreground tabular-nums">
+                            {semesterTotalCredits}
+                          </strong>
+                        </div>
+                        <div className="h-4 w-px bg-border" />
+                        <div className="flex items-center gap-1.5">
+                          <span>GPA:</span>
+                          <strong className="font-bold text-foreground tabular-nums">
+                            {formatGpa(semesterGpa)}
+                          </strong>
+                        </div>
+                        <div className="h-4 w-px bg-border" />
+                        <div className="flex items-center gap-1.5">
+                          <span>Cumulative GPA:</span>
+                          <strong className="font-bold text-foreground tabular-nums">
+                            {formatGpa(cumulativeGpa)}
+                          </strong>
+                        </div>
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      ))}
+                </TableFooter>
+              </Table>
+            </CardContent>
+          </Card>
+        )
+      })}
 
       {coursesBySemester.length === 0 && (
         <Card className="overflow-hidden">

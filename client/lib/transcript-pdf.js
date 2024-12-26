@@ -2,14 +2,15 @@ import { createPdf, finishPdf, pdfTable } from '@/lib/export'
 import { formatDate, formatGpa, formatSemesterName } from '@/lib/format'
 
 /** Render a transcript (from store.reports.getTranscript / store.student.getMyTranscript) to PDF. */
-export function downloadTranscriptPdf(t = {}, { official = false } = {}) {
+export function downloadTranscriptPdf(t = {}, { official = false, semesterLabel = '' } = {}) {
   const s = t.student || {}
+  const semSubtitle = semesterLabel && semesterLabel !== 'All semesters' ? `    Semester: ${semesterLabel}` : ''
   const { doc, y: startY } = createPdf({
-    title: official ? 'Official Academic Transcript' : 'Academic Transcript (Unofficial)',
+    title: official ? 'Official Academic Transcript' : 'Academic Grade & Progress Report',
     university: t.university,
     subtitle: [
-      `Student: ${s.name || '—'}    ID: ${s.studentNumber || '—'}    Programme: ${s.program || '—'}`,
-      `Department: ${s.department?.name ?? '—'}    Admission year: ${s.admissionYear || '—'}    Date issued: ${formatDate(t.generatedAt || new Date().toISOString())}`,
+      `Student: ${s.name || '—'}    ID: ${s.studentNumber || '—'}    Programme: ${s.program || '—'}${semSubtitle}`,
+      `Department: ${s.department?.name ?? s.department ?? '—'}    Admission year: ${s.admissionYear || '—'}    Date issued: ${formatDate(t.generatedAt || new Date().toISOString())}`,
     ],
   })
   let y = startY

@@ -10,20 +10,21 @@ const pct = (n) => `${Number(n).toFixed(1)}%`
  * meta: { department, semesterLabel, periodLabel, university? }
  */
 export function downloadGradeResultsPdf(rows, summary, meta) {
+  const subtitle = [
+    `Department: ${meta.department}    Semester: ${meta.semesterLabel}${meta.periodLabel ? `    Grades approved: ${meta.periodLabel}` : ''}`,
+    'Counts include grades approved by the department head, including those since published by the registrar. W / I grades are excluded from the pass rate.',
+  ]
   const { doc, y: startY } = createPdf({
     title: 'Course Grade Results — Pass / Fail',
     university: meta.university,
     orientation: 'landscape',
-    subtitle: [
-      `Department: ${meta.department}    Semester: ${meta.semesterLabel}    Grades approved: ${meta.periodLabel}`,
-      'Counts include grades approved by the department head in this period, including those since published by the registrar. W / I grades are excluded from the pass rate.',
-    ],
+    subtitle,
   })
   const num = { halign: 'right' }
 
   const y = pdfTable(doc, {
     startY,
-    head: ['Courses with grades in period', right('Students graded'), right('Passed'), right('Failed'), right('Pass rate')],
+    head: ['Approved course results', right('Students graded'), right('Passed'), right('Failed'), right('Pass rate')],
     body: [[
       `${summary.approvedCourses} of ${summary.courses}`,
       summary.graded,

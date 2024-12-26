@@ -10,11 +10,15 @@ const share = (part, total) => (total ? `${((part / total) * 100).toFixed(1)}%` 
  * Render a registration & withdrawal report to PDF.
  * meta: { periodLabel, rangeLabel, granularity, compareHint, university? }
  */
-export function downloadRegistrationReportPdf(report, meta) {
+export function downloadRegistrationReportPdf(report, meta = {}) {
+  const subtitle = ['Scope: All departments', `Semester: ${meta.semesterLabel || 'All semesters'}`]
+  if (meta.periodLabel) {
+    subtitle[1] += `    Period: ${meta.periodLabel}`
+  }
   const { doc, y: startY } = createPdf({
     title: 'Student Registration & Withdrawal Report',
     university: meta.university,
-    subtitle: ['Scope: All departments', `Period: ${meta.periodLabel} (${meta.rangeLabel})    Breakdown: ${meta.granularity}`],
+    subtitle,
   })
   const pageH = doc.internal.pageSize.getHeight()
   let y = startY
@@ -36,23 +40,23 @@ export function downloadRegistrationReportPdf(report, meta) {
 
   y = pdfTable(doc, {
     startY: section('Summary'),
-    head: ['Metric', right('Value'), right(`Change (${meta.compareHint})`)],
+    head: ['Metric', right('Value'), right('Type / Status')],
     body: [
-      ['Registrations', fmt(kpis.registrations.value), signed(kpis.registrations.change)],
-      ['Withdrawals', fmt(kpis.withdrawals.value), signed(kpis.withdrawals.change)],
-      ['Net enrollment', `${kpis.net.value >= 0 ? '+' : ''}${fmt(kpis.net.value)}`, signed(kpis.net.change)],
-      ['Withdrawal rate', `${kpis.rate.value.toFixed(1)}%`, signed(kpis.rate.change, 1, ' pts')],
+      ['Registrations', fmt(kpis.registrations.value), 'Semester Registrations'],
+      ['Withdrawals', fmt(kpis.withdrawals.value), 'Withdrawal Requests'],
+      ['Net enrollment', `${kpis.net.value >= 0 ? '+' : ''}${fmt(kpis.net.value)}`, 'Net Total'],
+      ['Withdrawal rate', `${kpis.rate.value.toFixed(1)}%`, 'Attrition Rate'],
     ],
     columnStyles: { 1: num, 2: num },
   }) + 18
 
   const trendTotals = (trend || []).reduce((a, t) => ({ r: a.r + (t.registrations || 0), w: a.w + (t.withdrawals || 0) }), { r: 0, w: 0 })
   y = pdfTable(doc, {
-    startY: section(`Registrations vs. withdrawals (${meta.granularity.toLowerCase()})`),
-    head: ['Period', right('Registrations'), right('Withdrawals'), right('Net')],
+    startY: section('Registrations vs. withdrawals (daily)'),
+    head: ['Date', right('Registrations'), right('Withdrawals'), right('Net')],
     body: (trend && trend.length)
       ? trend.map((t) => [t.label, fmt(t.registrations), fmt(t.withdrawals), fmt(t.registrations - t.withdrawals)])
-      : [['No trend data recorded in this period.', '', '', '']],
+      : [['No trend data recorded for this semester.', '', '', '']],
     foot: ['Total', right(fmt(trendTotals.r)), right(fmt(trendTotals.w)), right(fmt(trendTotals.r - trendTotals.w))],
     columnStyles: { 1: num, 2: num, 3: num },
   }) + 18
@@ -83,5 +87,6 @@ export function downloadRegistrationReportPdf(report, meta) {
       : [['No recent activity recorded in this period.', '', '', '', '']],
   })
 
-  finishPdf(doc, `registration_report_${meta.periodLabel.toLowerCase().replace(/\s+/g, '_')}`)
+  const slug = (meta.semesterLabel || 'all_semesters').toLowerCase().replace(/\s+/g, '_')
+  finishPdf(doc, `registration_report_${slug}`)
 }

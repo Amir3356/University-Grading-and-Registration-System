@@ -6,7 +6,7 @@ import { FilterSelect } from '@/components/common/FilterSelect'
 import { PageHeader } from '@/components/common/PageHeader'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
-import { formatSemesterOptionLabel, formatSemesterTerm, formatYearOfStudy, getCourseStudyYear } from '@/lib/format'
+import { formatAcademicYear, formatSemesterOptionLabel, formatSemesterTerm, formatYearOfStudy, getCourseStudyYear } from '@/lib/format'
 import { store } from '@/store'
 
 export function MyCoursesPage() {
@@ -25,7 +25,7 @@ export function MyCoursesPage() {
     for (let y = currentYear; y >= startYear; y--) {
       yearsSet.add(String(y))
     }
-    const list = Array.isArray(rawOfferings) ? rawOfferings : (rawOfferings?.items || rawOfferings?.courses || [])
+    const list = Array.isArray(data) ? data : (data?.items || data?.courses || [])
     list.forEach((c) => {
       const acadYear = formatAcademicYear(c.semester)
       if (acadYear && acadYear !== '—' && Number(acadYear) >= 2026) {
@@ -33,7 +33,7 @@ export function MyCoursesPage() {
       }
     })
     return Array.from(yearsSet).sort((a, b) => Number(b) - Number(a))
-  }, [rawOfferings])
+  }, [data])
 
   const academicYearOptions = [
     { value: 'all', label: 'Academic Year' },

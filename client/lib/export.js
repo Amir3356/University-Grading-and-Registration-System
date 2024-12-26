@@ -16,14 +16,30 @@ function toMatrix(columns, rows) {
 }
 
 function download(blob, filename) {
-  const url = URL.createObjectURL(blob)
+  const forceBlob =
+    blob.type === 'application/pdf'
+      ? new Blob([blob], { type: 'application/octet-stream' })
+      : blob
+  const url = URL.createObjectURL(forceBlob)
   const a = document.createElement('a')
+  a.style.display = 'none'
   a.href = url
+  a.setAttribute('download', filename)
   a.download = filename
+  a.onclick = (e) => {
+    e.stopPropagation()
+  }
   document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  const evt = new MouseEvent('click', {
+    bubbles: false,
+    cancelable: true,
+    view: window,
+  })
+  a.dispatchEvent(evt)
+  setTimeout(() => {
+    a.remove()
+    URL.revokeObjectURL(url)
+  }, 1000)
 }
 
 export function exportCsv(filename, columns, rows) {
@@ -54,7 +70,7 @@ export function createPdf({ title, subtitle, university, orientation = 'portrait
   doc.setTextColor(...NAVY)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(15)
-  doc.text(university?.name ?? 'University Grading System', 40, 40)
+  doc.text(university?.name ?? 'Kotebe University of Education', 40, 40)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(100)
@@ -105,7 +121,13 @@ export function finishPdf(doc, filename) {
     const h = doc.internal.pageSize.getHeight()
     doc.text(`Page ${i} of ${pages}`, w - 40, h - 20, { align: 'right' })
   }
-  doc.save(`${safe(filename)}.pdf`)
+  const cleanName = `${safe(filename)}.pdf`
+  try {
+    const blob = doc.output('blob')
+    download(blob, cleanName)
+  } catch {
+    doc.save(cleanName)
+  }
 }
 
 /** Simple tabular PDF export. */

@@ -1,10 +1,8 @@
 import { useMemo, useState } from 'react'
-import { format, parseISO, subDays } from 'date-fns'
-import { BookCheck, CalendarRange, CheckCircle2, FileDown, XCircle } from 'lucide-react'
+import { BookCheck, CheckCircle2, FileDown, XCircle } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { toast } from 'sonner'
 import { ChartCard } from '@/components/charts/ChartCard'
-import { DateInput } from '@/components/common/DateInput'
 import { axisProps, barRadius, gridProps, legendProps, tooltipProps } from '@/components/charts/chart-theme'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
@@ -13,7 +11,6 @@ import { PageSkeleton } from '@/components/common/Loading'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { KpiCard } from '@/features/reports/KpiCard'
-import { PERIOD_OPTIONS } from '@/features/reports/periods'
 import { useQuery } from '@/hooks/useStore'
 import { formatSemesterName } from '@/lib/format'
 import { downloadGradeResultsPdf } from '@/lib/grade-results-pdf'
@@ -37,28 +34,9 @@ const legendText = (value) => <span className="rpt-legend-text">{value}</span>
 
 /** Pass / fail results per course for the department head, from approved and published grades. */
 export function DeptGradeResultsReport({ department, university }) {
-  // Period filters grades by the date the department approved them. Seeded demo approvals are months old,
-  // so the default is a custom range covering roughly the last six months.
-  const [period, setPeriod] = useState('custom')
-  const [range, setRange] = useState(() => ({
-    from: format(subDays(new Date(), 182), 'yyyy-MM-dd'),
-    to: format(new Date(), 'yyyy-MM-dd'),
-  }))
-  const rangeInvalid = period === 'custom' && (!range.from || !range.to || range.from > range.to)
-  const periodLabel = useMemo(() => {
-    const now = new Date()
-    if (period === 'today') return `Today (${format(now, 'd MMM yyyy')})`
-    if (period === 'weekly') return `${format(subDays(now, 6), 'd MMM')} – ${format(now, 'd MMM yyyy')}`
-    return rangeInvalid ? '' : `${format(parseISO(range.from), 'd MMM yyyy')} – ${format(parseISO(range.to), 'd MMM yyyy')}`
-  }, [period, range, rangeInvalid])
-
   const { data, loading, error, refetch } = useQuery(
-    () =>
-      store.reports.getCourseResultsReport(
-        period === 'custom' ? { period, startDate: range.from, endDate: range.to } : { period },
-      ),
-    [period, range.from, range.to],
-    { enabled: !rangeInvalid },
+    () => store.reports.getCourseResultsReport(),
+    [],
   )
   useWebSocketEvent('GRADE_SUBMISSION_UPDATED', () => refetch())
 
@@ -91,7 +69,7 @@ export function DeptGradeResultsReport({ department, university }) {
     return {
       excluded: rows.reduce((s, r) => s + r.withdrawn + r.incomplete, 0),
       courses: rows.length,
-      // Courses with at least one grade approved in the selected period.
+      // Courses with at least one approved grade.
       approvedCourses: rows.filter((r) => r.students > 0).length,
       graded: rows.reduce((s, r) => s + r.students, 0),
       passed,
@@ -123,43 +101,20 @@ export function DeptGradeResultsReport({ department, university }) {
 
   const handleDownload = () => {
     try {
-      downloadGradeResultsPdf(rows, summary, { department, semesterLabel, periodLabel, university })
+      downloadGradeResultsPdf(rows, summary, { department, semesterLabel, university })
       toast.success('Grade results downloaded as PDF.')
     } catch (err) {
       toast.error(err.message || 'Could not generate the PDF.')
     }
   }
 
-  if (loading && !data && !rangeInvalid) return <PageSkeleton />
+  if (loading && !data) return <PageSkeleton />
   if (error) return <ErrorState error={error} onRetry={refetch} title="Could not load grade results" />
 
   return (
     <div className="rpt">
       <div className="rpt-toolbar" style={{ justifyContent: 'flex-end' }}>
         <div className="rpt-filters" style={{ width: 'auto', marginLeft: 'auto', justifyContent: 'flex-end' }}>
-          <div className="rpt-filters__field">
-            <FilterSelect
-              value={period}
-              onChange={setPeriod}
-              options={PERIOD_OPTIONS}
-              includeAll={false}
-              label="Period"
-              className="rpt-filters__select"
-              align="end"
-            />
-          </div>
-          {period === 'custom' && (
-            <div className="rpt-filters__range">
-              <DateInput value={range.from} onChange={(from) => setRange((r) => ({ ...r, from }))} className="rpt-filters__date" />
-              <span className="rpt-filters__sep">to</span>
-              <DateInput
-                value={range.to}
-                min={range.from || undefined}
-                onChange={(to) => setRange((r) => ({ ...r, to }))}
-                className="rpt-filters__date"
-              />
-            </div>
-          )}
           <div className="rpt-filters__field">
             <FilterSelect
               value={activeSemester}
@@ -171,23 +126,13 @@ export function DeptGradeResultsReport({ department, university }) {
               align="end"
             />
           </div>
-          <Button className="rpt-filters__download" onClick={handleDownload} disabled={!rows.length || rangeInvalid}>
+          <Button type="button" className="rpt-filters__download" onClick={handleDownload} disabled={!rows.length}>
             <FileDown /> Download PDF
           </Button>
         </div>
       </div>
 
-      {rangeInvalid ? (
-        <Card>
-          <CardContent>
-            <EmptyState
-              icon={CalendarRange}
-              title={range.from && range.to ? 'The start date is after the end date' : 'Choose a date range'}
-              description="Pick a valid From and To date to see grade results."
-            />
-          </CardContent>
-        </Card>
-      ) : !rows.length ? (
+      {!rows.length ? (
         <Card>
           <CardContent>
             <EmptyState icon={BookCheck} title="No course offerings found" description="There are no course offerings for your department in this semester." />
@@ -206,7 +151,7 @@ export function DeptGradeResultsReport({ department, university }) {
               description="Share of approved and published grades"
               height={300}
               empty={!pieTotal}
-              emptyText="No grades were approved in this period."
+              emptyText="No approved grades on record."
               tableColumns={[
                 { key: 'name', header: 'Result' },
                 { key: 'value', header: 'Students' },
@@ -260,7 +205,7 @@ export function DeptGradeResultsReport({ department, university }) {
               description="Students per course with an approved or published grade"
               height={300}
               empty={!chartRows.length}
-              emptyText="No grades were approved in this period."
+              emptyText="No approved grades on record."
               tableColumns={[
                 { key: 'course', header: 'Course' },
                 { key: 'passed', header: 'Passed' },

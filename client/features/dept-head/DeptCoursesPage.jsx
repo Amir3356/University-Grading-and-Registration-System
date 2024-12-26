@@ -13,7 +13,7 @@ import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery, useMutation } from '@/hooks/useStore'
 import { store } from '@/store'
-import { onUserChange } from '@/lib/syncEvents'
+import { onCourseChange, onUserChange, notifyCourseChange } from '@/lib/syncEvents'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { SelectField } from '../admin/users/SelectField'
 import { getDepartmentName, DEPARTMENT_OPTIONS } from '../admin/users/UserFormDialog'
@@ -58,6 +58,7 @@ function CourseForm({ course, dept, deptId, deptName, onClose, onCreated }) {
     {
       success: isEdit ? 'Course updated.' : 'Course created.',
       onSuccess: (result, data) => {
+        notifyCourseChange({ action: isEdit ? 'update' : 'create', course: result || data })
         onCreated?.(data?.departmentId || form.departmentId || defaultDeptId)
         onClose()
       },
@@ -208,10 +209,17 @@ export function DeptCoursesPage() {
   )
 
   useEffect(() => {
-    return onUserChange(() => {
+    const unsubUser = onUserChange(() => {
       refetchSelf()
       refetch()
     })
+    const unsubCourse = onCourseChange(() => {
+      refetch()
+    })
+    return () => {
+      unsubUser?.()
+      unsubCourse?.()
+    }
   }, [refetchSelf, refetch])
 
   useWebSocketEvent('USER_UPDATED', () => {
@@ -220,6 +228,15 @@ export function DeptCoursesPage() {
   })
   useWebSocketEvent('TEACHER_UPDATED', () => {
     refetchSelf()
+    refetch()
+  })
+  useWebSocketEvent('COURSE_UPDATED', () => {
+    refetch()
+  })
+  useWebSocketEvent('COURSE_CREATED', () => {
+    refetch()
+  })
+  useWebSocketEvent('COURSE_DELETED', () => {
     refetch()
   })
 
@@ -433,6 +450,9 @@ export function DeptCoursesPage() {
         variant="destructive"
         onConfirm={async () => {
           const res = await remove(deleting.id)
+          if (res?.ok !== false) {
+            notifyCourseChange({ action: 'delete', courseId: deleting.id })
+          }
           return res.ok ? undefined : false
         }}
       />

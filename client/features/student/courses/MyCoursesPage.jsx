@@ -21,7 +21,7 @@ import { getProfileApi } from '@/api/auth'
 import { useQuery } from '@/hooks/useStore'
 import { useDebounce } from '@/hooks/useDebounce'
 import { formatAcademicYear, formatSemesterTerm, getStudentCurrentYearOfStudy } from '@/lib/format'
-import { onUserChange } from '@/lib/syncEvents'
+import { onCourseChange, onUserChange } from '@/lib/syncEvents'
 import { setStoredSession } from '@/lib/storage'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
@@ -102,15 +102,22 @@ export function MyCoursesPage() {
     [user, profile, refetch, refetchMe],
   )
 
-  // Real-time server push via WebSocket: instantly update when Department Head modifies student
+  // Real-time server push via WebSocket: instantly update when Department Head modifies student or courses
   useWebSocketEvent('STUDENT_UPDATED', handleStudentUpdated)
   useWebSocketEvent('USER_UPDATED', handleStudentUpdated)
+  useWebSocketEvent('COURSE_UPDATED', () => refetch())
+  useWebSocketEvent('COURSE_CREATED', () => refetch())
+  useWebSocketEvent('COURSE_DELETED', () => refetch())
 
   // Cross-tab and local event bus (HTML5 BroadcastChannel / Storage events)
   useEffect(() => {
-    const unsub = onUserChange(handleStudentUpdated)
-    return () => unsub?.()
-  }, [handleStudentUpdated])
+    const unsubUser = onUserChange(handleStudentUpdated)
+    const unsubCourse = onCourseChange(() => refetch())
+    return () => {
+      unsubUser?.()
+      unsubCourse?.()
+    }
+  }, [handleStudentUpdated, refetch])
 
   const resolveStudentForCourse = useCallback(
     (r) => {
@@ -167,7 +174,7 @@ export function MyCoursesPage() {
     for (let y = currentYear; y >= startYear; y--) {
       yearsSet.add(String(y))
     }
-    const list = Array.isArray(data) ? data : (data?.items || data?.courses || [])
+    const list = Array.isArray(coursesData) ? coursesData : (coursesData?.items || coursesData?.courses || [])
     list.forEach((c) => {
       const acadYear = formatAcademicYear(c.semester)
       if (acadYear && acadYear !== '—' && Number(acadYear) >= 2026) {
@@ -175,7 +182,7 @@ export function MyCoursesPage() {
       }
     })
     return Array.from(yearsSet).sort((a, b) => Number(b) - Number(a))
-  }, [data])
+  }, [coursesData])
 
   const academicYearOptions = [
     { value: 'all', label: 'Academic Year' },
