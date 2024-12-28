@@ -5,35 +5,242 @@ A modern, full-stack Academic Information, Semester Registration, and Grade Gove
 
 ---
 
-## Architecture & Technology Stack
+## System Architecture: Monolithic Architecture
 
-The platform is structured as a decoupled, layered client-server web application with persistent local database storage, stateless JWT authentication, and event-driven WebSocket synchronization.
+The University Grading and Registration System is built following a **Monolithic System Architecture**. The entire backend application runs as a unified, cohesive Node.js/Express service hosting all core academic domains, paired with a specialized single-page client application and a centralized relational database.
+
+### Why Monolithic Architecture?
+- **Unified Academic Domain Engine**: All core university sub-domains—Authentication, Academic Taxonomy, Calendar, Course Offerings, Semester Registration, Continuous Assessments, Gradebook, Multi-Stage Approvals, GPA Calculation, Transcripts, Withdrawals, Grievances, and Audit Logging—coexist within a single integrated codebase.
+- **Single Database with Strong ACID Guarantees**: All business domains interact directly with a single centralized PostgreSQL database (`university_grading`). Multi-entity operations (e.g. approving a university-wide withdrawal that cascades across enrollments, final grades, and student status, or publishing final grades that updates submissions, gradebooks, and generates student notifications) execute within single ACID transactions (`BEGIN ... COMMIT / ROLLBACK`) without requiring distributed transaction protocols (such as Two-Phase Commit or Saga patterns).
+- **In-Process Communication**: Communication between modules (e.g., the grade submission workflow directly invoking the audit logger, gradebook service, and notification service) occurs synchronously in-memory, eliminating inter-service network latency, serialization overhead, and network partitioning failures.
+- **Centralized Security & Governance**: A uniform security perimeter—including Helmet HTTP headers, input sanitization, sliding-window rate limiters, CASL attribute-based authorization, and centralized error handling—guards all entry points consistently.
+- **Unified Runtime & Colocated WebSocket Server**: The REST API and native WebSocket real-time broadcast engine (`ws`) run colocated within the same Express process, sharing server ports, database connection pools, and lifecycle management.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │                   Vite + React 19 Client (SPA)                        │
-│   • React Router 7 (Protected, Role-Guarded Nested Routes)             │
-│   • Recharts Data Visualizations • TanStack Headless Table Primitives │
-│   • jsPDF & jspdf-autotable (Client-Side Vector PDF Engine)           │
+│   • Presentation Layer: Role-Based Feature Modules & UI Components    │
+│   • Client State & API Adapters (Axios, Centralized Stores, Lookups)   │
+│   • Vector PDF Engine (jsPDF & jspdf-autotable)                       │
 │   • Native WebSocket Client with Automatic Reconnection & Heartbeat    │
 └───────────────────────────────────▲────────────────────────────────────┘
-                                    │ HTTP REST (JSON) / WebSocket WS
+                                    │ HTTP REST (JSON) / WebSocket WS (Port 5000)
 ┌───────────────────────────────────▼────────────────────────────────────┐
-│                  Node.js & Express 5 API Server                        │
-│   • Layered Architecture: Routes → Controllers → Services → Repositories│
-│   • Security: Helmet Headers, Input Sanitization, Sliding Rate Limiter │
-│   • Auth: Dual-Token JWT (Access + DB-Hashed Revocable Refresh Tokens)  │
-│   • CASL Attribute-Based & Role-Based Authorization Middleware          │
-│   • Native WebSocket Server (`ws`) Broadcasting 11 Domain Event Types  │
+│               Node.js & Express 5 Monolithic API Server                │
+│ ┌────────────────────────────────────────────────────────────────────┐ │
+│ │ Middleware Layer: Helmet, CORS, RateLimiter, JWT Auth, CASL RBAC   │ │
+│ ├────────────────────────────────────────────────────────────────────┤ │
+│ │ Routing Layer (server/routes/): 17 Modular Route Definitions       │ │
+│ ├────────────────────────────────────────────────────────────────────┤ │
+│ │ Controller Layer (server/controllers/): Request / Response Handlers│ │
+│ ├────────────────────────────────────────────────────────────────────┤ │
+│ │ Service Layer (server/services/): Business Logic & Workflows        │ │
+│ ├────────────────────────────────────────────────────────────────────┤ │
+│ │ Repository Layer (server/repositories/): Data Access & SQL Queries │ │
+│ ├────────────────────────────────────────────────────────────────────┤ │
+│ │ Colocated Services: WebSocket Event Broadcaster & Audit Logger     │ │
+│ └────────────────────────────────────────────────────────────────────┘ │
 └───────────────────────────────────▲────────────────────────────────────┘
                                     │ Connection Pool (pg) & ACID Transactions
 ┌───────────────────────────────────▼────────────────────────────────────┐
 │                     PostgreSQL 16 Database                             │
-│   • 36 Normalized Relational Tables + Migration Tracking (node-pg-migrate)│
+│   • 36 Normalized Relational Tables + Migration Tracking               │
 │   • Strict Foreign Keys (CASCADE / RESTRICT / SET NULL) & CHECK Guards  │
-│   • Immutable Audit Log Protection Trigger (PL/pgSQL)                  │
+│   • Native Database Triggers: Immutable Audit Log Enforcement          │
 │   • Partial & Compound Indexes on Filter and Foreign Key Columns       │
 └────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Code Organization: Layered-Based Project Structure
+
+The codebase is organized according to a strict **Layered (N-Tier) Architectural Pattern**, establishing clear separation of concerns, high maintainability, and predictable unidirectional data flow.
+
+### 1. Architectural Layers & Responsibilities
+
+```
+  Client Request (HTTP / WS)
+              │
+              ▼
+  ┌───────────────────────┐
+  │   Middleware Layer    │  Security guards, Rate limiting, JWT verification, CASL RBAC, Input sanitization
+  └───────────┬───────────┘
+              │
+              ▼
+  ┌───────────────────────┐
+  │     Routing Layer     │  server/routes/*.js — URL routing, HTTP verb matching, Zod validation binding
+  └───────────┬───────────┘
+              │
+              ▼
+  ┌───────────────────────┐
+  │   Controller Layer    │  server/controllers/*.js — Extracts params/body, coordinates services, formats JSON
+  └───────────┬───────────┘
+              │
+              ▼
+  ┌───────────────────────┐
+  │     Service Layer     │  server/services/*.js — Core business logic, domain rules, authorization scope checks
+  └───────────┬───────────┘
+              │
+              ▼
+  ┌───────────────────────┐
+  │   Repository Layer    │  server/repositories/*.js — Direct parameterized SQL queries, joins, and transactions
+  └───────────┬───────────┘
+              │
+              ▼
+  ┌───────────────────────┐
+  │   Persistence Layer   │  PostgreSQL 16 — Relational schema, integrity constraints, triggers, indexes
+  └───────────────────────┘
+```
+
+1. **Routing & Transport Layer (`server/routes/`)**:
+   Defines RESTful API route endpoints mounted under `/api/v1`. Binds authentication (`authenticate`), role-based authorization (`requireRoles`), rate limiters, and schema validators to specific route handlers.
+2. **Controller Layer (`server/controllers/`)**:
+   Handles incoming HTTP requests and formats outgoing HTTP responses. Extracts route parameters (`req.params`), query strings (`req.query`), and validated payloads (`req.body`). Delegates execution to the corresponding domain service and returns uniform JSON responses.
+3. **Service / Business Logic Layer (`server/services/`)**:
+   Contains core institutional business rules and cross-entity workflows. Enforces tenancy and departmental boundaries (e.g. verifying a teacher is assigned to an offering or ensuring a department head only approves submissions from their own department), coordinates multiple repositories, manages transactions, and triggers audit log entries.
+4. **Repository / Data Access Layer (`server/repositories/`)**:
+   Encapsulates all direct database communication. Executes parameterized SQL statements, performs complex multi-table joins, handles pagination cursors, and coordinates database transactions via `withTransaction(client)`.
+5. **Database / Persistence Layer (`server/migrations/`)**:
+   PostgreSQL 16 schema managed via classified migrations (`001` through `015`). Defines tables, primary/foreign keys, domain `CHECK` constraints, partial indexes, and database triggers.
+6. **Cross-Cutting Concerns**:
+   - `server/middleware/`: Security headers (`helmetSecurity`), sliding-window rate limiting (`apiRateLimiter`, `authRateLimiter`), input sanitization (`sanitizeInputs`), centralized error handling (`errorHandler`), and CASL abilities (`authorize.js`).
+   - `server/validators/`: Zod schemas providing boundary validation for request bodies, query parameters, and route parameters.
+   - `server/config/`: PostgreSQL connection pool wrapper (`database.js`) and native WebSocket server (`websocket.js`).
+   - `server/utils/`: Reusable helpers for JWT verification, password hashing, unique ID generation, GPA calculations, audit logging, and custom error classes.
+
+---
+
+### 2. Physical Directory Layout
+
+#### Backend Monolith (`server/`)
+```
+server/
+├── app.js                          # Express application setup, security middleware, and route mounting
+├── server.js                       # HTTP server entry point, database connection test, and graceful shutdown
+├── config/
+│   ├── database.js                 # PostgreSQL connection pool (pg.Pool) and withTransaction helper
+│   └── websocket.js                # Native WebSocket server (ws) and event broadcasting engine
+├── routes/                         # Layer 1: HTTP REST Route Definitions (/api/v1)
+│   ├── index.js                    # Master route aggregator mounting all domain routers
+│   ├── academicRoutes.js           # Departments, Programs, Courses, Calendar, Semesters
+│   ├── assessmentRoutes.js         # Course assessments and mark releases
+│   ├── auditRoutes.js              # Centralized audit trail query endpoints
+│   ├── authRoutes.js               # Login, token refresh, logout, profile, password change
+│   ├── complaintRoutes.js          # Student grievances and faculty resolutions
+│   ├── gradingRoutes.js            # Grade scales and academic grading policies
+│   ├── lookupRoutes.js             # Cached reference data (departments, semesters, years)
+│   ├── notificationRoutes.js       # In-app notifications and broadcast announcements
+│   ├── offeringRoutes.js           # Section offerings, enrollments, and performance
+│   ├── registrationRoutes.js       # Registration periods and semester registrations
+│   ├── reportRoutes.js             # Dashboards, course results, missing grades, GPA rosters
+│   ├── settingsRoutes.js           # University identity settings and system backups
+│   ├── submissionRoutes.js         # Grade submission review and approval workflows
+│   ├── userRoutes.js               # User management, account provisioning, status toggles
+│   ├── withdrawalRoutes.js         # Student withdrawal requests and clearance management
+│   └── workspaceRoutes.js          # Role-dedicated workspaces for teachers and students
+├── controllers/                    # Layer 2: HTTP Request / Response Controllers
+│   ├── academicController.js       ├── assessmentController.js
+│   ├── auditController.js          ├── authController.js
+│   ├── complaintController.js       ├── gradebookController.js
+│   ├── lookupController.js         ├── notificationController.js
+│   ├── offeringController.js       ├── registrationController.js
+│   ├── reportController.js         ├── settingsController.js
+│   ├── submissionController.js     ├── userController.js
+│   ├── withdrawalController.js     └── workspaceController.js
+├── services/                       # Layer 3: Business Logic & Institutional Workflows
+│   ├── academicService.js          ├── assessmentService.js
+│   ├── auditService.js             ├── authService.js
+│   ├── complaintService.js         ├── gradebookService.js
+│   ├── lookupService.js            ├── notificationService.js
+│   ├── offeringService.js          ├── registrationService.js
+│   ├── reportService.js            ├── settingsService.js
+│   ├── submissionService.js        ├── userService.js
+│   ├── withdrawalService.js        └── workspaceService.js
+├── repositories/                   # Layer 4: Direct SQL Queries & Database Access
+│   ├── academicRepository.js       ├── assessmentRepository.js
+│   ├── auditRepository.js          ├── calendarRepository.js
+│   ├── complaintRepository.js      ├── courseRepository.js
+│   ├── departmentRepository.js     ├── gradebookRepository.js
+│   ├── lookupRepository.js         ├── notificationRepository.js
+│   ├── offeringRepository.js       ├── programRepository.js
+│   ├── registrationRepository.js   ├── reportRepository.js
+│   ├── settingsRepository.js       ├── submissionRepository.js
+│   ├── userRepository.js           ├── withdrawalRepository.js
+│   └── workspaceRepository.js
+├── middleware/                     # Cross-Cutting: Security, Auth & Pipelines
+│   ├── auth.js                     # Dual-token JWT verification and user context injection
+│   ├── authorize.js                # CASL attribute-based and role-based authorization
+│   ├── errorHandler.js             # Standardized API error responses and Postgres error mapping
+│   ├── rateLimiter.js              # Sliding-window in-memory rate limiting
+│   ├── security.js                 # Helmet security headers and input sanitization
+│   └── validate.js                 # Zod schema validation middleware
+├── validators/                     # Request Validation Schemas (Zod)
+│   ├── academicValidator.js        ├── authValidator.js
+│   ├── gradeValidator.js           ├── offeringValidator.js
+│   ├── userValidator.js            └── withdrawalValidator.js
+├── utils/                          # Common Utilities & Business Algorithms
+│   ├── auditLogger.js              # Structured audit log recorder
+│   ├── errors.js                   # Typed AppError hierarchy
+│   ├── gpaCalculator.js            # SGPA, CGPA, and Academic Standing algorithms
+│   ├── idGenerator.js              # Secure ID and temporary password generators
+│   ├── jwt.js                      # Token signing, verification, and expiration config
+│   ├── password.js                 # Bcrypt hashing and comparison helpers
+│   └── response.js                 # Consistent JSON response formatters
+├── migrations/                     # Database Schema Migrations (001 - 015)
+└── seed/                           # Initial Seed Script (seed/index.js)
+```
+
+#### Frontend Client Application (`client/`)
+```
+client/
+├── index.html                      # HTML document entry point
+├── vite.config.js                  # Vite configuration, plugins, and path aliases (@/*)
+├── src/ (or root client/)
+│   ├── main.jsx                    # React root rendering and top-level providers
+│   ├── App.jsx                     # Application root component
+│   ├── routes/                     # Client Route Definitions & Access Guards
+│   │   ├── AppRouter.jsx           # Master route switch and Suspense boundaries
+│   │   ├── ProtectedRoute.jsx      # Role-based route protection guard
+│   │   ├── adminRoutes.jsx         # Administrative feature routes
+│   │   ├── deptHeadRoutes.jsx      # Department Head feature routes
+│   │   ├── teacherRoutes.jsx       # Teacher feature routes
+│   │   ├── studentRoutes.jsx       # Student self-service routes
+│   │   └── sharedRoutes.jsx        # Login, profile, notifications, not found
+│   ├── features/                   # Feature-Based Presentation Modules
+│   │   ├── admin/                  # Users, Departments, Courses, Calendar, Enrollment, Approvals, Settings, Audit
+│   │   ├── dept-head/              # Account provision, Department courses/students/teachers, Approvals, Reports
+│   │   ├── teacher/                # Dashboard, My courses, Assessments, Entermark grid, Reports, Complaints
+│   │   ├── student/                # Semester registration, Courses, Assessment marks, Grades, Reports, Withdrawals
+│   │   ├── auth/                   # Login page with demo credentials
+│   │   ├── reports/                # Registration & withdrawal cross-reports
+│   │   └── shared/                 # User profile, notifications center, 404 page
+│   ├── components/                 # Reusable Presentation Components
+│   │   ├── ui/                     # Accessible UI elements (buttons, inputs, dialogs, badges, cards)
+│   │   ├── layout/                 # AppLayout, Sidebar, Header, Breadcrumbs
+│   │   ├── common/                 # PageHeader, DataTable, Loading skeletons, ConfirmDialog
+│   │   ├── registration/           # RegistrationCountdown, RegistrationStatusBadge
+│   │   └── charts/                 # Recharts visualization wrappers
+│   ├── context/                    # React Context Providers
+│   │   ├── AuthProvider.jsx        # User session, login, logout, and token refresh state
+│   │   ├── LookupsProvider.jsx     # Cached reference data (departments, semesters, scales)
+│   │   └── ThemeProvider.jsx       # Dark / Light theme preference provider
+│   ├── store/                      # Client State Management Modules
+│   ├── api/                        # Axios API Client Adapters
+│   │   ├── client.js               # Axios instance with interceptors for auth headers
+│   │   ├── auth.js                 ├── academics.js           ├── audit.js
+│   │   ├── complaints.js           ├── grades.js              ├── lookups.js
+│   │   ├── notifications.js        ├── offerings.js           ├── registration.js
+│   │   ├── reports.js              ├── settings.js            ├── student.js
+│   │   ├── teacher.js              ├── users.js               └── withdrawals.js
+│   ├── lib/                        # Client-Side Utilities & Document Engines
+│   │   ├── export.js               # CSV, Excel, and generic PDF export helpers
+│   │   ├── transcript-pdf.js       # Vector PDF transcript generator for KUE
+│   │   ├── grade-results-pdf.js    # Department course results PDF generator
+│   │   ├── registration-report-pdf.js # Registration & withdrawal report PDF generator
+│   │   ├── grading.js              # Client-side grade calculation and validation
+│   │   └── websocket.js            # WebSocket client with auto-reconnect and event listeners
+│   └── styles/                     # CSS Design Tokens, Layout, and Theming
 ```
 
 ---
