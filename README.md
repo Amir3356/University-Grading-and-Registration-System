@@ -281,7 +281,8 @@ The system enforces strict multi-tier access control across four standardized ro
 - **Automated Email Suggestion**: Generates standardized institutional email addresses (`firstname.lastname@kue.edu.et` or department-prefixed variations) based on entered user attributes.
 - **Temporary Password Generator**: Generates cryptographically randomized alphanumeric passwords with special characters for initial distribution.
 - **Creator Traceability (`created_by`)**: Tracks which administrative user provisioned each account, ensuring Department Heads retain view access to records they created even during institutional transitions.
-- **Data Export**: User rosters can be exported directly to CSV or Microsoft Excel (`.xlsx`) formats.
+- **Data Export & Batch Handover**: User rosters and initial credentials can be exported directly to CSV or Microsoft Excel (`.xlsx`) formats for administrative distribution.
+- **Credential Delivery & SMS Limitation**: Mobile phone numbers are captured and stored in user profiles; however, the current implementation lacks an automated SMS gateway integration. Temporary credentials cannot be dispatched directly to mobile handsets via SMS upon creation and must be distributed manually (see [Section 7: System Limitations](#7-system-limitations)).
 
 ---
 
@@ -747,7 +748,32 @@ The database seed script initializes the primary Administrator account. Subseque
 
 ---
 
-## 7. License & Intellectual Property
+## 7. System Limitations
+
+While the platform provides comprehensive coverage across the academic lifecycle, the following system limitations and architectural boundaries reflect the current implementation:
+
+### 7.1 SMS Gateway Integration for Account Provisioning
+- **Current Limitation**: When new student, teacher, or staff accounts are provisioned via the administrative or departmental provisioning interfaces, the user's mobile phone number is collected and stored in the database (`users.phone VARCHAR(30)`), and cryptographically randomized temporary credentials are generated (`generateTemporaryPassword()`). However, **the system does not currently feature an automated SMS gateway integration** (e.g., Ethio Telecom SMS API, Twilio, or local telecom aggregators).
+- **Operational Impact**:
+  - The system cannot automatically send SMS text messages containing initial usernames, temporary passwords, or password reset tokens directly to users' mobile phones upon creation.
+  - Credential distribution must be handled operationally through alternative channels:
+    1. Administrators and Department Heads copy credentials directly from the user creation confirmation modal/dialog via the built-in copy action.
+    2. Batch-provisioned accounts are exported to password-protected CSV or Excel rosters for physical or institutional distribution.
+    3. Users must be manually notified to log in and change their password on their first session (`must_change_password = true`).
+- **Recommended Architectural Enhancement**: For future integration, an SMS Notification Service adapter should be introduced in `server/services/notificationService.js` and hooked into `server/services/userService.js` (`createUser` workflow), with environment variables configuring telecom API endpoints and SMS sender IDs.
+
+### 7.2 Transactional Email Gateway (SMTP)
+- User institutional email addresses (`users.email`) are validated and stored for identification, communication, and lookup. However, direct outbound transactional SMTP dispatch (e.g., automated email notifications for grade publishing, account provisioning, or complaint responses) is not currently wired to an external mail relay; notifications are managed through the centralized in-app real-time notification center and WebSocket feeds.
+
+### 7.3 Financial & Fee Payment Reconciliation
+- Semester registrations record dining status (`cafe` vs `non_cafe`) and academic program types (`regular`, `extension`, `weekend`), and compute fee eligibility. However, direct online banking API integrations (e.g., Telebirr, CBE Birr) are not implemented. Payment verification and clearance occur administratively during the registrar's registration review rather than through automated webhook payment reconciliation.
+
+### 7.4 Client Platform Delivery
+- The client application is built as a responsive Single-Page Web Application (SPA) optimized for desktop, tablet, and mobile web browsers. Native mobile binary packages (Android APK or iOS IPA) are not currently provided.
+
+---
+
+## 8. License & Intellectual Property
 
 Developed for **Kotebe University of Education (KUE)**. All rights reserved.
 
