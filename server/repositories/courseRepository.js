@@ -9,7 +9,7 @@ export async function listCourses({ search, departmentId, status } = {}) {
     conditions.push(`(c.code ILIKE $${params.length} OR c.title ILIKE $${params.length})`);
   }
 
-  if (departmentId) {
+  if (departmentId && departmentId !== 'all') {
     params.push(departmentId);
     conditions.push(`c.department_id = $${params.length}`);
   }

@@ -58,6 +58,11 @@ export function formatYearOfStudy(val) {
 }
 
 export function formatSemesterTerm(term) {
+  if (!term) return '—'
+  const t = String(term).trim().toLowerCase()
+  if (t === 'first' || t === 'fall' || t === '1') return 'First Semester'
+  if (t === 'second' || t === 'spring' || t === '2') return 'Second Semester'
+  if (t === 'summer' || t === '3') return 'Summer Semester'
   const labels = { Fall: 'First Semester', Spring: 'Second Semester', Summer: 'Summer Semester' }
   return labels[term] ?? (term ? `${term} Semester` : '—')
 }

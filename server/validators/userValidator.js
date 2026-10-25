@@ -60,7 +60,8 @@ export const createUserSchema = z.object({
   ),
   password: z.preprocess(
     (val) => (typeof val === 'string' && val.trim() ? val.trim() : undefined),
-    z.string().optional().nullable()
+    z.string({ required_error: 'Password is required.' })
+      .min(6, 'Password must be at least 6 characters.')
   ),
 });
 

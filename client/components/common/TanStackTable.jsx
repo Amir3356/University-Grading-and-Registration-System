@@ -63,27 +63,25 @@ export function TanStackTable({
   const rows = table.getRowModel().rows
 
   return (
-    <div className={cn('space-y-3', className)}>
+    <div className={cn('stack stack--md', className)}>
       {/* Table Toolbar */}
       {(searchable || toolbar) && (
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          {searchable ? (
-            <div className="relative flex-1 max-w-sm">
+        <div className="toolbar--split">
+          <div className="toolbar--split__left">
+            {searchable && (
               <SearchInput
                 value={globalFilter ?? ''}
                 onChange={(val) => setGlobalFilter(val)}
                 placeholder={searchPlaceholder}
               />
-            </div>
-          ) : (
-            <div />
-          )}
-          {toolbar && <div className="flex items-center gap-2">{toolbar}</div>}
+            )}
+          </div>
+          {toolbar && <div className="toolbar--split__right">{toolbar}</div>}
         </div>
       )}
 
       {/* Table Main Content */}
-      <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="table-box">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

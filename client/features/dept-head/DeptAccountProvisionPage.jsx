@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Pencil, Plus, Trash2, UserCheck, UserX, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,11 @@ import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
 import { store } from '@/store'
-import { UserActionDialogs, TempPasswordDialog } from '@/features/admin/users/UserActionDialogs'
+import { formatYearOfStudy } from '@/lib/format'
+import { onUserChange } from '@/lib/syncEvents'
+import { useWebSocketEvent } from '@/lib/websocket'
+import { ProgramTypeBadge } from '@/components/common/StatusBadge'
+import { UserActionDialogs } from '@/features/admin/users/UserActionDialogs'
 import { UserFormDialog } from '@/features/admin/users/UserFormDialog'
 
 const COLUMNS = [
@@ -22,6 +26,7 @@ const COLUMNS = [
   { key: 'role', header: 'Role' },
   { key: 'identifier', header: 'ID' },
   { key: 'department', header: 'Department' },
+  { key: 'currentYear', header: 'Current Year' },
   { key: 'programType', header: 'Program Type' },
   { key: 'actions', header: 'Action' },
 ]
@@ -45,20 +50,6 @@ const STATUS_OPTIONS = [
   { value: 'inactive', label: 'Inactive' },
 ]
 
-const PROGRAM_BADGE_CLASS = {
-  regular: 'border-blue-200 text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/20',
-  extension: 'border-purple-200 text-purple-700 dark:text-purple-400 bg-purple-50/50 dark:bg-purple-950/20',
-  weekend: 'border-amber-200 text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20',
-}
-
-function ProgramTypeBadge({ programType }) {
-  const key = programType.toLowerCase()
-  return (
-    <Badge variant="outline" className={`text-[11px] font-medium whitespace-nowrap ${PROGRAM_BADGE_CLASS[key] ?? PROGRAM_BADGE_CLASS.weekend}`}>
-      {PROGRAM_OPTIONS.find((o) => o.value === key)?.label ?? programType}
-    </Badge>
-  )
-}
 
 function UserRowActions({ user, onEdit, onAction }) {
   const active = user.status === 'active'
@@ -131,7 +122,6 @@ export function DeptAccountProvisionPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [action, setAction] = useState(null)
-  const [tempPassword, setTempPassword] = useState(null)
 
   const [search, setSearch] = useState('')
   const [programFilter, setProgramFilter] = useState('')
@@ -149,6 +139,15 @@ export function DeptAccountProvisionPage() {
     [headDept?.id],
   )
 
+  useEffect(() => {
+    return onUserChange(() => {
+      refetch()
+    })
+  }, [refetch])
+
+  useWebSocketEvent('USER_UPDATED', () => refetch())
+  useWebSocketEvent('STUDENT_UPDATED', () => refetch())
+
   const items = (data?.items ?? []).filter(
     (u) => MANAGED_ROLES.includes(u.roleId) && !u.isSeed && !u.is_seed && !/^usr_\d{4}$/.test(u.id),
   )
@@ -159,6 +158,7 @@ export function DeptAccountProvisionPage() {
       const username = u.username || ''
       const identifier = u.identifier || u.student_number || ''
       const programType = u.roleId === 'student' ? (u.program_type || u.programType || 'regular').toLowerCase() : ''
+      const currentYear = u.roleId === 'student' ? formatYearOfStudy(u.yearOfStudy || u.year_of_study || 1).toLowerCase() : ''
       const status = u.status || 'active'
 
       if (statusFilter && status !== statusFilter) return false
@@ -170,7 +170,8 @@ export function DeptAccountProvisionPage() {
           name.toLowerCase().includes(q) ||
           username.toLowerCase().includes(q) ||
           identifier.toLowerCase().includes(q) ||
-          programType.includes(q)
+          programType.includes(q) ||
+          currentYear.includes(q)
         if (!match) return false
       }
       return true
@@ -187,16 +188,7 @@ export function DeptAccountProvisionPage() {
     setFormOpen(true)
   }
 
-  const handleCreated = (result) => {
-    if (result?.temporaryPassword) {
-      setTempPassword({
-        name: result.user.name,
-        username: result.user.username,
-        password: result.temporaryPassword,
-        identifier: result.user.identifier,
-        roleId: result.user.roleId,
-      })
-    }
+  const handleCreated = () => {
     refetch()
   }
 
@@ -308,6 +300,15 @@ export function DeptAccountProvisionPage() {
                       </TableCell>
                       <TableCell>
                         {u.roleId === 'student' ? (
+                          <span className="text-foreground font-medium">
+                            {formatYearOfStudy(u.yearOfStudy || u.year_of_study || 1)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {u.roleId === 'student' ? (
                           <ProgramTypeBadge programType={u.program_type || u.programType || 'regular'} />
                         ) : (
                           <span className="text-muted-foreground">—</span>
@@ -338,9 +339,9 @@ export function DeptAccountProvisionPage() {
         roleOptions={DEPT_ROLE_OPTIONS}
         departmentOptions={deptOptions}
         onCreated={handleCreated}
+        onUpdated={() => refetch()}
       />
       <UserActionDialogs action={action} onClose={() => { setAction(null); refetch() }} />
-      <TempPasswordDialog result={tempPassword} onClose={() => setTempPassword(null)} />
     </>
   )
 }

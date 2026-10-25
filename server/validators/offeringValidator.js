@@ -11,6 +11,8 @@ export const createOfferingSchema = z.object({
 });
 
 export const updateOfferingSchema = z.object({
+  courseId: z.string().trim().optional(),
+  semesterId: z.string().trim().optional(),
   teacherId: z.string().trim().optional(),
   section: z.string().trim().max(5).optional(),
   capacity: z.coerce.number().int().min(1).max(500).optional(),

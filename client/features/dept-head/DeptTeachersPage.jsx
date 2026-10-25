@@ -7,7 +7,7 @@ import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
 import { store } from '@/store'
-import { TempPasswordDialog, UserActionDialogs } from '@/features/admin/users/UserActionDialogs'
+import { UserActionDialogs } from '@/features/admin/users/UserActionDialogs'
 import { UserFormDialog, DEPARTMENT_OPTIONS } from '@/features/admin/users/UserFormDialog'
 
 const TEACHER_ROLE_OPTIONS = [{ value: 'teacher', label: 'Teacher' }]
@@ -15,6 +15,14 @@ const TEACHER_ROLE_OPTIONS = [{ value: 'teacher', label: 'Teacher' }]
 export function DeptTeachersPage() {
   const { user, profile } = useAuth()
   const lookups = useLookups()
+
+  const headDeptId =
+    profile?.departmentId ??
+    profile?.department_id ??
+    profile?.department?.id ??
+    user?.departmentId ??
+    user?.department_id
+
   const dept =
     (lookups?.departments ?? []).find(
       (d) =>
@@ -36,7 +44,6 @@ export function DeptTeachersPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingUserId, setEditingUserId] = useState(null)
   const [action, setAction] = useState(null)
-  const [created, setCreated] = useState(null)
 
   const openCreate = () => {
     setEditingUserId(null)
@@ -142,7 +149,6 @@ export function DeptTeachersPage() {
           refetch()
         }}
       />
-      <TempPasswordDialog result={created} onClose={() => setCreated(null)} />
     </>
   )
 }

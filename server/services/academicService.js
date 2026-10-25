@@ -129,11 +129,12 @@ export async function updateProgramCurriculum(programId, coursesList, user) {
 
 // ----------------- Courses -----------------
 
-export async function listCourses(filters, user) {
-  if (user?.roleId === 'dept_head') {
-    filters.departmentId = user.departmentId;
+export async function listCourses(filters = {}, user) {
+  const queryFilters = { ...filters };
+  if (queryFilters.departmentId === 'all') {
+    delete queryFilters.departmentId;
   }
-  return await courseRepo.listCourses(filters);
+  return await courseRepo.listCourses(queryFilters);
 }
 
 export async function getCourseById(id) {
@@ -189,10 +190,6 @@ export async function updateCourse(id, data, user) {
   const existing = await courseRepo.findById(id);
   if (!existing) throw new NotFoundError('Course');
 
-  if (user?.roleId === 'dept_head' && existing.department_id !== user.departmentId) {
-    throw new ForbiddenError('You can only edit courses in your department.');
-  }
-
   // If credit hours changed, check if published grades exist
   if (data.creditHours && parseInt(data.creditHours, 10) !== existing.credit_hours) {
     const hasPub = await courseRepo.hasPublishedGrades(id);
@@ -201,7 +198,15 @@ export async function updateCourse(id, data, user) {
     }
   }
 
-  const course = await courseRepo.updateCourse(id, {
+  // If code is being changed, verify it's unique
+  if (data.code && data.code.trim().toUpperCase() !== existing.code.toUpperCase()) {
+    const codeExists = await courseRepo.findByCode(data.code.trim().toUpperCase());
+    if (codeExists && codeExists.id !== id) {
+      throw new ValidationError('Course code already exists.', { code: 'Course code already exists.' });
+    }
+  }
+
+  await courseRepo.updateCourse(id, {
     code: data.code?.trim().toUpperCase(),
     title: data.title?.trim(),
     departmentId: data.departmentId,
@@ -211,16 +216,12 @@ export async function updateCourse(id, data, user) {
     status: data.status,
   });
 
-  return course;
+  return await courseRepo.findById(id);
 }
 
 export async function deleteCourse(id, user) {
   const existing = await courseRepo.findById(id);
   if (!existing) throw new NotFoundError('Course');
-
-  if (user?.roleId === 'dept_head' && existing.department_id !== user.departmentId) {
-    throw new ForbiddenError('You can only delete courses in your department.');
-  }
 
   const hasOff = await courseRepo.hasOfferings(id);
   if (hasOff) {

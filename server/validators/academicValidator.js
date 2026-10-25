@@ -31,13 +31,15 @@ export const createCourseSchema = z.object({
 });
 
 export const updateCourseSchema = z.object({
+  code: z.string().trim().min(1, 'Course code is required.').max(10, 'Course code too long.').optional(),
   title: z.string().trim().min(3).max(160).optional(),
+  department: z.string().optional(),
   departmentId: z.string().trim().optional(),
   creditHours: z.coerce.number().int().min(1).max(6).optional(),
   level: z.coerce.number().int().min(100).max(900).optional(),
   description: z.string().trim().optional().nullable(),
   status: z.enum(['active', 'archived']).optional(),
-});
+}).passthrough();
 
 export const createSemesterSchema = z.object({
   academicYearId: z.string().trim().min(1, 'Academic year is required.'),
