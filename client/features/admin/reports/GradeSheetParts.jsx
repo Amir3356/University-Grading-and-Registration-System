@@ -108,7 +108,7 @@ export function GradeSheetTable({ sheet }) {
                 </TableCell>
                 {assessments.map((a) => (
                   <TableCell key={a.id} className="text-right tabular">
-                    {r.marks[a.id] ?? <span className="text-muted-foreground">—</span>}
+                    {(r.marks?.[a.id] ?? r.marks?.[a.id.replace(/_([a-z])/g, (_, l) => l.toUpperCase())]) ?? <span className="text-muted-foreground">—</span>}
                   </TableCell>
                 ))}
                 <TableCell className="text-right font-medium tabular">{w ? '—' : formatNumber(r.total, 2)}</TableCell>

@@ -65,7 +65,7 @@ export function gradeSheetColumns(assessments) {
     { header: 'Student ID', value: (r) => r.student.studentNumber },
     { header: 'Name', value: (r) => r.student.name },
     { header: 'Status', value: (r) => r.enrollment.status },
-    ...assessments.map((a) => ({ header: `${a.name} (/${a.maxMarks}, ${a.weight}%)`, value: (r) => r.marks[a.id] ?? '' })),
+    ...assessments.map((a) => ({ header: `${a.name} (/${a.maxMarks}, ${a.weight}%)`, value: (r) => r.marks?.[a.id] ?? r.marks?.[a.id.replace(/_([a-z])/g, (_, l) => l.toUpperCase())] ?? '' })),
     { header: 'Total', value: (r) => (r.enrollment.status === 'withdrawn' ? '' : r.complete ? r.total : '') },
     { header: 'Letter', value: (r) => r.letter ?? '' },
     { header: 'Grade points', value: (r) => r.gradePoints ?? '' },

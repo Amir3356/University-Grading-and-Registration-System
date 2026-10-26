@@ -39,7 +39,11 @@ export async function login(req, res, next) {
     res.cookie('refreshToken', result.refreshToken, REFRESH_COOKIE_OPTIONS);
 
     sendSuccess(res, {
-      user: result.user,
+      user: {
+        ...result.user,
+        departmentId: result.profile?.departmentId || result.profile?.department_id || null,
+      },
+      profile: result.profile,
       token: result.accessToken,
       refreshToken: result.refreshToken,
       expiresIn: result.expiresIn,
@@ -86,7 +90,13 @@ export async function logout(req, res, next) {
 export async function getMe(req, res, next) {
   try {
     const result = await authService.getMe(req.user.id);
-    sendSuccess(res, result);
+    sendSuccess(res, {
+      user: {
+        ...result.user,
+        departmentId: result.profile?.departmentId || result.profile?.department_id || null,
+      },
+      profile: result.profile,
+    });
   } catch (err) {
     next(err);
   }

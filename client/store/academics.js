@@ -52,23 +52,55 @@ export async function deleteDepartment(id) {
   return result;
 }
 
+let coursesMemoryCache = null;
+
+export function getCachedCourses() {
+  return coursesMemoryCache;
+}
+
+export function clearCoursesCache() {
+  coursesMemoryCache = null;
+}
+
 export async function listCourses(params = {}) {
-  return await listCoursesApi(params);
+  const isGeneric =
+    !params.search &&
+    (!params.departmentId || params.departmentId === 'all') &&
+    (!params.status || params.status === 'active');
+
+  if (isGeneric && coursesMemoryCache) {
+    // Revalidate in background without blocking caller
+    listCoursesApi(params)
+      .then((fresh) => {
+        coursesMemoryCache = fresh;
+      })
+      .catch(() => {});
+    return coursesMemoryCache;
+  }
+
+  const result = await listCoursesApi(params);
+  if (isGeneric) {
+    coursesMemoryCache = result;
+  }
+  return result;
 }
 
 export async function createCourse(data) {
+  clearCoursesCache();
   const result = await createCourseApi(data);
   bumpVersion();
   return result;
 }
 
 export async function updateCourse(id, data) {
+  clearCoursesCache();
   const result = await updateCourseApi(id, data);
   bumpVersion();
   return result;
 }
 
 export async function deleteCourse(id) {
+  clearCoursesCache();
   const result = await deleteCourseApi(id);
   bumpVersion();
   return result;

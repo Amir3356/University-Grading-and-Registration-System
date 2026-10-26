@@ -27,8 +27,8 @@ userRouter.post('/:id/toggle-status', requireRoles('admin', 'dept_head'), valida
 
 // /students
 studentRouter.use(authenticate);
-studentRouter.get('/', requireRoles('admin', 'dept_head'), userCtrl.listStudents);
-studentRouter.get('/:id', requireRoles('admin', 'dept_head'), userCtrl.getStudentDetail);
+studentRouter.get('/', requireRoles('admin', 'dept_head', 'teacher'), userCtrl.listStudents);
+studentRouter.get('/:id', requireRoles('admin', 'dept_head', 'teacher'), userCtrl.getStudentDetail);
 
 // /teachers
 teacherRouter.use(authenticate);

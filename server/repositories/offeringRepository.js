@@ -12,7 +12,7 @@ export async function listOfferings({ semesterId, departmentId, teacherId, grade
 
   if (departmentId) {
     params.push(departmentId);
-    conditions.push(`c.department_id = $${params.length}`);
+    conditions.push(`(c.department_id = $${params.length} OR t.department_id = $${params.length})`);
   }
 
   if (teacherId) {
@@ -59,9 +59,11 @@ export async function listOfferings({ semesterId, departmentId, teacherId, grade
 
   const dataQuery = `
     SELECT co.id, co.course_id, co.semester_id, co.teacher_id, co.section,
-           co.capacity, co.room, co.schedule, co.grade_status, co.created_at, co.updated_at,
+           co.capacity, co.room, co.schedule, co.grade_status, co.year_of_study, co.created_at, co.updated_at,
            json_build_object(
-             'id', c.id, 'code', c.code, 'title', c.title, 'creditHours', c.credit_hours, 'level', c.level,
+             'id', c.id, 'code', c.code, 'title', c.title, 'creditHours', c.credit_hours,
+             'level', COALESCE(co.year_of_study * 100, c.level),
+             'yearOfStudy', COALESCE(co.year_of_study, CASE WHEN c.level >= 100 THEN c.level / 100 ELSE c.level END),
              'department', json_build_object('id', d.id, 'code', d.code, 'name', d.name)
            ) as course,
            json_build_object(
@@ -70,8 +72,10 @@ export async function listOfferings({ semesterId, departmentId, teacherId, grade
              'academicYear', json_build_object('id', ay.id, 'name', ay.name)
            ) as semester,
            json_build_object(
-             'id', t.id, 'name', (t.title || ' ' || u.first_name || ' ' || u.last_name),
+             'id', t.id, 'name', (u.first_name || ' ' || u.last_name),
              'employeeNumber', t.employee_number,
+             'departmentId', t.department_id,
+             'department', json_build_object('id', td.id, 'code', td.code, 'name', td.name),
              'user', json_build_object('email', u.email, 'firstName', u.first_name, 'lastName', u.last_name)
            ) as teacher,
            COUNT(DISTINCT ce.id) FILTER (WHERE ce.status != 'withdrawn') as enrolled_count,
@@ -86,10 +90,11 @@ export async function listOfferings({ semesterId, departmentId, teacherId, grade
     JOIN academic_years ay ON ay.id = sem.academic_year_id
     JOIN teachers t ON t.id = co.teacher_id
     JOIN users u ON u.id = t.user_id
+    LEFT JOIN departments td ON td.id = t.department_id
     LEFT JOIN course_enrollments ce ON ce.offering_id = co.id
     LEFT JOIN assessments a ON a.offering_id = co.id
     ${whereClause}
-    GROUP BY co.id, c.id, d.id, sem.id, ay.id, t.id, u.id
+    GROUP BY co.id, c.id, d.id, sem.id, ay.id, t.id, u.id, td.id
     ORDER BY sem.sort_order DESC, c.code ASC, co.section ASC
     LIMIT $${limitIdx} OFFSET $${offsetIdx}
   `;
@@ -121,6 +126,12 @@ export async function listOfferings({ semesterId, departmentId, teacherId, grade
       const weightTotal = parseFloat(row.weight_total || '0');
       return {
         ...row,
+        courseId: row.course_id,
+        semesterId: row.semester_id,
+        teacherId: row.teacher_id,
+        gradeStatus: row.grade_status,
+        yearOfStudy: row.year_of_study ?? row.course?.yearOfStudy,
+        departmentId: row.course?.department?.id,
         enrolledCount: parseInt(row.enrolled_count || '0', 10),
         withdrawnCount: parseInt(row.withdrawn_count || '0', 10),
         assessmentCount: parseInt(row.assessment_count || '0', 10),
@@ -138,9 +149,11 @@ export async function listOfferings({ semesterId, departmentId, teacherId, grade
 export async function getOfferingById(id) {
   const sql = `
     SELECT co.id, co.course_id, co.semester_id, co.teacher_id, co.section,
-           co.capacity, co.room, co.schedule, co.grade_status, co.created_at, co.updated_at,
+           co.capacity, co.room, co.schedule, co.grade_status, co.year_of_study, co.created_at, co.updated_at,
            json_build_object(
-             'id', c.id, 'code', c.code, 'title', c.title, 'creditHours', c.credit_hours, 'level', c.level,
+             'id', c.id, 'code', c.code, 'title', c.title, 'creditHours', c.credit_hours,
+             'level', COALESCE(co.year_of_study * 100, c.level),
+             'yearOfStudy', COALESCE(co.year_of_study, CASE WHEN c.level >= 100 THEN c.level / 100 ELSE c.level END),
              'department', json_build_object('id', d.id, 'code', d.code, 'name', d.name)
            ) as course,
            json_build_object(
@@ -149,8 +162,10 @@ export async function getOfferingById(id) {
              'academicYear', json_build_object('id', ay.id, 'name', ay.name)
            ) as semester,
            json_build_object(
-             'id', t.id, 'name', (t.title || ' ' || u.first_name || ' ' || u.last_name),
+             'id', t.id, 'name', (u.first_name || ' ' || u.last_name),
              'employeeNumber', t.employee_number,
+             'departmentId', t.department_id,
+             'department', json_build_object('id', td.id, 'code', td.code, 'name', td.name),
              'user', json_build_object('email', u.email, 'firstName', u.first_name, 'lastName', u.last_name)
            ) as teacher,
            COUNT(DISTINCT ce.id) FILTER (WHERE ce.status != 'withdrawn') as enrolled_count,
@@ -165,10 +180,11 @@ export async function getOfferingById(id) {
     JOIN academic_years ay ON ay.id = sem.academic_year_id
     JOIN teachers t ON t.id = co.teacher_id
     JOIN users u ON u.id = t.user_id
+    LEFT JOIN departments td ON td.id = t.department_id
     LEFT JOIN course_enrollments ce ON ce.offering_id = co.id
     LEFT JOIN assessments a ON a.offering_id = co.id
     WHERE co.id = $1
-    GROUP BY co.id, c.id, d.id, sem.id, ay.id, t.id, u.id
+    GROUP BY co.id, c.id, d.id, sem.id, ay.id, t.id, u.id, td.id
   `;
   const res = await query(sql, [id]);
   if (res.rows.length === 0) return null;
@@ -196,6 +212,12 @@ export async function getOfferingById(id) {
 
   return {
     ...row,
+    courseId: row.course_id,
+    semesterId: row.semester_id,
+    teacherId: row.teacher_id,
+    gradeStatus: row.grade_status,
+    yearOfStudy: row.year_of_study ?? row.course?.yearOfStudy,
+    departmentId: row.course?.department?.id,
     enrolledCount: parseInt(row.enrolled_count || '0', 10),
     withdrawnCount: parseInt(row.withdrawn_count || '0', 10),
     assessmentCount: parseInt(row.assessment_count || '0', 10),
@@ -206,18 +228,23 @@ export async function getOfferingById(id) {
   };
 }
 
-export async function createOffering({ id, courseId, semesterId, teacherId, section, capacity, room, schedule }) {
+export async function createOffering({ id, courseId, semesterId, teacherId, section, capacity, room, schedule, yearOfStudy }) {
+  const yos = yearOfStudy !== undefined && yearOfStudy !== null && yearOfStudy !== '' ? parseInt(yearOfStudy, 10) : null;
   const res = await query(
     `INSERT INTO course_offerings (
-       id, course_id, semester_id, teacher_id, section, capacity, room, schedule, grade_status
-     ) VALUES ($1, $2, $3, $4, UPPER($5), $6, $7, $8, 'not_started')
+       id, course_id, semester_id, teacher_id, section, capacity, room, schedule, year_of_study, grade_status
+     ) VALUES ($1, $2, $3, $4, UPPER($5), $6, $7, $8, $9, 'not_started')
      RETURNING *`,
-    [id, courseId, semesterId, teacherId, section, capacity, room || null, schedule || null]
+    [id, courseId, semesterId, teacherId, section, capacity, room || null, schedule || null, yos]
   );
+  if (yos && courseId) {
+    await query(`UPDATE courses SET level = $1 WHERE id = $2`, [yos * 100, courseId]);
+  }
   return res.rows[0];
 }
 
-export async function updateOffering(id, { courseId, semesterId, teacherId, section, capacity, room, schedule }) {
+export async function updateOffering(id, { courseId, semesterId, teacherId, section, capacity, room, schedule, yearOfStudy }) {
+  const yos = yearOfStudy !== undefined && yearOfStudy !== null && yearOfStudy !== '' ? parseInt(yearOfStudy, 10) : null;
   const res = await query(
     `UPDATE course_offerings
      SET course_id = COALESCE($2, course_id),
@@ -227,11 +254,17 @@ export async function updateOffering(id, { courseId, semesterId, teacherId, sect
          capacity = COALESCE($6, capacity),
          room = $7,
          schedule = $8,
+         year_of_study = COALESCE($9, year_of_study),
          updated_at = now()
      WHERE id = $1
      RETURNING *`,
-    [id, courseId || null, semesterId || null, teacherId, section, capacity, room || null, schedule || null]
+    [id, courseId || null, semesterId || null, teacherId || null, section, capacity, room || null, schedule || null, yos]
   );
+  const updatedRow = res.rows[0];
+  const targetCourseId = courseId || updatedRow?.course_id;
+  if (yos && targetCourseId) {
+    await query(`UPDATE courses SET level = $1 WHERE id = $2`, [yos * 100, targetCourseId]);
+  }
   return res.rows[0] || null;
 }
 

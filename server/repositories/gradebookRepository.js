@@ -80,7 +80,8 @@ export async function getGradebookData(offeringId) {
     `SELECT ce.id as enrollment_id, ce.status, ce.is_repeat,
             s.id as student_id, s.student_number,
             (u.first_name || ' ' || u.last_name) as student_name,
-            u.email as student_email
+            u.email as student_email,
+            s.department_id, s.year_of_study
      FROM course_enrollments ce
      JOIN students s ON s.id = ce.student_id
      JOIN users u ON u.id = s.user_id
@@ -193,6 +194,8 @@ export async function getGradebookData(offeringId) {
         studentNumber: enr.student_number,
         name: enr.student_name,
         email: enr.student_email,
+        departmentId: enr.department_id,
+        yearOfStudy: enr.year_of_study,
       },
       marks: studentScores,
       total: calcResult.weightedTotal,
@@ -302,6 +305,24 @@ export async function getGradebookData(offeringId) {
   };
 }
 
+export async function findOrCreateEnrollment(offeringId, studentId) {
+  const existing = await query(
+    `SELECT id, status, is_repeat FROM course_enrollments WHERE offering_id = $1 AND student_id = $2`,
+    [offeringId, studentId]
+  );
+  if (existing.rows.length > 0) {
+    return existing.rows[0];
+  }
+  const enrId = newId('enr');
+  const inserted = await query(
+    `INSERT INTO course_enrollments (id, offering_id, student_id, status, is_repeat, enrolled_at)
+     VALUES ($1, $2, $3, 'enrolled', false, now())
+     RETURNING id, status, is_repeat`,
+    [enrId, offeringId, studentId]
+  );
+  return inserted.rows[0];
+}
+
 export async function saveScoreChanges(offeringId, changes, reason, user) {
   return await withTransaction(async (client) => {
     let created = 0;
@@ -309,7 +330,12 @@ export async function saveScoreChanges(offeringId, changes, reason, user) {
     let cleared = 0;
 
     for (const change of changes) {
-      const { enrollmentId, assessmentId, marks } = change;
+      let { enrollmentId, studentId, assessmentId, marks } = change;
+
+      if (!enrollmentId && studentId) {
+        const enr = await findOrCreateEnrollment(offeringId, studentId);
+        enrollmentId = enr.id;
+      }
 
       // Read existing
       const existingRes = await client.query(

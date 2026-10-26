@@ -16,6 +16,7 @@ const DeptApprovalsPage = page(() => import('@/features/dept-head/DeptApprovalsP
 const ApprovalDetailPage = page(() => import('@/features/admin/approvals/ApprovalDetailPage'), 'ApprovalDetailPage');
 const DeptReportsPage = page(() => import('@/features/dept-head/DeptReportsPage'), 'DeptReportsPage');
 const GradeSheetPage = page(() => import('@/features/admin/reports/GradeSheetPage'), 'GradeSheetPage');
+const EntermarkPage = page(() => import('@/features/teacher/grade-entry/EntermarkPage'), 'EntermarkPage');
 
 export const deptHeadRoutes = (
   <Route element={<ProtectedRoute roles={['dept_head']} />}>
@@ -26,6 +27,8 @@ export const deptHeadRoutes = (
     <Route path="/dept-head/teachers" element={<DeptTeachersPage />} />
     <Route path="/dept-head/students" element={<DeptStudentsPage />} />
     <Route path="/dept-head/assignments" element={<AssignmentsPage />} />
+    <Route path="/dept-head/entermark" element={<EntermarkPage />} />
+    <Route path="/dept-head/entermark/:offeringId" element={<EntermarkPage />} />
     <Route path="/dept-head/approvals" element={<DeptApprovalsPage />} />
     <Route path="/dept-head/grade-approval" element={<DeptApprovalsPage />} />
     <Route path="/dept-head/grade-approvals" element={<DeptApprovalsPage />} />

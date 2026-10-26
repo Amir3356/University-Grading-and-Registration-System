@@ -7,7 +7,7 @@ import { query, withTransaction } from '../config/database.js';
  */
 export async function ensureAcademicCalendarYears() {
   const currentYear = new Date().getFullYear();
-  const targetYear = Math.max(currentYear + 1, 2027);
+  const targetYear = currentYear;
 
   // Automatically close semesters whose end_date has passed
   await query(`
@@ -71,6 +71,15 @@ export async function ensureAcademicCalendarYears() {
       );
     }
   }
+
+  // If no semester is marked current, activate the one whose dates include CURRENT_DATE
+  await query(`
+    UPDATE semesters
+    SET is_current = true, status = 'active'
+    WHERE CURRENT_DATE >= start_date AND CURRENT_DATE <= end_date
+      AND status != 'closed'
+      AND NOT EXISTS (SELECT 1 FROM semesters WHERE is_current = true)
+  `);
 }
 
 export async function listAcademicCalendar() {

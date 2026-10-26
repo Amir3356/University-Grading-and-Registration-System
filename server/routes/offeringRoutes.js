@@ -38,16 +38,16 @@ router.post('/:id/enrollments/:enrollmentId/withdraw', requireRoles('admin', 'de
 
 // Nested Assessments
 router.get('/:id/assessments', requireRoles('admin', 'dept_head', 'teacher'), asmCtrl.listAssessments);
-router.post('/:id/assessments', requireRoles('admin', 'teacher'), validateRequest(createAssessmentSchema), asmCtrl.createAssessment);
-router.post('/:id/assessments/template', requireRoles('admin', 'teacher'), asmCtrl.applyTemplate);
+router.post('/:id/assessments', requireRoles('admin', 'dept_head', 'teacher'), validateRequest(createAssessmentSchema), asmCtrl.createAssessment);
+router.post('/:id/assessments/template', requireRoles('admin', 'dept_head', 'teacher'), asmCtrl.applyTemplate);
 
 // Nested Gradebook & Scores
 router.get('/:id/gradebook', requireRoles('admin', 'dept_head', 'teacher'), gbCtrl.getGradebook);
-router.patch('/:id/scores', requireRoles('admin', 'teacher'), validateRequest(saveScoresSchema), gbCtrl.saveScores);
-router.post('/:id/scores/clear', requireRoles('admin', 'teacher'), gbCtrl.clearScores);
+router.patch('/:id/scores', requireRoles('admin', 'dept_head', 'teacher'), validateRequest(saveScoresSchema), gbCtrl.saveScores);
+router.post('/:id/scores/clear', requireRoles('admin', 'dept_head', 'teacher'), gbCtrl.clearScores);
 router.get('/:id/grade-history', requireRoles('admin', 'dept_head', 'teacher'), gbCtrl.getGradeHistory);
 router.get('/:id/gradebook/export', requireRoles('admin', 'dept_head', 'teacher'), gbCtrl.exportGradebook);
-router.post('/:id/gradebook/import', requireRoles('admin', 'teacher'), gbCtrl.importScores);
+router.post('/:id/gradebook/import', requireRoles('admin', 'dept_head', 'teacher'), gbCtrl.importScores);
 router.get('/:id/performance', requireRoles('admin', 'dept_head', 'teacher'), gbCtrl.getOfferingPerformance);
 
 // Nested Grade Submissions

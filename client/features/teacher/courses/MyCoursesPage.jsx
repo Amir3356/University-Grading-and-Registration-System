@@ -33,13 +33,6 @@ export function MyCoursesPage() {
       value: (o) => o.semester.name,
       cell: (o) => formatSemesterTerm(o.semester.term),
     },
-    {
-      key: 'students',
-      header: 'Students',
-      value: (o) => o.enrolledCount,
-      cell: (o) => o.enrolledCount,
-      align: 'right',
-    },
   ]
 
   return (

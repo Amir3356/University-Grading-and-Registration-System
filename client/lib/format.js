@@ -57,6 +57,27 @@ export function formatYearOfStudy(val) {
   return ordinals[studyYear] || `${studyYear}th Year`
 }
 
+export function getCourseStudyYear(course) {
+  if (!course) return '1'
+  if (course.yearOfStudy) return String(course.yearOfStudy)
+  if (course.year_of_study) return String(course.year_of_study)
+  if (course.year) return String(course.year)
+
+  const val = course.level ?? course.code
+  if (typeof val === 'number') {
+    if (val >= 100 && val <= 900) return String(Math.floor(val / 100))
+    if (val >= 1 && val <= 4) return String(val)
+  }
+  const str = String(val || '').trim()
+  const m = str.match(/\d+/)
+  if (m) {
+    const num = parseInt(m[0], 10)
+    if (num >= 100 && num <= 900) return String(Math.floor(num / 100))
+    if (num >= 1 && num <= 4) return String(num)
+  }
+  return '1'
+}
+
 export function formatSemesterTerm(term) {
   if (!term) return '—'
   const t = String(term).trim().toLowerCase()

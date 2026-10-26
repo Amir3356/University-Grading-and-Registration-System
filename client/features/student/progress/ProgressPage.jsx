@@ -236,7 +236,7 @@ export function ProgressPage() {
               { key: 'title', header: 'Course', value: (r) => r.course.title, className: 'whitespace-normal' },
               { key: 'semester', header: 'Semester', value: (r) => r.semester.name },
               { key: 'credits', header: 'Credits', align: 'right', value: (r) => r.course.creditHours },
-              { key: 'teacher', header: 'Teacher', value: (r) => r.teacher?.name },
+              { key: 'teacher', header: 'Teacher', value: (r) => (r.teacher?.name ? r.teacher.name.replace(/^Dr\.?\s+/i, '').trim() : '') },
               { key: 'result', header: 'Result', value: (r) => r.resultStatus, cell: (r) => <ResultStatus course={r} /> },
             ]}
           />

@@ -1,7 +1,15 @@
 /**
+ * Check if a string key looks like an entity ID (e.g. asm_123, enr_123, or composite enr:asm)
+ */
+function isEntityId(str) {
+  return /^[a-z]{2,5}_[0-9a-f]+$/i.test(str) || str.includes(':');
+}
+
+/**
  * Convert snake_case string to camelCase
  */
 export function snakeToCamel(str) {
+  if (isEntityId(str)) return str;
   return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 }
 
@@ -9,6 +17,7 @@ export function snakeToCamel(str) {
  * Convert camelCase string to snake_case
  */
 export function camelToSnake(str) {
+  if (isEntityId(str)) return str;
   return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
 
@@ -27,7 +36,12 @@ export function transformKeysToCamel(obj) {
   const transformed = {};
   for (const [key, value] of Object.entries(obj)) {
     const camelKey = snakeToCamel(key);
-    transformed[camelKey] = transformKeysToCamel(value);
+    // If the field is 'marks', preserve its inner keys as-is since they are assessment IDs
+    if ((key === 'marks' || camelKey === 'marks') && value && typeof value === 'object' && !Array.isArray(value)) {
+      transformed[camelKey] = { ...value };
+    } else {
+      transformed[camelKey] = transformKeysToCamel(value);
+    }
   }
   return transformed;
 }
@@ -47,7 +61,11 @@ export function transformKeysToSnake(obj) {
   const transformed = {};
   for (const [key, value] of Object.entries(obj)) {
     const snakeKey = camelToSnake(key);
-    transformed[snakeKey] = transformKeysToSnake(value);
+    if ((key === 'marks' || snakeKey === 'marks') && value && typeof value === 'object' && !Array.isArray(value)) {
+      transformed[snakeKey] = { ...value };
+    } else {
+      transformed[snakeKey] = transformKeysToSnake(value);
+    }
   }
   return transformed;
 }

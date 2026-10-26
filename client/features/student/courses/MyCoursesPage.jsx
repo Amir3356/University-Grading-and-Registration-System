@@ -147,8 +147,8 @@ export function MyCoursesPage() {
     {
       key: 'teacherName',
       header: 'Teacher Name',
-      value: (r) => r.teacher?.name ?? 'Unassigned',
-      cell: (r) => <span>{r.teacher?.name ?? 'Unassigned'}</span>,
+      value: (r) => (r.teacher?.name ? r.teacher.name.replace(/^Dr\.?\s+/i, '').trim() : '') || 'Unassigned',
+      cell: (r) => <span>{(r.teacher?.name ? r.teacher.name.replace(/^Dr\.?\s+/i, '').trim() : '') || 'Unassigned'}</span>,
     },
     {
       key: 'academicYear',

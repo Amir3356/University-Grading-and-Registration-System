@@ -16,7 +16,7 @@ export async function listDepartments(search) {
            CASE WHEN ht.id IS NOT NULL THEN
              json_build_object(
                'id', ht.id,
-               'name', (ht.title || ' ' || u.first_name || ' ' || u.last_name),
+               'name', (u.first_name || ' ' || u.last_name),
                'employeeNumber', ht.employee_number,
                'email', u.email
              )
@@ -41,7 +41,7 @@ export async function findById(id) {
             CASE WHEN ht.id IS NOT NULL THEN
               json_build_object(
                 'id', ht.id,
-                'name', (ht.title || ' ' || u.first_name || ' ' || u.last_name),
+                'name', (u.first_name || ' ' || u.last_name),
                 'employeeNumber', ht.employee_number,
                 'email', u.email
               )
