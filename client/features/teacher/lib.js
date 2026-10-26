@@ -23,7 +23,11 @@ export const lockedExplanation = (status) =>
 export function defaultOfferingId(offerings, paramId, currentSemesterId) {
   if (paramId) return paramId
   if (!offerings?.length) return null
-  return (offerings.find((o) => o.semesterId === currentSemesterId) ?? offerings[0]).id
+  return (
+    offerings.find(
+      (o) => (o.semesterId || o.semester?.id || o.semester_id) === currentSemesterId,
+    ) ?? offerings[0]
+  ).id
 }
 
 export const ACTION_LABELS = {

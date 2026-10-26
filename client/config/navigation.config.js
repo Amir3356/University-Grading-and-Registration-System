@@ -66,7 +66,6 @@ export const NAVIGATION = {
     {
       section: 'Grading',
       items: [
-        { to: '/dept-head/entermark', label: 'Entermark', icon: NotebookPen },
         { to: '/dept-head/approvals', label: 'Grade Approval', icon: ClipboardCheck },
         { to: '/dept-head/reports', label: 'Reports', icon: FileBarChart },
       ],

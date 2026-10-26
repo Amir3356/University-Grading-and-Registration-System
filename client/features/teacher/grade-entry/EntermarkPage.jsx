@@ -1,7 +1,24 @@
-import { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, NotebookPen, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  NotebookPen,
+  Plus,
+  RotateCcw,
+  Save,
+} from 'lucide-react'
+import {
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from '@tanstack/react-table'
 import { toast } from 'sonner'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -20,19 +37,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ConfirmDialog } from '@/components/common/ConfirmDialog'
-import { DataTable } from '@/components/common/DataTable'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { FormField } from '@/components/common/FormField'
 import { PageSkeleton } from '@/components/common/Loading'
 import { PageHeader } from '@/components/common/PageHeader'
+import { SearchInput } from '@/components/common/SearchInput'
+import { GradeBadge } from '@/components/common/StatusBadge'
 import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
 import { getCourseStudyYear } from '@/lib/format'
-import { validateMark } from '@/lib/grading'
+import { computeWeightedTotal, gradeForScore, validateMark } from '@/lib/grading'
+import { cn } from '@/lib/utils'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
 import { defaultOfferingId, isLockedStatus, lockedExplanation, typeLabel } from '../lib'
@@ -65,22 +83,73 @@ export function EntermarkPage() {
   const [selectedOfferingId, setSelectedOfferingId] = useState(null)
   const activeOfferingId = selectedOfferingId ?? defaultOfferingId(offerings, paramOfferingId, currentSemesterId) ?? ''
 
-  // 3. Fetch gradebook for the active offering
+  const selectedOffering = offerings?.find((o) => o.id === activeOfferingId)
+  const selectedCourseId = selectedOffering?.courseId || selectedOffering?.course?.id
+  const selectedSemesterId = selectedOffering?.semesterId || selectedOffering?.semester?.id
+
+  // All sibling section offerings for the same course & semester
+  const siblingOfferings = useMemo(() => {
+    if (!offerings || !selectedCourseId) return selectedOffering ? [selectedOffering] : []
+    return offerings.filter(
+      (o) =>
+        (o.courseId || o.course?.id) === selectedCourseId &&
+        (!selectedSemesterId || (o.semesterId || o.semester?.id) === selectedSemesterId)
+    )
+  }, [offerings, selectedCourseId, selectedSemesterId, selectedOffering])
+
+  // 3. Fetch gradebook for the active offering (combining sibling sections if multiple exist)
   const {
     data: gradebook,
     loading: gbLoading,
     error: gbError,
     refetch: refetchGradebook,
   } = useQuery(
-    () => (activeOfferingId ? store.grades.getGradebook(activeOfferingId) : null),
-    [activeOfferingId],
+    async () => {
+      if (!activeOfferingId) return null
+      if (siblingOfferings.length <= 1) {
+        return await store.grades.getGradebook(activeOfferingId)
+      }
+      const results = await Promise.allSettled(
+        siblingOfferings.map((o) => store.grades.getGradebook(o.id))
+      )
+      const primary = results.find((r) => r.status === 'fulfilled' && r.value)?.value
+      if (!primary) return null
+
+      const assessments = primary.assessments || []
+      const combinedRows = []
+      const seenEnrollment = new Set()
+
+      for (let i = 0; i < results.length; i++) {
+        const res = results[i]
+        if (res.status !== 'fulfilled' || !res.value) continue
+        const off = siblingOfferings[i]
+        const rows = res.value.rows || []
+        for (const r of rows) {
+          if (seenEnrollment.has(r.enrollmentId)) continue
+          seenEnrollment.add(r.enrollmentId)
+          combinedRows.push({
+            ...r,
+            offeringId: off.id,
+            section: off.section || r.enrollment?.section || '',
+          })
+        }
+      }
+
+      return {
+        ...primary,
+        assessments,
+        rows: combinedRows,
+      }
+    },
+    [activeOfferingId, siblingOfferings.map((o) => o.id).join(',')],
     { enabled: Boolean(activeOfferingId) },
   )
 
-  // 4. Filters & Dialog states
-  const [assessmentFilter, setAssessmentFilter] = useState('')
+  // 4. Spreadsheet Grid states
+  const [gridEdits, setGridEdits] = useState({})
+  const [gridSearch, setGridSearch] = useState('')
+  const [savingGrid, setSavingGrid] = useState(false)
   const [editModalData, setEditModalData] = useState(null) // { row, isNew?: boolean }
-  const [deleteConfirmData, setDeleteConfirmData] = useState(null) // row to delete
 
   // Offering metadata
   const currentOffering = offerings?.find((o) => o.id === activeOfferingId)
@@ -88,164 +157,173 @@ export function EntermarkPage() {
   const isLocked = Boolean(isLockedStatus(currentOffering?.gradeStatus))
   const gbRows = gradebook?.rows
 
-  const [deletedRowIds, setDeletedRowIds] = useState(() => new Set())
-
-  // Reset optimistic deleted row cache when offering or gradebook changes
-  useEffect(() => {
-    setDeletedRowIds(new Set())
-  }, [activeOfferingId, gbRows])
-
-  // 5. Build table rows (flattened: each student x each assessment with an entered mark)
-  const tableRows = useMemo(() => {
-    if (!gbRows || !assessments.length) return []
-
-    const list = []
-    for (const r of gbRows) {
-      const student = r.student
-      const isWithdrawn = r.enrollment?.status === 'withdrawn'
-
-      for (const a of assessments) {
-        if (assessmentFilter && a.id !== assessmentFilter) continue
-
-        const rowId = `${r.enrollmentId}-${a.id}`
-        if (deletedRowIds.has(rowId)) continue
-
-        const rawMark = r.marks?.[a.id] ?? r.marks?.[a.id.replace(/_([a-z])/g, (_, l) => l.toUpperCase())]
-        const mark = rawMark !== undefined ? rawMark : null
-
-        // Only rows with entered marks are displayed in the marks table
-        if (mark == null) continue
-
-        list.push({
-          id: rowId,
-          offeringId: activeOfferingId,
-          enrollmentId: r.enrollmentId,
-          student,
-          assessment: a,
-          mark,
-          withdrawn: isWithdrawn,
-          locked: isLocked,
-        })
+  // Deduplicated offerings for course filter dropdown
+  const uniqueCourseOfferings = useMemo(() => {
+    if (!offerings) return []
+    const map = new Map()
+    for (const o of offerings) {
+      const cId = o.course?.id || o.courseId || o.course_id || o.id
+      if (!map.has(cId)) {
+        map.set(cId, o)
       }
     }
-    return list
-  }, [gbRows, assessments, assessmentFilter, isLocked, activeOfferingId, deletedRowIds])
+    return Array.from(map.values())
+  }, [offerings])
 
-  // 6. Delete handler
-  const handleDeleteMark = async (providedReason) => {
-    if (!deleteConfirmData) return false
-    const rowIdToDelete = deleteConfirmData.id
-    // Optimistically remove row from UI immediately
-    setDeletedRowIds((prev) => new Set([...prev, rowIdToDelete]))
+  // Reset grid edits when active offering changes
+  useEffect(() => {
+    setGridEdits({})
+  }, [activeOfferingId, gbRows])
+
+  // Grid changes, validation, and dirty tracking
+  const { gridChanges, gridErrors, invalidCount } = useMemo(() => {
+    if (!gbRows || !assessments.length) return { gridChanges: [], gridErrors: {}, invalidCount: 0 }
+
+    const changes = []
+    const errors = {}
+    let invalid = 0
+
+    for (const r of gbRows) {
+      for (const a of assessments) {
+        const k = `${r.enrollmentId}:${a.id}`
+        if (!(k in gridEdits)) continue
+
+        const raw = String(gridEdits[k]).trim()
+        const err = validateMark(raw, a.maxMarks)
+        if (err) {
+          errors[k] = err
+          invalid++
+          continue
+        }
+
+        const nextMark = raw === '' ? null : Number(raw)
+        const savedMark = r.marks?.[a.id] ?? r.marks?.[a.id.replace(/_([a-z])/g, (_, l) => l.toUpperCase())] ?? null
+
+        if (nextMark !== savedMark) {
+          changes.push({
+            offeringId: r.offeringId || activeOfferingId,
+            enrollmentId: r.enrollmentId,
+            assessmentId: a.id,
+            marks: nextMark,
+          })
+        }
+      }
+    }
+    return { gridChanges: changes, gridErrors: errors, invalidCount: invalid }
+  }, [gbRows, assessments, gridEdits, activeOfferingId])
+
+  // Save batch changes from spreadsheet grid
+  const handleSaveGrid = async () => {
+    if (invalidCount > 0) {
+      toast.error(`Please fix ${invalidCount} invalid mark(s) before saving.`)
+      return
+    }
+    if (gridChanges.length === 0) {
+      toast.info('No changes to save.')
+      return
+    }
+
+    setSavingGrid(true)
     try {
-      const targetOfferingId = deleteConfirmData.offeringId || activeOfferingId
-      await store.grades.saveScores(targetOfferingId, {
-        changes: [
-          {
-            enrollmentId: deleteConfirmData.enrollmentId,
-            assessmentId: deleteConfirmData.assessment.id,
-            marks: null,
-          },
-        ],
-        reason: providedReason || (gradebook?.requiresReason ? 'Mark removed by teacher' : undefined),
-      })
-      toast.success(
-        `Deleted mark for ${deleteConfirmData.student?.name} (${deleteConfirmData.assessment?.name})`,
-      )
-      setDeleteConfirmData(null)
+      const byOffering = {}
+      for (const c of gridChanges) {
+        const offId = c.offeringId || activeOfferingId
+        if (!byOffering[offId]) byOffering[offId] = []
+        byOffering[offId].push({
+          enrollmentId: c.enrollmentId,
+          assessmentId: c.assessmentId,
+          marks: c.marks,
+        })
+      }
+
+      for (const [offId, changes] of Object.entries(byOffering)) {
+        await store.grades.saveScores(offId, { changes })
+      }
+
+      toast.success(`Marks saved successfully (${gridChanges.length} score(s) updated).`)
+      setGridEdits({})
       refetchGradebook()
-      return true
     } catch (err) {
-      // Revert optimistic removal on error
-      setDeletedRowIds((prev) => {
-        const next = new Set(prev)
-        next.delete(rowIdToDelete)
-        return next
-      })
-      toast.error(err.message || 'Failed to delete mark')
-      return false
+      toast.error(err.message || 'Failed to save marks.')
+    } finally {
+      setSavingGrid(false)
     }
   }
 
-  // 7. Column Definitions
-  const columns = [
-    {
-      key: 'studentId',
-      header: 'StudentID',
-      sortable: true,
-      value: (r) => r.student.studentNumber,
-      cell: (r) => <span className="tabular font-mono text-sm">{r.student.studentNumber}</span>,
-    },
-    {
-      key: 'studentName',
-      header: 'Student Name',
-      sortable: true,
-      value: (r) => r.student.name,
-      cell: (r) => <p className="font-semibold">{r.student.name}</p>,
-    },
-    {
-      key: 'assessmentType',
-      header: 'Assessment Type',
-      sortable: true,
-      value: (r) => typeLabel(r.assessment.type),
-      cell: (r) => <p className="font-semibold">{typeLabel(r.assessment.type)}</p>,
-    },
-    {
-      key: 'totalMarks',
-      header: 'Total Marks',
-      sortable: true,
-      value: (r) => r.assessment.maxMarks,
-      cell: (r) => <span className="tabular font-medium">{r.assessment.maxMarks}</span>,
-    },
-    {
-      key: 'marksObtained',
-      header: 'Marks Obtained',
-      sortable: true,
-      value: (r) => (r.mark != null ? r.mark : -1),
-      cell: (r) => (
-        <span className="tabular font-semibold">
-          {r.mark != null ? (
-            r.mark
-          ) : (
-            <span className="text-muted-foreground font-normal">—</span>
-          )}
-        </span>
-      ),
-    },
-    {
-      key: 'action',
-      header: 'Action',
-      sortable: false,
-      searchable: false,
-      export: false,
-      align: 'right',
-      cell: (r) => (
-        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            title="Edit Mark"
-            aria-label={`Edit mark for ${r.student.name}`}
-            disabled={r.locked || r.withdrawn}
-            onClick={() => setEditModalData({ row: r, isNew: false })}
-          >
-            <Pencil className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-            title="Delete Mark"
-            aria-label={`Delete mark for ${r.student.name}`}
-            disabled={r.locked || r.withdrawn}
-            onClick={() => setDeleteConfirmData(r)}
-          >
-            <Trash2 className="size-4" />
-          </Button>
-        </div>
-      ),
-    },
-  ]
+  const updateGridCell = (enrollmentId, assessmentId, val) => {
+    setGridEdits((prev) => ({
+      ...prev,
+      [`${enrollmentId}:${assessmentId}`]: val,
+    }))
+  }
+
+  const handleGridKeyDown = (e, rowIdx, colIdx, maxRows) => {
+    if (e.key === 'Enter' || e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (rowIdx + 1 < maxRows) {
+        const nextInput = document.querySelector(`[data-cell="${rowIdx + 1}-${colIdx}"]`)
+        if (nextInput) {
+          nextInput.focus()
+          nextInput.select()
+        }
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (rowIdx - 1 >= 0) {
+        const prevInput = document.querySelector(`[data-cell="${rowIdx - 1}-${colIdx}"]`)
+        if (prevInput) {
+          prevInput.focus()
+          prevInput.select()
+        }
+      }
+    }
+  }
+
+  // Live grid rows computed with effective marks, weighted totals, and grades
+  const gridStudents = useMemo(() => {
+    if (!gbRows) return []
+    const q = gridSearch.trim().toLowerCase()
+
+    return gbRows
+      .map((r) => {
+        const effectiveMarks = {}
+        for (const a of assessments) {
+          const k = `${r.enrollmentId}:${a.id}`
+          if (k in gridEdits) {
+            const raw = String(gridEdits[k]).trim()
+            effectiveMarks[a.id] = raw === '' ? null : Number(raw)
+          } else {
+            const saved = r.marks?.[a.id] ?? r.marks?.[a.id.replace(/_([a-z])/g, (_, l) => l.toUpperCase())] ?? null
+            effectiveMarks[a.id] = saved
+          }
+        }
+        const calc = computeWeightedTotal(assessments, effectiveMarks)
+        const grade = calc.complete ? gradeForScore(calc.total) : null
+        const isWithdrawn = r.enrollment?.status === 'withdrawn'
+
+        return {
+          row: r,
+          student: r.student,
+          section: r.section || currentOffering?.section || 'A',
+          effectiveMarks,
+          calc,
+          grade,
+          withdrawn: isWithdrawn,
+        }
+      })
+      .filter(({ student, section }) => {
+        if (!q) return true
+        const name = String(student?.name || '').toLowerCase()
+        const sNum = String(student?.studentNumber || '').toLowerCase()
+        const sec = String(section || '').toLowerCase()
+        return (
+          name.includes(q) ||
+          sNum.includes(q) ||
+          sec.includes(q) ||
+          `section ${sec}`.includes(q)
+        )
+      })
+  }, [gbRows, assessments, gridEdits, currentOffering, gridSearch])
 
   if (offeringsLoading && !offerings) return <PageSkeleton />
   if (offeringsError) return <ErrorState error={offeringsError} onRetry={refetchOfferings} />
@@ -254,19 +332,42 @@ export function EntermarkPage() {
     <>
       <PageHeader
         title="Entermark"
-        description="Enter and manage student assessment marks."
+        description="Enter and manage student assessment marks across courses."
         centered
         actions={
-          <Button
-            disabled={!activeOfferingId || isLocked || assessments.length === 0}
-            onClick={() => {
-              refetchOfferings()
-              refetchGradebook()
-              setEditModalData({ isNew: true })
-            }}
-          >
-            <Plus className="size-4" /> Enter Mark
-          </Button>
+          <div className="flex items-center gap-2">
+            {gridChanges.length > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setGridEdits({})}
+                  disabled={savingGrid}
+                >
+                  <RotateCcw className="size-4 mr-1.5" /> Discard
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSaveGrid}
+                  disabled={savingGrid || invalidCount > 0}
+                >
+                  <Save className="size-4 mr-1.5" /> Save Changes ({gridChanges.length})
+                </Button>
+              </>
+            )}
+            <Button
+              variant={gridChanges.length > 0 ? 'outline' : 'default'}
+              size="sm"
+              disabled={!activeOfferingId || isLocked || assessments.length === 0}
+              onClick={() => {
+                refetchOfferings()
+                refetchGradebook()
+                setEditModalData({ isNew: true })
+              }}
+            >
+              <Plus className="size-4 mr-1.5" /> Enter Mark
+            </Button>
+          </div>
         }
       />
 
@@ -285,54 +386,159 @@ export function EntermarkPage() {
           description="You do not have any active course offerings to enter marks for."
         />
       ) : (
-        <DataTable
-          columns={columns}
-          rows={activeOfferingId && !gbLoading ? tableRows : undefined}
-          loading={gbLoading}
-          error={gbError}
-          onRetry={refetchGradebook}
-          searchPlaceholder="Search student by name or ID…"
-          emptyIcon={NotebookPen}
-          emptyTitle={
-            assessments.length === 0
-              ? 'No assessments found'
-              : 'No student marks found'
-          }
-          emptyDescription={
-            assessments.length === 0
-              ? 'Please create assessments under Assessment Management before entering marks.'
-              : 'No marks entered yet. Click "+ Enter Mark" above to record student assessment marks.'
-          }
-          toolbar={
-            <>
+        <div className="space-y-4">
+          {/* Grid Toolbar & Status */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <FilterSelect
                 label="Course"
                 value={activeOfferingId}
                 onChange={(id) => {
                   setSelectedOfferingId(id)
-                  setAssessmentFilter('')
+                  setGridEdits({})
                 }}
                 includeAll={false}
-                options={offerings.map((o) => ({
+                options={uniqueCourseOfferings.map((o) => ({
                   value: o.id,
-                  label: `${o.course.code} — ${o.course.title}${o.section ? ` (${o.section})` : ''} (${o.semester.name})`,
+                  label: `${o.course.code} — ${o.course.title} (${o.semester.name})`,
                 }))}
+                className="sm:w-80"
+              />
+              <SearchInput
+                value={gridSearch}
+                onChange={setGridSearch}
+                placeholder="Search student by name, ID, or section…"
                 className="sm:w-72"
               />
-              <FilterSelect
-                label="Assessment"
-                allLabel="All assessments"
-                value={assessmentFilter}
-                onChange={setAssessmentFilter}
-                options={assessments.map((a) => ({
-                  value: a.id,
-                  label: `${a.name} (${typeLabel(a.type)})`,
-                }))}
-                className="sm:w-56"
-              />
-            </>
-          }
-        />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
+                <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[11px]">Enter</kbd> / <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[11px]">↓</kbd> next student · <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[11px]">Tab</kbd> next assessment
+              </div>
+              {gridChanges.length > 0 && (
+                <Badge variant="warning" className="h-7 px-2.5">
+                  {gridChanges.length} unsaved mark{gridChanges.length === 1 ? '' : 's'}
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* Spreadsheet Table */}
+          {assessments.length === 0 ? (
+            <EmptyState
+              icon={NotebookPen}
+              title="No assessment types configured"
+              description="Please create assessments under Assessment Management before entering marks for this course."
+            />
+          ) : gridStudents.length === 0 ? (
+            <EmptyState
+              icon={NotebookPen}
+              title="No students found"
+              description={
+                gridSearch
+                  ? 'No students match your search criteria.'
+                  : 'No enrolled students found for this course.'
+              }
+            />
+          ) : (
+            <div className="overflow-x-auto rounded-lg border bg-card shadow-sm">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/60 text-xs text-muted-foreground">
+                    <th className="sticky left-0 z-20 bg-muted/95 px-4 py-3 text-left font-semibold uppercase">
+                      StudentID
+                    </th>
+                    <th className="sticky left-[120px] z-20 bg-muted/95 px-4 py-3 text-left font-semibold uppercase">
+                      Student Name
+                    </th>
+                    <th className="px-3 py-3 text-center font-semibold uppercase">
+                      Section
+                    </th>
+                    {assessments.map((a, colIdx) => (
+                      <th key={a.id} className="min-w-32 px-3 py-3 text-center font-semibold">
+                        <span className="block text-foreground">{typeLabel(a.type)}</span>
+                        <span className="block text-[11px] font-normal text-muted-foreground">
+                          Max: {a.maxMarks} ({a.weight}%)
+                        </span>
+                      </th>
+                    ))}
+                    <th className="px-3 py-3 text-center font-semibold uppercase">Total (%)</th>
+                    <th className="px-3 py-3 text-center font-semibold uppercase">Grade</th>
+                    <th className="px-3 py-3 text-center font-semibold uppercase">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {gridStudents.map((s, rowIdx) => {
+                    return (
+                      <tr key={s.row.enrollmentId} className="hover:bg-muted/30 transition-colors">
+                        <td className="sticky left-0 z-10 bg-card px-4 py-2.5 font-mono text-xs font-semibold whitespace-nowrap">
+                          {s.student?.studentNumber}
+                        </td>
+                        <td className="sticky left-[120px] z-10 bg-card px-4 py-2.5 font-medium whitespace-nowrap">
+                          {s.student?.name}
+                        </td>
+                        <td className="px-3 py-2.5 text-center text-xs whitespace-nowrap">
+                          <Badge variant="outline">Section {s.section}</Badge>
+                        </td>
+                        {assessments.map((a, colIdx) => {
+                          const k = `${s.row.enrollmentId}:${a.id}`
+                          const isEdited = k in gridEdits
+                          const errorMsg = gridErrors[k]
+                          const currentVal = isEdited
+                            ? gridEdits[k]
+                            : s.effectiveMarks[a.id] != null
+                              ? String(s.effectiveMarks[a.id])
+                              : ''
+
+                          return (
+                            <td key={a.id} className="px-2 py-1.5 text-center">
+                              <Input
+                                data-cell={`${rowIdx}-${colIdx}`}
+                                type="number"
+                                step="any"
+                                min="0"
+                                max={a.maxMarks}
+                                disabled={isLocked || s.withdrawn}
+                                value={currentVal}
+                                onChange={(e) => updateGridCell(s.row.enrollmentId, a.id, e.target.value)}
+                                onKeyDown={(e) => handleGridKeyDown(e, rowIdx, colIdx, gridStudents.length)}
+                                placeholder="—"
+                                className={cn(
+                                  "h-9 w-24 text-center font-mono text-sm transition-all mx-auto",
+                                  isEdited && "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500 font-semibold",
+                                  errorMsg && "border-destructive bg-destructive/10 ring-1 ring-destructive"
+                                )}
+                                title={errorMsg || (s.withdrawn ? 'Withdrawn' : undefined)}
+                              />
+                            </td>
+                          )
+                        })}
+                        <td className="px-3 py-2.5 text-center font-mono font-semibold">
+                          {s.calc.total != null ? `${s.calc.total}%` : '—'}
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          {s.grade?.letter ? (
+                            <GradeBadge letter={s.grade.letter} />
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                          <Badge variant={s.calc.complete ? 'success' : 'warning'}>
+                            {s.calc.complete
+                              ? 'Complete'
+                              : `${s.calc.enteredCount}/${s.calc.expectedCount} Entered`}
+                          </Badge>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Enter / Edit Mark Dialog */}
@@ -346,7 +552,6 @@ export function EntermarkPage() {
           offerings={offerings ?? []}
           onOfferingChange={(id) => {
             setSelectedOfferingId(id)
-            setAssessmentFilter('')
           }}
           offering={currentOffering}
           assessments={assessments}
@@ -358,22 +563,6 @@ export function EntermarkPage() {
           }}
         />
       )}
-
-      {/* Delete Mark Confirmation Dialog */}
-      <ConfirmDialog
-        open={Boolean(deleteConfirmData)}
-        onOpenChange={(open) => !open && setDeleteConfirmData(null)}
-        title="Delete Mark"
-        description={
-          deleteConfirmData
-            ? `Are you sure you want to delete the mark for ${deleteConfirmData.student?.name} in ${deleteConfirmData.assessment?.name}?`
-            : ''
-        }
-        reasonLabel={gradebook?.requiresReason ? 'Reason for deletion' : undefined}
-        confirmLabel="Delete Mark"
-        variant="destructive"
-        onConfirm={handleDeleteMark}
-      />
     </>
   )
 }
@@ -560,27 +749,74 @@ function EnterMarkDialog({
 
   useEffect(() => {
     let active = true
-    if (dialogOfferingId === offeringId && assessments?.length) {
-      setCourseAssessments(assessments)
-      return
-    }
+
     async function loadAsm() {
+      const targetId = dialogOfferingId || offeringId
+      if (!targetId) return
+
       try {
-        const res = await store.grades.getGradebook(dialogOfferingId)
-        if (active && res?.assessments) {
+        // 1. First attempt: list assessments endpoint
+        const list = await store.grades.listAssessments(targetId)
+        const items = Array.isArray(list) ? list : (list?.items || [])
+        if (active && items.length > 0) {
+          setCourseAssessments(items)
+          return
+        }
+
+        // 2. Second attempt: getGradebook
+        const res = await store.grades.getGradebook(targetId)
+        if (active && res?.assessments?.length) {
           setCourseAssessments(res.assessments)
+          return
+        }
+
+        // 3. Third attempt: check sibling section offerings for this same course
+        const targetOff = allOfferings.find((o) => o.id === targetId)
+        const targetCourseId = targetOff?.courseId || targetOff?.course?.id || targetOff?.course_id
+        if (targetCourseId) {
+          const siblings = allOfferings.filter(
+            (o) =>
+              ((o.courseId || o.course?.id || o.course_id) === targetCourseId) &&
+              o.id !== targetId
+          )
+          for (const sib of siblings) {
+            try {
+              const sibList = await store.grades.listAssessments(sib.id)
+              const sibItems = Array.isArray(sibList) ? sibList : (sibList?.items || [])
+              if (active && sibItems.length > 0) {
+                setCourseAssessments(sibItems)
+                return
+              }
+            } catch {}
+          }
+        }
+
+        // 4. Fallback to passed prop if available
+        if (active && targetId === offeringId && assessments?.length) {
+          setCourseAssessments(assessments)
+          return
+        }
+
+        if (active) {
+          setCourseAssessments([])
         }
       } catch (e) {
         console.error('Failed to load assessments for offering', e)
+        if (active) {
+          if (targetId === offeringId && assessments?.length) {
+            setCourseAssessments(assessments)
+          } else {
+            setCourseAssessments([])
+          }
+        }
       }
     }
-    if (dialogOfferingId) {
-      loadAsm()
-    }
+
+    loadAsm()
     return () => {
       active = false
     }
-  }, [dialogOfferingId, offeringId, assessments])
+  }, [dialogOfferingId, offeringId, assessments, allOfferings])
 
   const [deptStudents, setDeptStudents] = useState([])
   const [loadingDeptStudents, setLoadingDeptStudents] = useState(false)
@@ -664,6 +900,8 @@ function EnterMarkDialog({
 
   const filteredStudents = useMemo(() => {
     return candidateStudents.filter((s) => {
+      // If student is already enrolled in this offering's gradebook, always include
+      if (s.enrollmentId) return true
       // Must match teacher department
       const matchesDept = !teacherDeptId || !s.departmentId || s.departmentId === teacherDeptId
       // Must match assigned year of study
@@ -889,17 +1127,42 @@ function EnterMarkDialog({
               </div>
 
               <div className="tea-dialog-grid tea-dialog-grid--2">
-                <FormField label="Assessment" required>
-                  <Select value={selectedAssessmentId} onValueChange={setSelectedAssessmentId}>
+                <FormField
+                  label="Assessment Type"
+                  required
+                  hint={
+                    courseAssessments.length === 0
+                      ? 'No assessments found for this course. Please configure assessments in Assessment Management.'
+                      : undefined
+                  }
+                >
+                  <Select
+                    value={selectedAssessmentId}
+                    onValueChange={setSelectedAssessmentId}
+                    disabled={courseAssessments.length === 0}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select assessment" />
+                      <SelectValue
+                        placeholder={
+                          courseAssessments.length === 0
+                            ? 'No assessments found'
+                            : 'Select assessment type'
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {courseAssessments.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {a.name} — {typeLabel(a.type)} (Max: {a.maxMarks})
-                        </SelectItem>
-                      ))}
+                      {courseAssessments.map((a) => {
+                        const typeStr = typeLabel(a.type)
+                        const isDistinct = a.name && a.name.trim().toLowerCase() !== typeStr.toLowerCase()
+                        const labelText = isDistinct
+                          ? `${typeStr} (${a.name}) — ${a.maxMarks} Marks (${a.weight}%)`
+                          : `${typeStr} — ${a.maxMarks} Marks (${a.weight}%)`
+                        return (
+                          <SelectItem key={a.id} value={a.id}>
+                            {labelText}
+                          </SelectItem>
+                        )
+                      })}
                     </SelectContent>
                   </Select>
                 </FormField>
@@ -945,8 +1208,15 @@ function EnterMarkDialog({
                     <span className="font-semibold">{targetStudent?.name ?? initialRow?.student?.name}</span>
                   </p>
                   <p>
-                    <span className="text-muted-foreground font-medium">Assessment: </span>
-                    <span className="font-semibold">{targetAssessment?.name}</span> ({typeLabel(targetAssessment?.type)})
+                    <span className="text-muted-foreground font-medium">Assessment Type: </span>
+                    <span className="font-semibold">{typeLabel(targetAssessment?.type)}</span>
+                    {targetAssessment?.name &&
+                      targetAssessment.name.trim().toLowerCase() !== typeLabel(targetAssessment?.type).toLowerCase() && (
+                        <span className="text-muted-foreground ml-1">({targetAssessment.name})</span>
+                      )}
+                    {targetAssessment?.weight != null && (
+                      <span className="text-muted-foreground ml-1">({targetAssessment.weight}%)</span>
+                    )}
                   </p>
                   <p>
                     <span className="text-muted-foreground font-medium">Max Marks: </span>

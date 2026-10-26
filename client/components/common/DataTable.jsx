@@ -50,6 +50,8 @@ export function DataTable({
   const [sort, setSort] = useState(initialSort ?? null)
 
   const getValue = (col, row) => (col.value ? col.value(row) : row[col.key])
+  const getSearchValue = (col, row) => (col.searchValue ? col.searchValue(row) : getValue(col, row))
+  const getExportValue = (col, row) => (col.exportValue ? col.exportValue(row) : getValue(col, row))
 
   const safeRows = useMemo(() => {
     if (Array.isArray(rows)) return rows
@@ -72,7 +74,7 @@ export function DataTable({
     if (!q) return list
     const cols = safeColumns.filter((c) => c.searchable !== false)
     return list.filter((r) => cols.some((c) => {
-      const v = getValue(c, r)
+      const v = getSearchValue(c, r)
       return v != null && String(v).toLowerCase().includes(q)
     }))
   }, [safeRows, search, safeColumns])
@@ -100,7 +102,7 @@ export function DataTable({
     setSort((s) => (!s || s.key !== key ? { key, dir: 'asc' } : s.dir === 'asc' ? { key, dir: 'desc' } : null))
   }
 
-  const exportColumns = safeColumns.filter((c) => c.export !== false && c.header).map((c) => ({ header: c.header, value: (r) => getValue(c, r) }))
+  const exportColumns = safeColumns.filter((c) => c.export !== false && c.header).map((c) => ({ header: c.header, value: (r) => getExportValue(c, r) }))
 
   return (
     <div className={cn('data-table', className)}>
