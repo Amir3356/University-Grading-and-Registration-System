@@ -79,6 +79,10 @@ export async function getGradeHistory(offeringId) {
   return await api.get(`/offerings/${offeringId}/grade-history`);
 }
 
+export async function submitGrades(offeringId, { note } = {}) {
+  return await api.post('/grade-submissions/submit', { offeringId, note });
+}
+
 // Backward-compatible named aliases
 export const getGradingConfigApi = getGradingConfig;
 export const updateGradeScaleApi = updateGradeScale;
@@ -91,6 +95,7 @@ export const setAssessmentReleasedApi = setAssessmentReleased;
 export const getGradebookApi = getGradebook;
 export const saveScoresApi = saveScores;
 export const importScoresApi = importScores;
+export const submitGradesApi = submitGrades;
 export const listApprovalRequestsApi = listApprovalRequests;
 export const getApprovalRequestApi = getApprovalRequest;
 export const approveGradesApi = approveGrades;

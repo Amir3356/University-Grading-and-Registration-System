@@ -1,5 +1,6 @@
 import { query, withTransaction } from '../config/database.js';
 import { newId } from '../utils/idGenerator.js';
+import { ValidationError } from '../utils/errors.js';
 
 export async function listOfferings({ semesterId, departmentId, teacherId, gradeStatus, search, page = 1, pageSize = 10 } = {}) {
   const conditions = [];
@@ -305,15 +306,33 @@ export async function listEnrollments(offeringId) {
 }
 
 export async function listEligibleStudents(offeringId, { search, departmentId } = {}) {
+  const offRes = await query(
+    `SELECT co.year_of_study, c.level, c.department_id as course_dept_id, t.department_id as teacher_dept_id
+     FROM course_offerings co
+     JOIN courses c ON c.id = co.course_id
+     LEFT JOIN teachers t ON t.id = co.teacher_id
+     WHERE co.id = $1`,
+    [offeringId]
+  );
+  const off = offRes.rows[0];
+  const targetDept = departmentId || off?.teacher_dept_id || off?.course_dept_id;
+  const rawYos = off?.year_of_study ?? (off?.level ? (off.level >= 100 ? Math.floor(off.level / 100) : off.level) : null);
+  const targetYear = rawYos !== null && rawYos !== undefined ? parseInt(rawYos, 10) : null;
+
   const conditions = [
     `s.academic_status = 'active'`,
     `NOT EXISTS (SELECT 1 FROM course_enrollments ce WHERE ce.offering_id = $1 AND ce.student_id = s.id AND ce.status != 'withdrawn')`,
   ];
   const params = [offeringId];
 
-  if (departmentId) {
-    params.push(departmentId);
+  if (targetDept) {
+    params.push(targetDept);
     conditions.push(`s.department_id = $${params.length}`);
+  }
+
+  if (targetYear) {
+    params.push(targetYear);
+    conditions.push(`s.year_of_study = $${params.length}`);
   }
 
   if (search) {
@@ -346,12 +365,33 @@ export async function listEligibleStudents(offeringId, { search, departmentId } 
 
 export async function enrollStudents(offeringId, studentIds) {
   return await withTransaction(async (client) => {
-    // Check course offering courseId
-    const offRes = await client.query(`SELECT course_id FROM course_offerings WHERE id = $1`, [offeringId]);
-    const courseId = offRes.rows[0]?.course_id;
+    // Check course offering courseId and target department & year
+    const offRes = await client.query(
+      `SELECT co.course_id, co.year_of_study, c.level, c.department_id as course_dept_id, t.department_id as teacher_dept_id
+       FROM course_offerings co
+       JOIN courses c ON c.id = co.course_id
+       LEFT JOIN teachers t ON t.id = co.teacher_id
+       WHERE co.id = $1`,
+      [offeringId]
+    );
+    const off = offRes.rows[0];
+    const courseId = off?.course_id;
+    const targetDept = off?.teacher_dept_id || off?.course_dept_id;
+    const rawYos = off?.year_of_study ?? (off?.level ? (off.level >= 100 ? Math.floor(off.level / 100) : off.level) : null);
+    const targetYear = rawYos !== null && rawYos !== undefined ? parseInt(rawYos, 10) : null;
 
     let enrolledCount = 0;
     for (const stuId of studentIds) {
+      const sRes = await client.query(`SELECT department_id, year_of_study FROM students WHERE id = $1`, [stuId]);
+      if (sRes.rows.length === 0) continue;
+      const stu = sRes.rows[0];
+      if (targetDept && stu.department_id !== targetDept) {
+        throw new ValidationError(`Student does not match the assigned course department.`);
+      }
+      if (targetYear && Number(stu.year_of_study) !== Number(targetYear)) {
+        throw new ValidationError(`Student does not match the assigned course year of study.`);
+      }
+
       // Check if repeat
       const repeatRes = await client.query(
         `SELECT 1 FROM course_enrollments ce

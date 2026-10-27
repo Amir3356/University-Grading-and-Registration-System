@@ -15,7 +15,10 @@ function ThemedToaster() {
       position="top-right"
       richColors
       closeButton
-      duration={APP_CONFIG.toastDuration}
+      duration={3000}
+      toastOptions={{
+        duration: 3000,
+      }}
     />
   )
 }

@@ -1,10 +1,9 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { BookOpen, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
-import { FilterSelect } from '@/components/common/FilterSelect'
 import { FormField } from '@/components/common/FormField'
 import { PageHeader } from '@/components/common/PageHeader'
 import { StatusBadge } from '@/components/common/StatusBadge'
@@ -14,7 +13,7 @@ import { useLookups } from '@/context/lookups-context'
 import { useQuery, useMutation } from '@/hooks/useStore'
 import { store } from '@/store'
 import { SelectField } from '../admin/users/SelectField'
-import { DEPARTMENT_OPTIONS, getDepartmentName } from '../admin/users/UserFormDialog'
+import { getDepartmentName } from '../admin/users/UserFormDialog'
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
@@ -41,15 +40,6 @@ function CourseForm({ course, dept, deptId, onClose, onCreated }) {
     course?.department_id ??
     lookups?.departments?.find((d) => d.id === course?.department || d.name === course?.department || d.name === course?.departmentName)?.id ??
     headDeptId
-
-  const deptOptions = useMemo(() => {
-    if (lookups?.departments?.length) {
-      return lookups.departments
-        .filter((d) => !d.status || d.status === 'active')
-        .map((d) => ({ value: d.id, label: d.name }))
-    }
-    return DEPARTMENT_OPTIONS
-  }, [lookups?.departments])
 
   const [form, setForm] = useState({
     code: course?.code ?? '',
@@ -116,17 +106,6 @@ function CourseForm({ course, dept, deptId, onClose, onCreated }) {
         </FormField>
       </div>
 
-      <SelectField
-        label="Department"
-        required
-        value={form.departmentId}
-        onChange={(val) => setForm((f) => ({ ...f, departmentId: val }))}
-        options={deptOptions}
-        placeholder="Select department…"
-        error={fe.department || fe.departmentId}
-        hint="Department offering this course"
-      />
-
       <FormField label="Credit hours" required error={fe.creditHours} hint="Between 1 and 6">
         <Input type="number" min={1} max={6} step={1} value={form.creditHours} onChange={set('creditHours')} />
       </FormField>
@@ -186,31 +165,12 @@ export function DeptCoursesPage() {
     lookups?.departments?.[0]
   const deptId = dept?.id || headDeptId
 
-  const [selectedDeptId, setSelectedDeptId] = useState(headDeptId || deptId || 'dep_cs')
-
-  useEffect(() => {
-    if (headDeptId && (!selectedDeptId || selectedDeptId === 'all')) {
-      setSelectedDeptId(headDeptId)
-    }
-  }, [headDeptId])
-
-  const deptOptions = useMemo(() => {
-    if (lookups?.departments?.length) {
-      return lookups.departments
-        .filter((d) => !d.status || d.status === 'active')
-        .map((d) => ({ value: d.id, label: d.name }))
-    }
-    return DEPARTMENT_OPTIONS
-  }, [lookups?.departments])
-
   const { data, loading, error, refetch } = useQuery(
     () =>
       store.academics.listCourses(
-        selectedDeptId && selectedDeptId !== 'all'
-          ? { departmentId: selectedDeptId, pageSize: 100 }
-          : { departmentId: 'all', pageSize: 100 },
+        deptId ? { departmentId: deptId, pageSize: 100 } : { pageSize: 100 },
       ),
-    [selectedDeptId],
+    [deptId],
   )
 
   const [dialog, setDialog] = useState({ open: false, course: null })
@@ -222,9 +182,6 @@ export function DeptCoursesPage() {
     if (Array.isArray(data?.items)) return data.items
     return []
   }, [data])
-
-  const currentDept =
-    (lookups?.departments ?? []).find((d) => d.id === (selectedDeptId || deptId)) || dept
 
   const columns = useMemo(
     () => [
@@ -245,24 +202,6 @@ export function DeptCoursesPage() {
             {info.getValue() || info.row.original.title}
           </span>
         ),
-      },
-      {
-        id: 'department',
-        header: 'Department',
-        accessorFn: (row) => {
-          const dId = row.departmentId || row.department_id || (selectedDeptId || deptId)
-          const matchedDept = (lookups?.departments ?? []).find((d) => d.id === dId)
-          return (
-            row.departmentName ||
-            row.department_name ||
-            matchedDept?.name ||
-            row.department?.name ||
-            (typeof row.department === 'string' ? row.department : null) ||
-            dept?.name ||
-            '—'
-          )
-        },
-        cell: (info) => <span className="text-muted-foreground">{info.getValue()}</span>,
       },
       {
         id: 'creditHours',
@@ -310,13 +249,13 @@ export function DeptCoursesPage() {
         },
       },
     ],
-    [dept, deptId, selectedDeptId, lookups?.departments],
+    [],
   )
 
   return (
     <>
       <PageHeader
-        title={`${selectedDeptId && selectedDeptId !== 'all' ? (currentDept?.name ?? 'Department') : 'All Departments'} — Courses`}
+        title={`${dept?.name ?? 'Department'} — Courses`}
         description="Courses offered and curriculum catalogue for this department."
         centered
         actions={
@@ -331,21 +270,11 @@ export function DeptCoursesPage() {
         loading={loading}
         error={error}
         onRetry={refetch}
-        searchPlaceholder="Search course code, course name, or department…"
+        searchPlaceholder="Search course code or course name…"
         initialSort={[{ id: 'code', desc: false }]}
         emptyIcon={BookOpen}
         emptyTitle="No courses found"
         emptyDescription="Add the first course to this department."
-        toolbar={
-          <FilterSelect
-            value={selectedDeptId}
-            onChange={(val) => setSelectedDeptId(val)}
-            options={deptOptions}
-            allLabel="All Departments"
-            placeholder="Department"
-            className="filter-select--dept"
-          />
-        }
       />
 
       <Dialog open={dialog.open} onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}>
@@ -364,10 +293,7 @@ export function DeptCoursesPage() {
             dept={dept}
             deptId={deptId}
             onClose={() => setDialog((d) => ({ ...d, open: false }))}
-            onCreated={(newDeptId) => {
-              if (selectedDeptId && selectedDeptId !== 'all' && newDeptId && newDeptId !== selectedDeptId) {
-                setSelectedDeptId(newDeptId)
-              }
+            onCreated={() => {
               refetch()
             }}
           />

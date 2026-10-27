@@ -2,6 +2,7 @@ import { query, withTransaction } from '../config/database.js';
 import { newId } from '../utils/idGenerator.js';
 import { computeEnrollmentScore, roundTo2 } from '../utils/gpaCalculator.js';
 import { getOfferingById } from './offeringRepository.js';
+import { ValidationError, NotFoundError } from '../utils/errors.js';
 
 export async function getActiveGradeScale() {
   const scaleRes = await query(`SELECT * FROM grade_scales WHERE is_active = true LIMIT 1`);
@@ -59,6 +60,37 @@ export async function getGradebookData(offeringId) {
   const offering = await getOfferingById(offeringId);
   if (!offering) return null;
 
+  const targetDeptId =
+    offering.teacher?.departmentId ||
+    offering.teacher?.department?.id ||
+    offering.course?.department?.id ||
+    offering.departmentId ||
+    null;
+
+  const rawYos =
+    offering.yearOfStudy ??
+    offering.year_of_study ??
+    offering.course?.yearOfStudy ??
+    (offering.course?.level ? (offering.course.level >= 100 ? Math.floor(offering.course.level / 100) : offering.course.level) : null);
+  const targetYearOfStudy = rawYos !== null && rawYos !== undefined ? parseInt(rawYos, 10) : null;
+
+  // Auto-enroll eligible active students whose department and year of study match the assigned offering
+  if (targetDeptId && targetYearOfStudy) {
+    await query(
+      `INSERT INTO course_enrollments (id, offering_id, student_id, status, is_repeat, enrolled_at)
+       SELECT 'enr_' || substr(md5(random()::text || clock_timestamp()::text || s.id), 1, 16),
+              $1::varchar, s.id, 'enrolled', false, now()
+       FROM students s
+       WHERE s.department_id = $2::varchar
+         AND s.year_of_study = $3::smallint
+         AND s.academic_status = 'active'
+         AND NOT EXISTS (
+           SELECT 1 FROM course_enrollments ce WHERE ce.offering_id = $1::varchar AND ce.student_id = s.id
+         )`,
+      [offeringId, targetDeptId, targetYearOfStudy]
+    );
+  }
+
   // Assessments
   const asmRes = await query(
     `SELECT * FROM assessments WHERE offering_id = $1 ORDER BY due_date ASC, name ASC`,
@@ -75,7 +107,7 @@ export async function getGradebookData(offeringId) {
     description: a.description,
   }));
 
-  // Enrollments
+  // Enrollments: Strictly display only students matching assigned teacher's department and year of study
   const enrRes = await query(
     `SELECT ce.id as enrollment_id, ce.status, ce.is_repeat,
             s.id as student_id, s.student_number,
@@ -86,8 +118,10 @@ export async function getGradebookData(offeringId) {
      JOIN students s ON s.id = ce.student_id
      JOIN users u ON u.id = s.user_id
      WHERE ce.offering_id = $1
+       AND ($2::varchar IS NULL OR s.department_id = $2)
+       AND ($3::smallint IS NULL OR s.year_of_study = $3)
      ORDER BY s.student_number ASC`,
-    [offeringId]
+    [offeringId, targetDeptId, targetYearOfStudy]
   );
 
   // Scores
@@ -306,6 +340,32 @@ export async function getGradebookData(offeringId) {
 }
 
 export async function findOrCreateEnrollment(offeringId, studentId) {
+  const off = await getOfferingById(offeringId);
+  const targetDept =
+    off?.teacher?.departmentId ||
+    off?.teacher?.department?.id ||
+    off?.course?.department?.id ||
+    off?.departmentId ||
+    null;
+  const rawYos =
+    off?.yearOfStudy ??
+    off?.year_of_study ??
+    (off?.course?.level ? (off.course.level >= 100 ? Math.floor(off.course.level / 100) : off.course.level) : null);
+  const targetYear = rawYos !== null && rawYos !== undefined ? parseInt(rawYos, 10) : null;
+
+  const stuRes = await query(`SELECT department_id, year_of_study FROM students WHERE id = $1`, [studentId]);
+  if (stuRes.rows.length === 0) {
+    throw new NotFoundError('Student');
+  }
+  const stu = stuRes.rows[0];
+
+  if (targetDept && stu.department_id !== targetDept) {
+    throw new ValidationError('Student department does not match the assigned course department.');
+  }
+  if (targetYear && Number(stu.year_of_study) !== Number(targetYear)) {
+    throw new ValidationError('Student year of study does not match the assigned course year of study.');
+  }
+
   const existing = await query(
     `SELECT id, status, is_repeat FROM course_enrollments WHERE offering_id = $1 AND student_id = $2`,
     [offeringId, studentId]
@@ -396,9 +456,28 @@ export async function getGradeHistory(offeringId) {
 }
 
 export async function getActiveEnrollmentIds(offeringId) {
+  const offering = await getOfferingById(offeringId);
+  const targetDeptId =
+    offering?.teacher?.departmentId ||
+    offering?.teacher?.department?.id ||
+    offering?.course?.department?.id ||
+    offering?.departmentId ||
+    null;
+  const rawYos =
+    offering?.yearOfStudy ??
+    offering?.year_of_study ??
+    (offering?.course?.level ? (offering.course.level >= 100 ? Math.floor(offering.course.level / 100) : offering.course.level) : null);
+  const targetYearOfStudy = rawYos !== null && rawYos !== undefined ? parseInt(rawYos, 10) : null;
+
   const res = await query(
-    `SELECT id FROM course_enrollments WHERE offering_id = $1 AND status != 'withdrawn'`,
-    [offeringId]
+    `SELECT ce.id
+     FROM course_enrollments ce
+     JOIN students s ON s.id = ce.student_id
+     WHERE ce.offering_id = $1
+       AND ce.status != 'withdrawn'
+       AND ($2::varchar IS NULL OR s.department_id = $2)
+       AND ($3::smallint IS NULL OR s.year_of_study = $3)`,
+    [offeringId, targetDeptId, targetYearOfStudy]
   );
   return res.rows;
 }

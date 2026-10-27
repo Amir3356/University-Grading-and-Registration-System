@@ -1,6 +1,6 @@
 import { query, withTransaction } from '../config/database.js';
 import { newId } from '../utils/idGenerator.js';
-import { ConflictError, ValidationError } from '../utils/errors.js';
+import { ConflictError, ValidationError, NotFoundError, ForbiddenError } from '../utils/errors.js';
 
 export async function listSubmissions({ status, semesterId, departmentId, search, page = 1, pageSize = 10 } = {}) {
   const conditions = [];
@@ -339,5 +339,125 @@ export async function publishSubmission(submissionId, user) {
     );
 
     return { ok: true, status: 'published' };
+  });
+}
+
+export async function submitGradesForOffering(offeringId, { note } = {}, user) {
+  return await withTransaction(async (client) => {
+    // 1. Verify offering
+    const offRes = await client.query(
+      `SELECT co.*, c.code, c.title, c.department_id, d.head_id, u.id as head_user_id
+       FROM course_offerings co
+       JOIN courses c ON c.id = co.course_id
+       LEFT JOIN departments d ON d.id = c.department_id
+       LEFT JOIN users u ON u.id = d.head_id
+       WHERE co.id = $1`,
+      [offeringId]
+    );
+    if (offRes.rows.length === 0) throw new NotFoundError('Course offering');
+    const offering = offRes.rows[0];
+
+    // If teacher, check assigned
+    if (user.roleId === 'teacher' && offering.teacher_id !== user.teacherId) {
+      throw new ForbiddenError('You can only submit grades for your assigned offerings.');
+    }
+
+    if (['submitted', 'approved', 'published'].includes(offering.grade_status)) {
+      throw new ConflictError(`Grades for this course offering have already been ${offering.grade_status}.`);
+    }
+
+    const targetDeptId =
+      offering.teacher?.departmentId ||
+      offering.teacher?.department?.id ||
+      offering.course?.department?.id ||
+      offering.departmentId ||
+      null;
+    const rawYos =
+      offering.yearOfStudy ??
+      offering.year_of_study ??
+      (offering.course?.level ? (offering.course.level >= 100 ? Math.floor(offering.course.level / 100) : offering.course.level) : null);
+    const targetYearOfStudy = rawYos !== null && rawYos !== undefined ? parseInt(rawYos, 10) : null;
+
+    // 2. Fetch student enrollments matching department and year of study
+    const enrRes = await client.query(
+      `SELECT ce.id, ce.student_id
+       FROM course_enrollments ce
+       JOIN students s ON s.id = ce.student_id
+       WHERE ce.offering_id = $1
+         AND ce.status != 'withdrawn'
+         AND ($2::varchar IS NULL OR s.department_id = $2)
+         AND ($3::smallint IS NULL OR s.year_of_study = $3)`,
+      [offeringId, targetDeptId, targetYearOfStudy]
+    );
+    const studentCount = enrRes.rows.length;
+
+    // 3. Get active grade scale
+    const scaleRes = await client.query(
+      `SELECT id FROM grade_scales WHERE is_active = true LIMIT 1`
+    );
+    const scaleId = scaleRes.rows[0]?.id || 'gsc_default';
+
+    // 4. Compute / sync final_grades
+    const { getGradebookData } = await import('./gradebookRepository.js');
+    const gradebook = await getGradebookData(offeringId);
+
+    for (const r of gradebook.rows) {
+      if (r.enrollment?.status === 'withdrawn') continue;
+      const fgId = newId('grd');
+      await client.query(
+        `INSERT INTO final_grades (
+           id, enrollment_id, grade_scale_id, total_score, letter, grade_points,
+           status, is_stale, computed_at, submitted_at, updated_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, 'submitted', false, now(), now(), now())
+         ON CONFLICT (enrollment_id) DO UPDATE SET
+           grade_scale_id = EXCLUDED.grade_scale_id,
+           total_score = EXCLUDED.total_score,
+           letter = EXCLUDED.letter,
+           grade_points = EXCLUDED.grade_points,
+           status = 'submitted',
+           is_stale = false,
+           submitted_at = now(),
+           updated_at = now()`,
+        [
+          fgId,
+          r.enrollmentId,
+          scaleId,
+          r.total != null ? r.total : (r.runningPercent != null ? r.runningPercent : 0),
+          r.letter || 'F',
+          r.points != null ? r.points : 0,
+        ]
+      );
+    }
+
+    // 5. Create grade_submissions record
+    const subId = newId('sub');
+    await client.query(
+      `INSERT INTO grade_submissions (id, offering_id, submitted_by, submitted_at, note, student_count, status)
+       VALUES ($1, $2, $3, now(), $4, $5, 'pending')`,
+      [subId, offeringId, user.id, note || null, studentCount]
+    );
+
+    // 6. Update offering status
+    await client.query(
+      `UPDATE course_offerings SET grade_status = 'submitted', updated_at = now() WHERE id = $1`,
+      [offeringId]
+    );
+
+    // 7. Notify department head if present
+    if (offering.head_user_id) {
+      const notifId = newId('ntf');
+      await client.query(
+        `INSERT INTO notifications (id, user_id, title, message, type, link)
+         VALUES ($1, $2, 'New Grade Submission Pending Approval', $3, 'grade_submitted', $4)`,
+        [
+          notifId,
+          offering.head_user_id,
+          `Final grades for ${offering.code} (${offering.title}) have been submitted and are waiting for your approval.`,
+          `/dept-head/approvals`,
+        ]
+      );
+    }
+
+    return { ok: true, id: subId, status: 'submitted' };
   });
 }

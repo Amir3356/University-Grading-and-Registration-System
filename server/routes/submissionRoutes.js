@@ -8,6 +8,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', requireRoles('admin', 'dept_head'), subCtrl.listSubmissions);
+router.post('/submit', requireRoles('admin', 'dept_head', 'teacher'), subCtrl.submitGrades);
 router.get('/:id', requireRoles('admin', 'dept_head'), subCtrl.getSubmissionDetail);
 router.post('/:id/approve', requireRoles('admin', 'dept_head'), subCtrl.approveSubmission);
 router.post('/:id/reject', requireRoles('admin', 'dept_head'), subCtrl.rejectSubmission);

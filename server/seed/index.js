@@ -60,35 +60,21 @@ const adminUsers = [
     roleId: 'admin',
     username: 'Amir',
     firstName: 'Amir',
-    lastName: 'Administrator',
+    lastName: 'Admin',
     email: 'amir@university.edu',
     phone: '+251 955 592 554',
     status: 'active',
-    password: 'Password123!',
+    password: 'AEHJSS36',
     mustChangePassword: false,
     createdAt: '2024-06-01T00:00:00.000Z',
     updatedAt: '2024-06-01T00:00:00.000Z',
-  },
-  {
-    id: 'usr_0002',
-    roleId: 'admin',
-    username: 'registrar',
-    firstName: 'Marcus',
-    lastName: 'Bell',
-    email: 'registrar@university.edu',
-    phone: '+251 911 338 954',
-    status: 'active',
-    password: 'Password123!',
-    mustChangePassword: false,
-    createdAt: '2024-06-15T00:00:00.000Z',
-    updatedAt: '2024-06-15T00:00:00.000Z',
   },
 ];
 
 export async function seedDatabase() {
   console.log('--- Starting database seeding (Admin Credentials only) ---');
 
-  const defaultPasswordHash = await bcrypt.hash('Password123!', 10);
+  const defaultPasswordHash = await bcrypt.hash('AEHJSS36', 10);
 
   await withTransaction(async (client) => {
     // 1. Roles & Permissions (required for user authentication and role assignments)
@@ -148,6 +134,30 @@ export async function seedDatabase() {
         ]
       );
     }
+
+    // Reassign foreign key references from old seed admin accounts (e.g. usr_0002 / registrar) to Amir (usr_0001)
+    await client.query(`UPDATE grade_scales SET created_by = 'usr_0001' WHERE created_by != 'usr_0001' AND created_by IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
+    await client.query(`UPDATE registration_periods SET created_by = 'usr_0001' WHERE created_by != 'usr_0001' AND created_by IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
+    await client.query(`UPDATE semester_registrations SET reviewed_by = 'usr_0001' WHERE reviewed_by != 'usr_0001' AND reviewed_by IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
+    await client.query(`UPDATE withdrawal_requests SET decided_by = 'usr_0001' WHERE decided_by != 'usr_0001' AND decided_by IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
+    await client.query(`UPDATE withdrawal_clearances SET cleared_by = 'usr_0001' WHERE cleared_by != 'usr_0001' AND cleared_by IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
+    await client.query(`UPDATE users SET created_by = 'usr_0001' WHERE created_by != 'usr_0001' AND created_by IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
+    await client.query(`UPDATE announcements SET author_id = 'usr_0001' WHERE author_id != 'usr_0001' AND author_id IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
+    await client.query(`UPDATE university_settings SET updated_by = 'usr_0001' WHERE updated_by != 'usr_0001' AND updated_by IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
+    await client.query(`UPDATE academic_policies SET updated_by = 'usr_0001' WHERE updated_by != 'usr_0001' AND updated_by IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
+
+    // Clean up tokens and notifications for legacy admin seed accounts
+    await client.query(
+      `DELETE FROM refresh_tokens WHERE user_id IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true AND username != 'Amir')`
+    );
+    await client.query(
+      `DELETE FROM notifications WHERE user_id IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true AND username != 'Amir')`
+    );
+
+    // Delete legacy admin seed accounts (like registrar)
+    await client.query(
+      `DELETE FROM users WHERE role_id = 'admin' AND is_seed = true AND username != 'Amir'`
+    );
   });
 
   console.log('--- Database seeding completed successfully! ---');

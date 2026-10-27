@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   AlertCircle,
-  Edit3,
   NotebookPen,
-  Plus,
   Save,
 } from 'lucide-react'
 import {
@@ -45,7 +43,7 @@ import { GradeBadge } from '@/components/common/StatusBadge'
 import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
-import { getCourseStudyYear } from '@/lib/format'
+import { formatYearOfStudy, getCourseStudyYear } from '@/lib/format'
 import { DEFAULT_GRADE_SCALE, computeWeightedTotal, gradeForScore, isPassing, validateMark } from '@/lib/grading'
 import { cn } from '@/lib/utils'
 import { useWebSocketEvent } from '@/lib/websocket'
@@ -170,6 +168,36 @@ export function EntermarkPage() {
   const assessments = useMemo(() => gradebook?.assessments ?? [], [gradebook?.assessments])
   const isLocked = Boolean(isLockedStatus(currentOffering?.gradeStatus))
   const gbRows = gradebook?.rows
+
+  const targetDeptId =
+    currentOffering?.teacher?.departmentId ||
+    currentOffering?.teacher?.department?.id ||
+    currentOffering?.course?.department?.id ||
+    currentOffering?.departmentId
+
+  const targetDeptName =
+    currentOffering?.teacher?.department?.name ||
+    currentOffering?.course?.department?.name ||
+    (lookups?.departments ?? []).find((d) => d.id === targetDeptId)?.name ||
+    'Department'
+
+  const targetYearOfStudy =
+    currentOffering?.yearOfStudy ??
+    currentOffering?.year_of_study ??
+    (currentOffering?.course ? getCourseStudyYear(currentOffering.course) : null)
+
+  // Strictly filter rows to students whose department and current year of study match the assigned course offering
+  const matchingGbRows = useMemo(() => {
+    if (!gbRows) return []
+    return gbRows.filter((r) => {
+      const sDept = r.student?.departmentId || r.student?.department_id
+      const sYear = r.student?.yearOfStudy ?? r.student?.year_of_study
+      if (targetDeptId && sDept && sDept !== targetDeptId) return false
+      if (targetYearOfStudy != null && sYear != null && Number(sYear) !== Number(targetYearOfStudy)) return false
+      return true
+    })
+  }, [gbRows, targetDeptId, targetYearOfStudy])
+
   const scale = useMemo(
     () => (gradebook?.scale && gradebook.scale.length > 0 ? gradebook.scale : DEFAULT_GRADE_SCALE),
     [gradebook?.scale]
@@ -196,13 +224,13 @@ export function EntermarkPage() {
 
   // Grid changes, validation, and dirty tracking
   const { gridChanges, gridErrors, invalidCount } = useMemo(() => {
-    if (!gbRows || !assessments.length) return { gridChanges: [], gridErrors: {}, invalidCount: 0 }
+    if (!matchingGbRows || !assessments.length) return { gridChanges: [], gridErrors: {}, invalidCount: 0 }
 
     const changes = []
     const errors = {}
     let invalid = 0
 
-    for (const r of gbRows) {
+    for (const r of matchingGbRows) {
       for (const a of assessments) {
         const k = `${r.enrollmentId}:${a.id}`
         if (!(k in gridEdits)) continue
@@ -230,7 +258,7 @@ export function EntermarkPage() {
       }
     }
     return { gridChanges: changes, gridErrors: errors, invalidCount: invalid }
-  }, [gbRows, assessments, gridEdits, activeOfferingId])
+  }, [matchingGbRows, assessments, gridEdits, activeOfferingId])
 
   // Save batch changes from spreadsheet grid (all or for a specific assessment type)
   const handleSaveGrid = async (specificAssessmentId = null) => {
@@ -320,9 +348,9 @@ export function EntermarkPage() {
 
   // 5. TanStack Table Data
   const tableData = useMemo(() => {
-    if (!gbRows) return []
+    if (!matchingGbRows) return []
 
-    return gbRows.map((r) => {
+    return matchingGbRows.map((r) => {
       const effectiveMarks = {}
       for (const a of assessments) {
         const k = `${r.enrollmentId}:${a.id}`
@@ -355,7 +383,7 @@ export function EntermarkPage() {
         row: r,
       }
     })
-  }, [gbRows, assessments, gridEdits, currentOffering, scale, passMark])
+  }, [matchingGbRows, assessments, gridEdits, currentOffering, scale, passMark])
 
   // 6. TanStack Table Column Definitions with generous spacing between headers
   const tableColumns = useMemo(() => {
@@ -525,26 +553,6 @@ export function EntermarkPage() {
           colClass: 'tea-col-status',
         },
       },
-      {
-        id: 'actions',
-        header: 'Actions',
-        cell: ({ row }) => (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => setEditModalData({ isNew: false, row: row.original })}
-            disabled={isLocked}
-            title="Open mark entry dialog"
-          >
-            <Edit3 className="size-3.5 mr-1" />
-            Edit
-          </Button>
-        ),
-        meta: {
-          colClass: 'tea-col-actions',
-        },
-      },
     ]
     return cols
   }, [assessments, gridEdits, gridErrors, isLocked])
@@ -590,16 +598,6 @@ export function EntermarkPage() {
         actions={
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditModalData({ isNew: true })}
-              disabled={isLocked || !currentOffering}
-              title="Open enter mark dialog"
-            >
-              <Plus className="size-4 mr-1.5" />
-              Enter Mark
-            </Button>
-            <Button
               size="sm"
               onClick={() => handleSaveGrid()}
               disabled={savingGrid || gridChanges.length === 0 || invalidCount > 0}
@@ -636,15 +634,20 @@ export function EntermarkPage() {
         />
       ) : (
         <div className="space-y-4">
-          {/* Grid Toolbar: Search on left, Dropdown option on right edge */}
+          {/* Grid Toolbar: Search on left, Target Info badge, Dropdown option on right edge */}
           <div className="tea-grid-toolbar">
-            <div className="tea-grid-toolbar-left">
+            <div className="tea-grid-toolbar-left flex items-center gap-2.5">
               <SearchInput
                 value={globalFilter ?? ''}
                 onChange={setGlobalFilter}
                 placeholder="Search student by name, ID, or section…"
                 className="w-72"
               />
+              {currentOffering && (
+                <Badge variant="outline" className="text-xs px-2.5 py-1 font-medium text-muted-foreground border-border/80">
+                  {targetDeptName} · {formatYearOfStudy(targetYearOfStudy)}
+                </Badge>
+              )}
             </div>
 
             <div className="tea-grid-toolbar-right">
@@ -676,11 +679,11 @@ export function EntermarkPage() {
           ) : table.getRowModel().rows.length === 0 ? (
             <EmptyState
               icon={NotebookPen}
-              title="No students found"
+              title="No matching students found"
               description={
                 globalFilter
                   ? 'No students match your search criteria.'
-                  : 'No enrolled students found for this course.'
+                  : `Only students whose department (${targetDeptName}) and current year of study (${formatYearOfStudy(targetYearOfStudy)}) match are eligible to be displayed.`
               }
             />
           ) : (

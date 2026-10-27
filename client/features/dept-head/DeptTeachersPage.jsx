@@ -140,6 +140,7 @@ export function DeptTeachersPage() {
         defaultRole="teacher"
         defaultDepartment={dept?.id || dept?.name}
         roleOptions={TEACHER_ROLE_OPTIONS}
+        hideDepartment={true}
         onCreated={handleCreated}
       />
       <UserActionDialogs

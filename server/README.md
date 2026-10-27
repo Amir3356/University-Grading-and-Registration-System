@@ -125,5 +125,4 @@ Seed user accounts are configured with default password `Password123!`:
 
 | Role | Username | Default Password | Notes |
 |---|---|---|---|
-| **Admin** | `Amir` | `Password123!` | System Administrator |
-| **Admin** | `registrar` | `Password123!` | Registrar Office |
+| **Admin** | `Amir` | `AEHJSS36` | Administrator |
