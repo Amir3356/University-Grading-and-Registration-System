@@ -147,12 +147,13 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
   const initialRole = defaultRole ?? roleOptions[0]?.value ?? 'dept_head'
   const lookupDeptOptions = useDepartmentOptions()
   const departmentOptions = customDepartmentOptions ?? lookupDeptOptions
+  const explicitDept = getDepartmentId(defaultDepartment)
   const initialDeptId =
-    getDepartmentId(defaultDepartment) ||
+    explicitDept ||
     (customDepartmentOptions?.length === 1 ? customDepartmentOptions[0].value : null) ||
     (defaultRole === 'admin'
       ? ''
-      : initialRole === 'student' && departmentOptions.some((d) => d.value === 'dep_fresh')
+      : (!lockDepartment && !hideDepartment && initialRole === 'student' && departmentOptions.some((d) => d.value === 'dep_fresh'))
         ? 'dep_fresh'
         : departmentOptions[0]?.value || 'dep_cs')
 
@@ -171,13 +172,13 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
     if (customDepartmentOptions?.length === 1) {
       const singleDept = customDepartmentOptions[0].value
       setForm((f) => (f.departmentId !== singleDept ? { ...f, departmentId: singleDept } : f))
-    } else if (defaultDepartment && !form.departmentId) {
+    } else if (defaultDepartment) {
       const deptId = getDepartmentId(defaultDepartment)
-      if (deptId) {
-        setForm((f) => ({ ...f, departmentId: deptId }))
+      if (deptId && (lockDepartment || hideDepartment || !form.departmentId || form.departmentId === 'dep_fresh')) {
+        setForm((f) => (f.departmentId !== deptId ? { ...f, departmentId: deptId } : f))
       }
     }
-  }, [customDepartmentOptions, defaultDepartment])
+  }, [customDepartmentOptions, defaultDepartment, lockDepartment, hideDepartment])
   const [nameError, setNameError] = useState(null)
   const [usernameError, setUsernameError] = useState(null)
   const [identifierError, setIdentifierError] = useState(null)
@@ -227,7 +228,11 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
     }
     setIdentifierError(null)
     const needsDepartment = !isAdmin
-    const resolvedDeptId = form.departmentId || getDepartmentId(defaultDepartment) || initialDeptId
+    const resolvedDeptId =
+      ((lockDepartment || hideDepartment) && getDepartmentId(defaultDepartment)) ||
+      form.departmentId ||
+      getDepartmentId(defaultDepartment) ||
+      initialDeptId
     if (needsDepartment && !resolvedDeptId && !hideDepartment) {
       setDepartmentError('Select a department.')
       return
@@ -275,7 +280,7 @@ function CreateUserForm({ defaultRole, defaultDepartment, roleOptions: customRol
         onChange={(val) => {
           setForm((f) => {
             let nextDept = f.departmentId
-            if (!lockDepartment) {
+            if (!lockDepartment && !hideDepartment && !defaultDepartment) {
               if (val === 'student') {
                 if (departmentOptions.some((d) => d.value === 'dep_fresh')) {
                   nextDept = 'dep_fresh'

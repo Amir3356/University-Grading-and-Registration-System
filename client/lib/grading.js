@@ -56,11 +56,15 @@ export function computeWeightedTotal(assessments, marksByAssessment) {
     const m = marksByAssessment[a.id]
     if (m == null || m === '') continue
     entered += 1
-    earnedWeight += Number(a.weight)
-    total += (Number(m) / Number(a.maxMarks)) * Number(a.weight)
+    const w = Number(a.weight ?? a.maxMarks ?? 0)
+    const mm = Number(a.maxMarks ?? a.weight ?? 100) || 100
+    earnedWeight += w
+    total += (Number(m) / mm) * w
   }
+  const roundedTotal = round(total, 2)
   return {
-    total: round(total, 2),
+    total: roundedTotal,
+    totalScore: roundedTotal,
     complete: assessments.length > 0 && entered === assessments.length,
     enteredCount: entered,
     expectedCount: assessments.length,
@@ -83,7 +87,8 @@ export function gradeForScore(score, scale = DEFAULT_GRADE_SCALE) {
   return sortScale(scale).at(-1)
 }
 
-export function isPassing(score, passMark) {
+export function isPassing(score, passMark, letter = null) {
+  if (letter && String(letter).toUpperCase() === 'F') return false
   return score != null && score >= passMark
 }
 
@@ -141,7 +146,7 @@ export function computeAcademicRecord(rows, policy = DEFAULT_POLICY, scale = DEF
   const normalized = rows.map((r) => {
     let gradePoints = r.gradePoints
     let countsInGpa = true
-    let passed = r.special ? false : isPassing(r.totalScore, policy.passMark)
+    let passed = r.special || String(r.letter).toUpperCase() === 'F' ? false : isPassing(r.totalScore, policy.passMark, r.letter)
     let note = null
     if (r.special === 'W') {
       if (policy.withdrawalPolicy === 'as_fail') gradePoints = failEntry.points

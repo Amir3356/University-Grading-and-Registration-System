@@ -60,11 +60,15 @@ export async function getGradebookData(offeringId) {
   const offering = await getOfferingById(offeringId);
   if (!offering) return null;
 
-  const targetDeptId =
+  const courseDeptId =
+    offering.course?.department?.id ||
+    offering.course?.departmentId ||
+    offering.departmentId ||
+    null;
+
+  const teacherDeptId =
     offering.teacher?.departmentId ||
     offering.teacher?.department?.id ||
-    offering.course?.department?.id ||
-    offering.departmentId ||
     null;
 
   const rawYos =
@@ -75,19 +79,19 @@ export async function getGradebookData(offeringId) {
   const targetYearOfStudy = rawYos !== null && rawYos !== undefined ? parseInt(rawYos, 10) : null;
 
   // Auto-enroll eligible active students whose department and year of study match the assigned offering
-  if (targetDeptId && targetYearOfStudy) {
+  if ((courseDeptId || teacherDeptId) && targetYearOfStudy) {
     await query(
       `INSERT INTO course_enrollments (id, offering_id, student_id, status, is_repeat, enrolled_at)
        SELECT 'enr_' || substr(md5(random()::text || clock_timestamp()::text || s.id), 1, 16),
               $1::varchar, s.id, 'enrolled', false, now()
        FROM students s
-       WHERE s.department_id = $2::varchar
+       WHERE (s.department_id = COALESCE($2::varchar, $4::varchar) OR s.department_id = COALESCE($4::varchar, $2::varchar))
          AND s.year_of_study = $3::smallint
-         AND s.academic_status = 'active'
+         AND (s.academic_status IS NULL OR s.academic_status = 'active' OR s.academic_status = 'enrolled')
          AND NOT EXISTS (
            SELECT 1 FROM course_enrollments ce WHERE ce.offering_id = $1::varchar AND ce.student_id = s.id
          )`,
-      [offeringId, targetDeptId, targetYearOfStudy]
+      [offeringId, courseDeptId, targetYearOfStudy, teacherDeptId]
     );
   }
 
@@ -107,7 +111,7 @@ export async function getGradebookData(offeringId) {
     description: a.description,
   }));
 
-  // Enrollments: Strictly display only students matching assigned teacher's department and year of study
+  // Enrollments: Strictly display only students matching assigned course's/teacher's department and year of study
   const enrRes = await query(
     `SELECT ce.id as enrollment_id, ce.status, ce.is_repeat,
             s.id as student_id, s.student_number,
@@ -118,10 +122,14 @@ export async function getGradebookData(offeringId) {
      JOIN students s ON s.id = ce.student_id
      JOIN users u ON u.id = s.user_id
      WHERE ce.offering_id = $1
-       AND ($2::varchar IS NULL OR s.department_id = $2)
-       AND ($3::smallint IS NULL OR s.year_of_study = $3)
+       AND (
+         ($2::varchar IS NULL AND $4::varchar IS NULL)
+         OR s.department_id = $2::varchar
+         OR s.department_id = $4::varchar
+       )
+       AND ($3::smallint IS NULL OR s.year_of_study = $3::smallint)
      ORDER BY s.student_number ASC`,
-    [offeringId, targetDeptId, targetYearOfStudy]
+    [offeringId, courseDeptId, targetYearOfStudy, teacherDeptId]
   );
 
   // Scores
@@ -238,7 +246,7 @@ export async function getGradebookData(offeringId) {
       enteredCount: calcResult.enteredCount,
       letter: existingFg?.letter || calcResult.letter,
       gradePoints: existingFg?.gradePoints || calcResult.gradePoints,
-      passed: calcResult.passed,
+      passed: (existingFg?.letter || calcResult.letter) === 'F' ? false : calcResult.passed,
       finalGrade: existingFg || null,
     });
   }

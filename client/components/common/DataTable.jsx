@@ -107,19 +107,52 @@ export function DataTable({
   return (
     <div className={cn('data-table', className)}>
       {(searchable || toolbar || exportName) && (
-        <div className="toolbar">
-          {searchable && (
-            <SearchInput
-              value={search}
-              onChange={setSearch}
-              placeholder={searchPlaceholder}
-            />
-          )}
-          {toolbar}
-          {exportName && (
-            <div className="data-table__export">
-              <ExportMenu filename={exportName} title={exportTitle ?? exportName} subtitle={exportSubtitle} columns={exportColumns} rows={visible} university={university} disabled={loading || !visible.length} />
-            </div>
+        <div className={cn('toolbar', searchable && 'toolbar--split data-table__toolbar')}>
+          {searchable ? (
+            <>
+              <div className="toolbar--split__left data-table__search">
+                <SearchInput
+                  value={search}
+                  onChange={setSearch}
+                  placeholder={searchPlaceholder}
+                />
+              </div>
+              {(toolbar || exportName) && (
+                <div className="toolbar--split__right data-table__actions">
+                  {toolbar}
+                  {exportName && (
+                    <div className="data-table__export">
+                      <ExportMenu
+                        filename={exportName}
+                        title={exportTitle ?? exportName}
+                        subtitle={exportSubtitle}
+                        columns={exportColumns}
+                        rows={visible}
+                        university={university}
+                        disabled={loading || !visible.length}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {toolbar}
+              {exportName && (
+                <div className="data-table__export">
+                  <ExportMenu
+                    filename={exportName}
+                    title={exportTitle ?? exportName}
+                    subtitle={exportSubtitle}
+                    columns={exportColumns}
+                    rows={visible}
+                    university={university}
+                    disabled={loading || !visible.length}
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

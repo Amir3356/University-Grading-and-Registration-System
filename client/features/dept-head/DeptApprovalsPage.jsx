@@ -24,6 +24,8 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { PageHeader } from '@/components/common/PageHeader'
 import { StatCard } from '@/components/common/StatCard'
 import { GradeBadge, PassFailBadge, StatusBadge } from '@/components/common/StatusBadge'
+import { FilterSelect } from '@/components/common/FilterSelect'
+import { SearchInput } from '@/components/common/SearchInput'
 
 const STORAGE_KEY = 'ugs-dept-grade-approvals-v3'
 
@@ -232,6 +234,50 @@ export function DeptApprovalsPage() {
     [approvals, selectedRowId],
   )
 
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [teacherFilter, setTeacherFilter] = useState('')
+
+  const teacherOptions = useMemo(() => {
+    const map = new Map()
+    for (const a of approvals) {
+      if (a.teacherName && !map.has(a.teacherName)) {
+        map.set(a.teacherName, { value: a.teacherName, label: a.teacherName })
+      }
+    }
+    return Array.from(map.values())
+  }, [approvals])
+
+  const filteredApprovals = useMemo(() => {
+    return approvals.filter((a) => {
+      // Status filter
+      if (statusFilter && a.status.toLowerCase() !== statusFilter.toLowerCase()) {
+        return false
+      }
+      // Teacher filter
+      if (teacherFilter && a.teacherName !== teacherFilter) {
+        return false
+      }
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim()
+        const cCode = String(a.courseCode || '').toLowerCase()
+        const cName = String(a.courseName || '').toLowerCase()
+        const tName = String(a.teacherName || '').toLowerCase()
+        const tId = String(a.teacherId || '').toLowerCase()
+        if (
+          !cCode.includes(q) &&
+          !cName.includes(q) &&
+          !tName.includes(q) &&
+          !tId.includes(q)
+        ) {
+          return false
+        }
+      }
+      return true
+    })
+  }, [approvals, statusFilter, teacherFilter, searchQuery])
+
   const saveApprovals = (nextList) => {
     setApprovals(nextList)
     try {
@@ -311,6 +357,62 @@ export function DeptApprovalsPage() {
         centered
       />
 
+      {/* Search Box Filter on left, Dropdown Filters flush at the far right edge */}
+      <div className="toolbar--split mb-4">
+        <div className="toolbar--split__left">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search by course code, name, teacher, or ID…"
+          />
+        </div>
+
+        <div className="toolbar--split__right">
+          <FilterSelect
+            label="Status"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            allLabel="All Statuses"
+            options={[
+              { value: 'Pending', label: 'Pending Approval' },
+              { value: 'Approved', label: 'Approved' },
+              { value: 'Rejected', label: 'Rejected / Returned' },
+            ]}
+            className="w-40"
+          />
+
+          {teacherOptions.length > 1 && (
+            <FilterSelect
+              label="Instructor"
+              value={teacherFilter}
+              onChange={setTeacherFilter}
+              allLabel="All Instructors"
+              options={teacherOptions}
+              className="w-48"
+            />
+          )}
+
+          {(searchQuery || statusFilter || teacherFilter) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchQuery('')
+                setStatusFilter('')
+                setTeacherFilter('')
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground h-9"
+            >
+              Reset filters
+            </Button>
+          )}
+
+          <div className="text-xs text-muted-foreground font-medium whitespace-nowrap pl-1">
+            Showing <span className="font-semibold text-foreground">{filteredApprovals.length}</span> of {approvals.length}
+          </div>
+        </div>
+      </div>
+
       <Card className="border shadow-sm">
         <CardContent className="p-0">
           <div className="table-wrap">
@@ -344,7 +446,36 @@ export function DeptApprovalsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {approvals.map((row) => {
+                {filteredApprovals.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
+                      <div className="flex flex-col items-center justify-center gap-1.5">
+                        <FileSpreadsheet className="size-8 text-muted-foreground/50 mb-1" />
+                        <span className="font-semibold text-foreground text-sm">No grade submissions found</span>
+                        <span className="text-xs">
+                          {searchQuery || statusFilter || teacherFilter
+                            ? 'No submissions match your active search or filter criteria.'
+                            : 'No grade submissions have been submitted yet.'}
+                        </span>
+                        {(searchQuery || statusFilter || teacherFilter) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 text-xs"
+                            onClick={() => {
+                              setSearchQuery('')
+                              setStatusFilter('')
+                              setTeacherFilter('')
+                            }}
+                          >
+                            Clear filters
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredApprovals.map((row) => {
                   const isApproved = row.status === 'Approved'
                   const isRejected = row.status === 'Rejected'
                   const statusBadgeKey = isApproved ? 'approved' : isRejected ? 'rejected' : 'pending'
@@ -425,7 +556,7 @@ export function DeptApprovalsPage() {
                       </TableCell>
                     </TableRow>
                   )
-                })}
+                }))}
               </TableBody>
             </Table>
           </div>

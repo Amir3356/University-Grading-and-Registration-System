@@ -55,15 +55,8 @@ export function DeptTeachersPage() {
     setFormOpen(true)
   }
 
-  const handleCreated = (res) => {
+  const handleCreated = () => {
     refetch()
-    setCreated({
-      name: res.user.name,
-      username: res.username,
-      password: res.temporaryPassword,
-      identifier: res.user.identifier,
-      roleId: res.user.roleId,
-    })
   }
 
   const columns = [

@@ -259,6 +259,7 @@ export async function createUser(data, caller) {
         }
       }
       const normProgramType = (data.programType || 'regular').toLowerCase().replace('extensions', 'extension');
+      const stuYos = data.yearOfStudy ? parseInt(data.yearOfStudy, 10) : 1;
       await client.query(
         `INSERT INTO students (
            id, user_id, student_number, department_id, program_id, program_type,
@@ -272,10 +273,28 @@ export async function createUser(data, caller) {
           programId,
           normProgramType,
           data.admissionYear ? parseInt(data.admissionYear, 10) : new Date().getFullYear(),
-          data.yearOfStudy ? parseInt(data.yearOfStudy, 10) : 1,
+          stuYos,
           data.dateOfBirth || null,
         ]
       );
+
+      // Auto-enroll new student into active course offerings matching their department and year of study
+      if (data.departmentId && stuYos) {
+        await client.query(
+          `INSERT INTO course_enrollments (id, offering_id, student_id, status, is_repeat, enrolled_at)
+           SELECT 'enr_' || substr(md5(random()::text || clock_timestamp()::text || co.id), 1, 16),
+                  co.id, $1::varchar, 'enrolled', false, now()
+           FROM course_offerings co
+           JOIN courses c ON c.id = co.course_id
+           LEFT JOIN teachers t ON t.id = co.teacher_id
+           WHERE (c.department_id = $2::varchar OR t.department_id = $2::varchar)
+             AND (co.year_of_study = $3::smallint OR (co.year_of_study IS NULL AND (c.level / 100) = $3::smallint))
+             AND NOT EXISTS (
+               SELECT 1 FROM course_enrollments ce WHERE ce.offering_id = co.id AND ce.student_id = $1::varchar
+             )`,
+          [studentId, data.departmentId, stuYos]
+        );
+      }
     } else if (data.roleId === 'teacher' || data.roleId === 'dept_head') {
       const teacherId = newId('tch');
       await client.query(
@@ -511,6 +530,28 @@ export async function updateUser(id, data, caller) {
          WHERE user_id = $1`,
         [id, identifier, departmentId, programId, data.programType, data.yearOfStudy]
       );
+
+      // Auto-enroll updated student into matching active course offerings
+      const stuRes = await client.query('SELECT id, department_id, year_of_study FROM students WHERE user_id = $1', [id]);
+      if (stuRes.rows.length > 0) {
+        const stu = stuRes.rows[0];
+        if (stu.department_id && stu.year_of_study) {
+          await client.query(
+            `INSERT INTO course_enrollments (id, offering_id, student_id, status, is_repeat, enrolled_at)
+             SELECT 'enr_' || substr(md5(random()::text || clock_timestamp()::text || co.id), 1, 16),
+                    co.id, $1::varchar, 'enrolled', false, now()
+             FROM course_offerings co
+             JOIN courses c ON c.id = co.course_id
+             LEFT JOIN teachers t ON t.id = co.teacher_id
+             WHERE (c.department_id = $2::varchar OR t.department_id = $2::varchar)
+               AND (co.year_of_study = $3::smallint OR (co.year_of_study IS NULL AND (c.level / 100) = $3::smallint))
+               AND NOT EXISTS (
+                 SELECT 1 FROM course_enrollments ce WHERE ce.offering_id = co.id AND ce.student_id = $1::varchar
+               )`,
+            [stu.id, stu.department_id, stu.year_of_study]
+          );
+        }
+      }
     } else if (newTable === 'teachers') {
       await client.query(
         `UPDATE teachers

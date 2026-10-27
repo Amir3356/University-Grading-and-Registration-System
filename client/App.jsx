@@ -5,7 +5,6 @@ import { AuthProvider } from '@/context/AuthProvider'
 import { ThemeProvider } from '@/context/ThemeProvider'
 import { useTheme } from '@/context/theme-context'
 import { AppRouter } from '@/routes/AppRouter'
-import { APP_CONFIG } from '@/config/app.config'
 
 function ThemedToaster() {
   const { theme } = useTheme()

@@ -124,7 +124,7 @@ function Gradebook({ gb, refetch, university }) {
       calc,
       letter: withdrawn ? 'W' : (grade?.letter ?? null),
       points: withdrawn || !calc.complete ? null : points,
-      passed: withdrawn || !calc.complete ? null : calc.total >= passMark,
+      passed: withdrawn || !calc.complete ? null : (grade?.letter && grade.letter.toUpperCase() === 'F' ? false : calc.total >= passMark),
     })
   }
   const invalidCount = computed.reduce((n, c) => n + Object.keys(c.errors).length, 0)
