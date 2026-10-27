@@ -103,168 +103,18 @@ export function EntermarkPage() {
 
   // 2. Offering and Year selection state
   const [selectedYearOfStudy, setSelectedYearOfStudy] = useState('')
-  const [selectedOfferingId, setSelectedOfferingId] = useState(null)
-  const activeOfferingId = selectedOfferingId ?? defaultOfferingId(offerings, paramOfferingId, currentSemesterId) ?? ''
+  const [selectedOfferingId, setSelectedOfferingId] = useState('all')
 
-  const selectedOffering = offerings?.find((o) => o.id === activeOfferingId)
-  const selectedCourseId = selectedOffering?.courseId || selectedOffering?.course?.id
-  const selectedSemesterId = selectedOffering?.semesterId || selectedOffering?.semester?.id
-
-  // All sibling section offerings for the same course & semester
-  const siblingOfferings = useMemo(() => {
-    if (!offerings || !selectedCourseId) return selectedOffering ? [selectedOffering] : []
-    return offerings.filter(
-      (o) =>
-        (o.courseId || o.course?.id) === selectedCourseId &&
-        (!selectedSemesterId || (o.semesterId || o.semester?.id) === selectedSemesterId)
-    )
-  }, [offerings, selectedCourseId, selectedSemesterId, selectedOffering])
-
-  // 3. Fetch gradebook for the active offering (combining sibling sections if multiple exist)
-  const {
-    data: gradebook,
-    refetch: refetchGradebook,
-  } = useQuery(
-    async () => {
-      if (!activeOfferingId) return null
-      if (siblingOfferings.length <= 1) {
-        return await store.grades.getGradebook(activeOfferingId)
-      }
-      const results = await Promise.allSettled(
-        siblingOfferings.map((o) => store.grades.getGradebook(o.id))
-      )
-      const primary = results.find((r) => r.status === 'fulfilled' && r.value)?.value
-      if (!primary) return null
-
-      const assessments = primary.assessments || []
-      const combinedRows = []
-      const seenEnrollment = new Set()
-
-      for (let i = 0; i < results.length; i++) {
-        const res = results[i]
-        if (res.status !== 'fulfilled' || !res.value) continue
-        const off = siblingOfferings[i]
-        const rows = res.value.rows || []
-        for (const r of rows) {
-          if (seenEnrollment.has(r.enrollmentId)) continue
-          seenEnrollment.add(r.enrollmentId)
-          combinedRows.push({
-            ...r,
-            offeringId: off.id,
-            section: off.section || r.enrollment?.section || '',
-          })
-        }
-      }
-
-      return {
-        ...primary,
-        assessments,
-        rows: combinedRows,
-      }
-    },
-    [activeOfferingId, siblingOfferings.map((o) => o.id).join(',')],
-    { enabled: Boolean(activeOfferingId) },
-  )
-
-  // 4. Spreadsheet Grid states & TanStack Table
-  const [gridEdits, setGridEdits] = useState({})
-  const [globalFilter, setGlobalFilter] = useState('')
-  const [sorting, setSorting] = useState([])
-  const [savingGrid, setSavingGrid] = useState(false)
-  const [editModalData, setEditModalData] = useState(null) // { row, isNew?: boolean }
-  const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
-  const [submittingGrades, setSubmittingGrades] = useState(false)
-  const [showIncompleteList, setShowIncompleteList] = useState(false)
-
-  // Offering metadata
-  const currentOffering = offerings?.find((o) => o.id === activeOfferingId)
-  const assessments = useMemo(() => gradebook?.assessments ?? [], [gradebook?.assessments])
-  const isLocked = Boolean(isLockedStatus(currentOffering?.gradeStatus))
-  const gbRows = gradebook?.rows
-
-  const courseDeptId =
-    currentOffering?.course?.department?.id ||
-    currentOffering?.course?.departmentId ||
-    currentOffering?.departmentId
-
-  const teacherDeptId =
-    currentOffering?.teacher?.departmentId ||
-    currentOffering?.teacher?.department?.id
-
-  const targetDeptId = courseDeptId || teacherDeptId
-
-  const targetDeptName =
-    currentOffering?.course?.department?.name ||
-    currentOffering?.teacher?.department?.name ||
-    (lookups?.departments ?? []).find((d) => d.id === targetDeptId)?.name ||
-    'Department'
-
-  const targetYearOfStudy =
-    currentOffering?.yearOfStudy ??
-    currentOffering?.year_of_study ??
-    (currentOffering?.course ? getCourseStudyYear(currentOffering.course) : null)
-
-  const validDeptSet = useMemo(() => {
-    const set = new Set()
-    if (courseDeptId) set.add(courseDeptId)
-    if (teacherDeptId) set.add(teacherDeptId)
-    if (currentOffering?.course?.department?.code) set.add(currentOffering.course.department.code)
-    if (currentOffering?.teacher?.department?.code) set.add(currentOffering.teacher.department.code)
-    return set
-  }, [courseDeptId, teacherDeptId, currentOffering])
-
-  // Strictly filter rows to students whose department and current year of study match the assigned course offering
-  const matchingGbRows = useMemo(() => {
-    if (!gbRows) return []
-    return gbRows.filter((r) => {
-      const sDept = r.student?.departmentId || r.student?.department_id
-      const sYear = r.student?.yearOfStudy ?? r.student?.year_of_study
-      if (validDeptSet.size > 0 && sDept && !validDeptSet.has(sDept)) {
-        const deptObj = (lookups?.departments ?? []).find((d) => d.id === sDept || d.code === sDept)
-        if (deptObj && !validDeptSet.has(deptObj.id) && !validDeptSet.has(deptObj.code)) {
-          return false
-        }
-      }
-      if (targetYearOfStudy != null && sYear != null && Number(sYear) !== Number(targetYearOfStudy)) return false
-      if (selectedYearOfStudy && selectedYearOfStudy !== 'all' && sYear != null && String(sYear) !== String(selectedYearOfStudy)) return false
-      return true
-    })
-  }, [gbRows, validDeptSet, targetYearOfStudy, selectedYearOfStudy, lookups?.departments])
-
-  const scale = useMemo(
-    () => (gradebook?.scale && gradebook.scale.length > 0 ? gradebook.scale : DEFAULT_GRADE_SCALE),
-    [gradebook?.scale]
-  )
-  const passMark = gradebook?.passMark ?? 50
-
-  // Distinct years of study that this teacher teaches across their course offerings
-  const teacherYearOptions = useMemo(() => {
-    if (!offerings || offerings.length === 0) return []
-    const yearSet = new Set()
-    for (const o of offerings) {
-      const y =
-        o.yearOfStudy ??
-        o.year_of_study ??
-        (o.course ? getCourseStudyYear(o.course) : null)
-      if (y != null && y !== '') {
-        yearSet.add(String(y))
-      }
-    }
-    const sorted = Array.from(yearSet).sort((a, b) => Number(a) - Number(b))
-    if (sorted.length === 0) {
-      return [
-        { value: '1', label: 'Year 1' },
-        { value: '2', label: 'Year 2' },
-        { value: '3', label: 'Year 3' },
-        { value: '4', label: 'Year 4' },
-        { value: '5', label: 'Year 5' },
-      ]
-    }
-    return sorted.map((y) => ({
-      value: String(y),
-      label: `Year ${y}`,
-    }))
-  }, [offerings])
+  const getOfferingStudyYear = (o) => {
+    if (!o) return null
+    const y =
+      o.yearOfStudy ??
+      o.year_of_study ??
+      o.course?.yearOfStudy ??
+      (o.course?.level ? Math.floor(o.course.level / 100) : null) ??
+      (o.course ? getCourseStudyYear(o.course) : null)
+    return y != null && y !== '' ? String(y) : null
+  }
 
   // Deduplicated offerings for course filter dropdown
   const uniqueCourseOfferings = useMemo(() => {
@@ -279,18 +129,224 @@ export function EntermarkPage() {
     return Array.from(map.values())
   }, [offerings])
 
+  // Distinct years of study that this teacher teaches across their course offerings
+  const teacherYearOptions = useMemo(() => {
+    if (!offerings || offerings.length === 0) return []
+    const yearSet = new Set()
+    for (const o of offerings) {
+      const y = getOfferingStudyYear(o)
+      if (y != null) {
+        yearSet.add(String(y))
+      }
+    }
+    const sorted = Array.from(yearSet).sort((a, b) => Number(a) - Number(b))
+    return sorted.map((y) => ({
+      value: String(y),
+      label: `Year ${y}`,
+    }))
+  }, [offerings])
+
   // Filter course offerings by the selected Year of Study
   const filteredCourseOfferings = useMemo(() => {
     if (!uniqueCourseOfferings) return []
     if (!selectedYearOfStudy || selectedYearOfStudy === 'all') return uniqueCourseOfferings
-    return uniqueCourseOfferings.filter((o) => {
-      const y =
-        o.yearOfStudy ??
-        o.year_of_study ??
-        (o.course ? getCourseStudyYear(o.course) : null)
-      return String(y) === String(selectedYearOfStudy)
-    })
+    const filtered = uniqueCourseOfferings.filter((o) => getOfferingStudyYear(o) === String(selectedYearOfStudy))
+    return filtered.length > 0 ? filtered : uniqueCourseOfferings
   }, [uniqueCourseOfferings, selectedYearOfStudy])
+
+  // Determine target offerings to query/display based on filters
+  const targetOfferings = useMemo(() => {
+    if (!offerings || offerings.length === 0) return []
+    if (selectedOfferingId && selectedOfferingId !== 'all') {
+      const specific = offerings.filter((o) => o.id === selectedOfferingId)
+      if (specific.length > 0) return specific
+    }
+    if (selectedYearOfStudy && selectedYearOfStudy !== 'all') {
+      const byYear = offerings.filter((o) => getOfferingStudyYear(o) === String(selectedYearOfStudy))
+      if (byYear.length > 0) return byYear
+    }
+    return offerings
+  }, [offerings, selectedOfferingId, selectedYearOfStudy])
+
+  const activeOfferingId =
+    selectedOfferingId && selectedOfferingId !== 'all'
+      ? selectedOfferingId
+      : targetOfferings.length === 1
+        ? targetOfferings[0].id
+        : null
+
+  const currentOffering = offerings?.find((o) => o.id === activeOfferingId) || null
+
+  // 3. Fetch gradebook data for target offerings
+  const targetOfferingsKey = targetOfferings.map((o) => o.id).sort().join(',')
+  const {
+    data: gradebook,
+    refetch: refetchGradebook,
+  } = useQuery(
+    async () => {
+      if (!targetOfferings || targetOfferings.length === 0) return null
+      const results = await Promise.allSettled(
+        targetOfferings.map((o) => store.grades.getGradebook(o.id))
+      )
+      const successful = []
+      for (let i = 0; i < results.length; i++) {
+        if (results[i].status === 'fulfilled' && results[i].value) {
+          successful.push({
+            offering: targetOfferings[i],
+            gradebook: results[i].value,
+          })
+        }
+      }
+      if (successful.length === 0) return null
+
+      const offeringAssessmentsMap = {}
+      const combinedRows = []
+      const seenEnrollment = new Set()
+
+      for (const { offering, gradebook: gb } of successful) {
+        offeringAssessmentsMap[offering.id] = gb.assessments || []
+        const rows = gb.rows || []
+        for (const r of rows) {
+          if (seenEnrollment.has(r.enrollmentId)) continue
+          seenEnrollment.add(r.enrollmentId)
+          combinedRows.push({
+            ...r,
+            offeringId: offering.id,
+            offering,
+            courseCode: offering.course?.code,
+            courseTitle: offering.course?.title,
+            offeringYearOfStudy: getOfferingStudyYear(offering),
+            section: offering.section || r.enrollment?.section || '',
+          })
+        }
+      }
+
+      const primary = successful[0].gradebook
+      return {
+        ...primary,
+        successfulOfferings: successful,
+        offeringAssessmentsMap,
+        rows: combinedRows,
+        scale: primary.scale,
+        passMark: primary.passMark,
+        isMultiOffering: targetOfferings.length > 1,
+      }
+    },
+    [targetOfferingsKey],
+    { enabled: targetOfferings.length > 0 },
+  )
+
+  // 4. Spreadsheet Grid states & TanStack Table
+  const [gridEdits, setGridEdits] = useState({})
+  const [globalFilter, setGlobalFilter] = useState('')
+  const [sorting, setSorting] = useState([])
+  const [savingGrid, setSavingGrid] = useState(false)
+  const [editModalData, setEditModalData] = useState(null) // { row, isNew?: boolean }
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
+  const [submittingGrades, setSubmittingGrades] = useState(false)
+  const [showIncompleteList, setShowIncompleteList] = useState(false)
+
+  // Assessment columns to display in spreadsheet
+  const assessments = useMemo(() => {
+    if (!gradebook?.offeringAssessmentsMap) return gradebook?.assessments ?? []
+    if (targetOfferings.length === 1) {
+      return gradebook.offeringAssessmentsMap[targetOfferings[0].id] || gradebook.assessments || []
+    }
+
+    const typeOrder = ['quiz', 'assignment', 'midterm', 'final', 'project', 'lab']
+    const typeMap = new Map()
+
+    for (const { offering } of (gradebook.successfulOfferings || [])) {
+      const asms = gradebook.offeringAssessmentsMap[offering.id] || []
+      for (const a of asms) {
+        const key = (a.type || a.name || a.id).toLowerCase().trim()
+        if (!typeMap.has(key)) {
+          typeMap.set(key, {
+            id: a.id,
+            key,
+            name: a.name || typeLabel(a.type),
+            type: a.type,
+            maxMarks: a.maxMarks,
+            weight: a.weight,
+            offeringMap: { [offering.id]: a },
+          })
+        } else {
+          const existing = typeMap.get(key)
+          existing.offeringMap[offering.id] = a
+          if (!existing.weight && a.weight) existing.weight = a.weight
+          if (!existing.maxMarks && a.maxMarks) existing.maxMarks = a.maxMarks
+        }
+      }
+    }
+
+    const items = Array.from(typeMap.values())
+    items.sort((a, b) => {
+      const idxA = typeOrder.indexOf(a.type?.toLowerCase())
+      const idxB = typeOrder.indexOf(b.type?.toLowerCase())
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB
+      if (idxA !== -1) return -1
+      if (idxB !== -1) return 1
+      return Number(a.weight || 0) - Number(b.weight || 0)
+    })
+    return items
+  }, [gradebook, targetOfferings])
+  
+  // Real-time active grade status taking the freshest status from gradebook or offering
+  const activeGradeStatus =
+    currentOffering?.gradeStatus ||
+    currentOffering?.grade_status ||
+    gradebook?.offering?.grade_status ||
+    gradebook?.offering?.gradeStatus ||
+    'not_started'
+
+  const isLocked = Boolean(
+    currentOffering
+      ? isLockedStatus(activeGradeStatus)
+      : false
+  )
+  const offeringGradeStatus = activeGradeStatus
+  const gbRows = gradebook?.rows
+
+  const validDeptSet = useMemo(() => {
+    const set = new Set()
+    for (const o of (offerings || [])) {
+      const cDeptId = o.course?.department?.id || o.course?.departmentId || o.departmentId
+      const tDeptId = o.teacher?.departmentId || o.teacher?.department?.id
+      if (cDeptId) set.add(cDeptId)
+      if (tDeptId) set.add(tDeptId)
+      if (o.course?.department?.code) set.add(o.course.department.code)
+      if (o.teacher?.department?.code) set.add(o.teacher.department.code)
+    }
+    return set
+  }, [offerings])
+
+  // Filter rows based on department, selected Year of Study, and Course
+  const matchingGbRows = useMemo(() => {
+    if (!gbRows) return []
+    return gbRows.filter((r) => {
+      const sDept = r.student?.departmentId || r.student?.department_id
+      const sYear = r.student?.yearOfStudy ?? r.student?.year_of_study ?? r.offeringYearOfStudy
+      if (validDeptSet.size > 0 && sDept && !validDeptSet.has(sDept)) {
+        const deptObj = (lookups?.departments ?? []).find((d) => d.id === sDept || d.code === sDept)
+        if (deptObj && !validDeptSet.has(deptObj.id) && !validDeptSet.has(deptObj.code)) {
+          return false
+        }
+      }
+      if (selectedYearOfStudy && selectedYearOfStudy !== 'all' && sYear != null) {
+        if (String(sYear) !== String(selectedYearOfStudy)) return false
+      }
+      if (selectedOfferingId && selectedOfferingId !== 'all') {
+        if (r.offeringId && r.offeringId !== selectedOfferingId) return false
+      }
+      return true
+    })
+  }, [gbRows, validDeptSet, selectedYearOfStudy, selectedOfferingId, lookups?.departments])
+
+  const scale = useMemo(
+    () => (gradebook?.scale && gradebook.scale.length > 0 ? gradebook.scale : DEFAULT_GRADE_SCALE),
+    [gradebook?.scale]
+  )
+  const passMark = gradebook?.passMark ?? 50
 
   // Change handler for Year of Study filter
   const handleYearOfStudyChange = (year) => {
@@ -299,18 +355,28 @@ export function EntermarkPage() {
     setGridEdits({})
 
     if (val && val !== 'all') {
-      const matching = uniqueCourseOfferings.filter((o) => {
-        const y =
-          o.yearOfStudy ??
-          o.year_of_study ??
-          (o.course ? getCourseStudyYear(o.course) : null)
-        return String(y) === String(val)
-      })
+      const matching = uniqueCourseOfferings.filter((o) => getOfferingStudyYear(o) === String(val))
       if (matching.length > 0) {
-        const currentMatches = matching.some((o) => o.id === activeOfferingId)
+        const currentMatches = matching.some((o) => o.id === selectedOfferingId)
         if (!currentMatches) {
           setSelectedOfferingId(matching[0].id)
         }
+      }
+    } else {
+      setSelectedOfferingId('all')
+    }
+  }
+
+  // Change handler for Course filter (auto-syncs Year of Study)
+  const handleCourseChange = (id) => {
+    const val = id || 'all'
+    setSelectedOfferingId(val)
+    setGridEdits({})
+    if (val && val !== 'all') {
+      const targetOff = offerings?.find((o) => o.id === val)
+      const offYear = getOfferingStudyYear(targetOff)
+      if (offYear) {
+        setSelectedYearOfStudy(offYear)
       }
     }
   }
@@ -318,17 +384,17 @@ export function EntermarkPage() {
   // Ensure active offering belongs to the selected year of study if one is selected
   useEffect(() => {
     if (selectedYearOfStudy && selectedYearOfStudy !== 'all' && filteredCourseOfferings.length > 0) {
-      const currentMatches = filteredCourseOfferings.some((o) => o.id === activeOfferingId)
+      const currentMatches = filteredCourseOfferings.some((o) => o.id === selectedOfferingId)
       if (!currentMatches) {
         setSelectedOfferingId(filteredCourseOfferings[0].id)
       }
     }
-  }, [selectedYearOfStudy, filteredCourseOfferings, activeOfferingId])
+  }, [selectedYearOfStudy, filteredCourseOfferings, selectedOfferingId])
 
-  // Reset grid edits when active offering changes
+  // Reset grid edits when target offerings change
   useEffect(() => {
     setGridEdits({})
-  }, [activeOfferingId, gbRows])
+  }, [targetOfferingsKey, gbRows])
 
   // Grid changes, validation, and dirty tracking
   const { gridChanges, gridErrors, invalidCount } = useMemo(() => {
@@ -339,7 +405,8 @@ export function EntermarkPage() {
     let invalid = 0
 
     for (const r of matchingGbRows) {
-      for (const a of assessments) {
+      const rowAsms = gradebook?.offeringAssessmentsMap?.[r.offeringId] || assessments
+      for (const a of rowAsms) {
         const k = `${r.enrollmentId}:${a.id}`
         if (!(k in gridEdits)) continue
 
@@ -357,7 +424,7 @@ export function EntermarkPage() {
 
         if (nextMark !== savedMark) {
           changes.push({
-            offeringId: r.offeringId || activeOfferingId,
+            offeringId: r.offeringId || (targetOfferings.length === 1 ? targetOfferings[0].id : null),
             enrollmentId: r.enrollmentId,
             assessmentId: a.id,
             marks: nextMark,
@@ -366,7 +433,7 @@ export function EntermarkPage() {
       }
     }
     return { gridChanges: changes, gridErrors: errors, invalidCount: invalid }
-  }, [matchingGbRows, assessments, gridEdits, activeOfferingId])
+  }, [matchingGbRows, assessments, gridEdits, targetOfferings, gradebook?.offeringAssessmentsMap])
 
   // Save batch changes from spreadsheet grid (all or for a specific assessment type)
   const handleSaveGrid = async (specificAssessmentId = null) => {
@@ -401,7 +468,7 @@ export function EntermarkPage() {
       }
 
       for (const [offId, changes] of Object.entries(byOffering)) {
-        await store.grades.saveScores(offId, { changes })
+        await store.grades.saveScores(offId, { changes, reason: 'Grade adjustment / revision' })
       }
 
       toast.success(`Marks saved successfully (${toSave.length} score(s) updated).`)
@@ -459,8 +526,9 @@ export function EntermarkPage() {
     if (!matchingGbRows) return []
 
     return matchingGbRows.map((r) => {
+      const rowAssessments = gradebook?.offeringAssessmentsMap?.[r.offeringId] || assessments
       const effectiveMarks = {}
-      for (const a of assessments) {
+      for (const a of rowAssessments) {
         const k = `${r.enrollmentId}:${a.id}`
         if (k in gridEdits) {
           const raw = String(gridEdits[k]).trim()
@@ -471,7 +539,7 @@ export function EntermarkPage() {
         }
       }
       const isWithdrawn = r.enrollment?.status === 'withdrawn'
-      const calc = computeWeightedTotal(assessments, effectiveMarks)
+      const calc = computeWeightedTotal(rowAssessments, effectiveMarks)
       const grade = calc.complete ? gradeForScore(calc.total, scale) : null
       const points = grade != null ? (grade.points ?? grade.gradePoints ?? 0) : null
       const isF = (grade?.letter || '').toUpperCase() === 'F'
@@ -486,15 +554,19 @@ export function EntermarkPage() {
       const studentYear =
         r.student?.yearOfStudy ??
         r.student?.year_of_study ??
+        r.offeringYearOfStudy ??
         currentOffering?.yearOfStudy ??
         currentOffering?.year_of_study ??
         (currentOffering?.course ? getCourseStudyYear(currentOffering.course) : null)
 
       return {
         enrollmentId: r.enrollmentId,
+        offeringId: r.offeringId || currentOffering?.id,
         studentId: r.student?.studentNumber || r.student?.student_number || r.student?.id || '',
         studentName: r.student?.name || (r.student?.firstName ? `${r.student.firstName} ${r.student.lastName || ''}`.trim() : '') || 'Student',
         yearOfStudy: studentYear,
+        courseCode: r.courseCode || r.offering?.course?.code || currentOffering?.course?.code || '',
+        courseTitle: r.courseTitle || r.offering?.course?.title || currentOffering?.course?.title || '',
         section: r.section || currentOffering?.section || 'A',
         student: r.student,
         effectiveMarks,
@@ -508,7 +580,7 @@ export function EntermarkPage() {
         row: r,
       }
     })
-  }, [matchingGbRows, assessments, gridEdits, currentOffering, scale, passMark])
+  }, [matchingGbRows, assessments, gridEdits, currentOffering, scale, passMark, gradebook?.offeringAssessmentsMap])
 
   // Grade submission metrics & handler
   const weightTotal = useMemo(() => {
@@ -562,7 +634,8 @@ export function EntermarkPage() {
     return tableData
       .filter((t) => !t.calc?.complete && !t.withdrawn)
       .map((t) => {
-        const missing = assessments
+        const rowAsms = gradebook?.offeringAssessmentsMap?.[t.offeringId] || assessments
+        const missing = rowAsms
           .filter((a) => t.effectiveMarks?.[a.id] == null || t.effectiveMarks?.[a.id] === '')
           .map((a) => a.name)
         const currentTotal = t.calc?.total ?? t.calc?.totalScore
@@ -573,7 +646,7 @@ export function EntermarkPage() {
           currentTotal: currentTotal != null ? Number(currentTotal).toFixed(1) : '0.0',
         }
       })
-  }, [tableData, assessments])
+  }, [tableData, assessments, gradebook?.offeringAssessmentsMap])
 
   const handleSubmitGrades = async () => {
     if (!activeOfferingId) return
@@ -643,6 +716,18 @@ export function EntermarkPage() {
         },
       },
       {
+        accessorKey: 'courseCode',
+        header: 'Course',
+        cell: ({ row }) => (
+          <Badge variant="outline" className="font-mono text-xs font-semibold px-2 py-0.5">
+            {row.original.courseCode || '—'}
+          </Badge>
+        ),
+        meta: {
+          colClass: 'tea-col-course',
+        },
+      },
+      {
         accessorKey: 'section',
         header: 'Section',
         cell: ({ row }) => (
@@ -658,7 +743,13 @@ export function EntermarkPage() {
         const maxAllowed = Number(a.weight ?? a.maxMarks ?? 100)
         return {
           id: `assessment_${a.id}`,
-          accessorFn: (row) => (row.effectiveMarks[a.id] != null ? row.effectiveMarks[a.id] : -1),
+          accessorFn: (row) => {
+            const concreteAsm = a.offeringMap
+              ? a.offeringMap[row.offeringId]
+              : (a.offeringId && a.offeringId !== row.offeringId ? null : a)
+            if (!concreteAsm) return -1
+            return row.effectiveMarks[concreteAsm.id] != null ? row.effectiveMarks[concreteAsm.id] : -1
+          },
           enableSorting: true,
           header: () => (
             <div className="tea-assessment-header">
@@ -673,14 +764,32 @@ export function EntermarkPage() {
           cell: ({ row, table }) => {
             const s = row.original
             const rowIdx = row.index
-            const k = `${s.enrollmentId}:${a.id}`
+            const concreteAsm = a.offeringMap
+              ? a.offeringMap[s.offeringId]
+              : (a.offeringId && a.offeringId !== s.offeringId ? null : a)
+
+            if (!concreteAsm) {
+              return (
+                <div className="flex items-center justify-center text-muted-foreground/30 font-mono text-xs py-1 select-none">
+                  —
+                </div>
+              )
+            }
+
+            const concreteId = concreteAsm.id
+            const concreteMax = Number(concreteAsm.weight ?? concreteAsm.maxMarks ?? maxAllowed)
+            const k = `${s.enrollmentId}:${concreteId}`
             const isEdited = k in gridEdits
             const errorMsg = gridErrors[k]
             const currentVal = isEdited
               ? gridEdits[k]
-              : s.effectiveMarks[a.id] != null
-                ? String(s.effectiveMarks[a.id])
+              : s.effectiveMarks[concreteId] != null
+                ? String(s.effectiveMarks[concreteId])
                 : ''
+
+            const rowOffering = offerings?.find((o) => o.id === s.offeringId) || currentOffering
+            const rowStatus = rowOffering?.gradeStatus || rowOffering?.grade_status || offeringGradeStatus
+            const rowLocked = isLockedStatus(rowStatus)
 
             return (
               <Input
@@ -688,16 +797,16 @@ export function EntermarkPage() {
                 type="number"
                 step="any"
                 min="0"
-                max={maxAllowed}
-                disabled={isLocked || s.withdrawn}
+                max={concreteMax}
+                disabled={rowLocked || s.withdrawn}
                 value={currentVal}
                 onChange={(e) => {
                   const val = e.target.value
                   if (val !== '' && val !== null) {
                     const num = Number(val)
-                    if (!Number.isNaN(num) && num > maxAllowed) {
-                      toast.error(`Cannot insert mark above ${maxAllowed} for ${a.name || typeLabel(a.type)}.`, {
-                        id: `max-cap-${a.id}`,
+                    if (!Number.isNaN(num) && num > concreteMax) {
+                      toast.error(`Cannot insert mark above ${concreteMax} for ${concreteAsm.name || typeLabel(concreteAsm.type)}.`, {
+                        id: `max-cap-${concreteId}`,
                       })
                       return
                     }
@@ -705,7 +814,7 @@ export function EntermarkPage() {
                       return
                     }
                   }
-                  updateGridCell(s.enrollmentId, a.id, val)
+                  updateGridCell(s.enrollmentId, concreteId, val)
                 }}
                 onKeyDown={(e) => handleGridKeyDown(e, rowIdx, colIdx, table.getRowModel().rows.length)}
                 placeholder="—"
@@ -770,24 +879,85 @@ export function EntermarkPage() {
       },
       {
         id: 'status',
-        accessorFn: (row) => (row.calc.complete ? 1 : 0),
+        accessorFn: (row) => {
+          if (row.withdrawn) return 'withdrawn'
+          const rowOffering = offerings?.find((o) => o.id === row.offeringId) || currentOffering
+          const status = rowOffering?.gradeStatus || offeringGradeStatus
+          if (status === 'submitted') return 'pending'
+          if (status === 'rejected') return 'rejected'
+          if (status === 'approved') return 'approved'
+          if (status === 'published') return 'published'
+          return row.calc.complete ? 'draft' : 'incomplete'
+        },
         header: 'Status',
-        cell: ({ row }) => (
-          <Badge variant={row.original.calc.complete ? 'success' : 'warning'} className="px-2.5 py-0.5">
-            {row.original.calc.complete
-              ? 'Complete'
-              : row.original.calc.expectedCount === 0
-                ? 'No assessments'
-                : `${row.original.calc.enteredCount}/${row.original.calc.expectedCount} Entered`}
-          </Badge>
-        ),
+        cell: ({ row }) => {
+          if (row.original.withdrawn) {
+            return (
+              <Badge variant="muted" className="px-2.5 py-0.5">
+                Withdrawn
+              </Badge>
+            )
+          }
+
+          const rowOffering = offerings?.find((o) => o.id === row.original.offeringId) || currentOffering
+          const status = rowOffering?.gradeStatus || offeringGradeStatus
+
+          if (status === 'submitted') {
+            return (
+              <Badge variant="warning" className="px-2.5 py-0.5 inline-flex items-center gap-1.5 font-medium">
+                <Clock className="size-3" />
+                Pending
+              </Badge>
+            )
+          }
+
+          if (status === 'rejected') {
+            return (
+              <Badge variant="danger" className="px-2.5 py-0.5 inline-flex items-center gap-1.5 font-medium">
+                <Undo2 className="size-3" />
+                Rejected
+              </Badge>
+            )
+          }
+
+          if (status === 'approved') {
+            return (
+              <Badge variant="success" className="px-2.5 py-0.5 inline-flex items-center gap-1.5 font-medium">
+                <CheckCircle2 className="size-3" />
+                Approved
+              </Badge>
+            )
+          }
+
+          if (status === 'published') {
+            return (
+              <Badge variant="success" className="px-2.5 py-0.5 inline-flex items-center gap-1.5 font-medium">
+                <CheckCircle2 className="size-3" />
+                Published
+              </Badge>
+            )
+          }
+
+          return (
+            <Badge
+              variant={row.original.calc.complete ? 'secondary' : 'warning'}
+              className="px-2.5 py-0.5 font-medium"
+            >
+              {row.original.calc.complete
+                ? 'Draft'
+                : row.original.calc.expectedCount === 0
+                  ? 'No assessments'
+                  : `${row.original.calc.enteredCount}/${row.original.calc.expectedCount} Entered`}
+            </Badge>
+          )
+        },
         meta: {
           colClass: 'tea-col-status',
         },
       },
     ]
     return cols
-  }, [assessments, gridEdits, gridErrors, isLocked])
+  }, [assessments, gridEdits, gridErrors, isLocked, offeringGradeStatus, offerings, currentOffering])
 
   // 7. TanStack Table Instance
   const table = useReactTable({
@@ -810,12 +980,16 @@ export function EntermarkPage() {
       const sName = String(orig.studentName || '').toLowerCase()
       const sec = String(orig.section || '').toLowerCase()
       const yr = formatYearOfStudy(orig.yearOfStudy).toLowerCase()
+      const cCode = String(orig.courseCode || '').toLowerCase()
+      const cTitle = String(orig.courseTitle || '').toLowerCase()
       return (
         sNum.includes(q) ||
         sName.includes(q) ||
         sec.includes(q) ||
         `section ${sec}`.includes(q) ||
-        yr.includes(q)
+        yr.includes(q) ||
+        cCode.includes(q) ||
+        cTitle.includes(q)
       )
     },
   })
@@ -854,7 +1028,7 @@ export function EntermarkPage() {
 
             {currentOffering && (
               <>
-                {currentOffering.gradeStatus === 'submitted' && (
+                {activeGradeStatus === 'submitted' && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -865,7 +1039,7 @@ export function EntermarkPage() {
                     Submitted for Review
                   </Button>
                 )}
-                {currentOffering.gradeStatus === 'approved' && (
+                {activeGradeStatus === 'approved' && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -876,7 +1050,7 @@ export function EntermarkPage() {
                     Grades Approved
                   </Button>
                 )}
-                {currentOffering.gradeStatus === 'published' && (
+                {activeGradeStatus === 'published' && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -887,10 +1061,10 @@ export function EntermarkPage() {
                     Grades Published
                   </Button>
                 )}
-                {!['submitted', 'approved', 'published'].includes(currentOffering.gradeStatus) && (
+                {!['submitted', 'approved', 'published'].includes(activeGradeStatus) && (
                   <Button
                     size="sm"
-                    variant={currentOffering.gradeStatus === 'rejected' ? 'destructive' : 'default'}
+                    variant={activeGradeStatus === 'rejected' ? 'destructive' : 'default'}
                     onClick={() => setSubmitDialogOpen(true)}
                     disabled={savingGrid || assessments.length === 0 || tableData.length === 0}
                     title={
@@ -898,13 +1072,13 @@ export function EntermarkPage() {
                         ? 'Configure assessments before submitting grades'
                         : tableData.length === 0
                           ? 'No eligible students enrolled'
-                          : currentOffering.gradeStatus === 'rejected'
+                          : activeGradeStatus === 'rejected'
                             ? 'Resubmit revised grades to Department Head'
                             : 'Submit final grades to Department Head for review'
                     }
                   >
                     <Send className="size-4 mr-1.5" />
-                    {currentOffering.gradeStatus === 'rejected' ? 'Resubmit Grades' : 'Submit Grades'}
+                    {activeGradeStatus === 'rejected' ? 'Resubmit Grades' : 'Submit Grades'}
                   </Button>
                 )}
               </>
@@ -912,30 +1086,6 @@ export function EntermarkPage() {
           </div>
         }
       />
-
-      {currentOffering?.gradeStatus === 'rejected' && (
-        <Alert variant="destructive" className="mb-4">
-          <Undo2 className="size-4" />
-          <AlertTitle>Grades Returned for Revision</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-4 flex-wrap">
-            <span>
-              The Department Head reviewed these grades and returned them for revision. Please review feedback, adjust marks, and resubmit.
-            </span>
-            <Button size="sm" variant="outline" className="bg-background text-foreground" onClick={() => setSubmitDialogOpen(true)}>
-              <Send className="size-3.5 mr-1.5" />
-              Resubmit Grades
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {isLocked && (
-        <Alert variant="warning" className="mb-4">
-          <AlertCircle className="size-4" />
-          <AlertTitle>Marks locked</AlertTitle>
-          <AlertDescription>{lockedExplanation(currentOffering?.gradeStatus)}</AlertDescription>
-        </Alert>
-      )}
 
       {(!offerings || offerings.length === 0) ? (
         <EmptyState
@@ -962,19 +1112,17 @@ export function EntermarkPage() {
                 value={selectedYearOfStudy}
                 onChange={handleYearOfStudyChange}
                 options={teacherYearOptions}
-                allLabel="All Years of Study"
-                placeholder="Filter by Year of Study"
+                includeAll={false}
+                placeholder="Year of Study"
                 className="w-48"
                 align="end"
               />
               <FilterSelect
                 label="Course"
-                value={activeOfferingId}
-                onChange={(id) => {
-                  setSelectedOfferingId(id)
-                  setGridEdits({})
-                }}
-                includeAll={false}
+                value={selectedOfferingId || 'all'}
+                onChange={handleCourseChange}
+                includeAll={true}
+                allLabel="All Courses"
                 options={filteredCourseOfferings.map((o) => ({
                   value: o.id,
                   label: `${o.course.code} — ${o.course.title} (${o.semester.name})`,
@@ -1002,7 +1150,9 @@ export function EntermarkPage() {
               description={
                 globalFilter
                   ? 'No students match your search criteria.'
-                  : `Only students whose department (${targetDeptName}) and current year of study (${formatYearOfStudy(targetYearOfStudy)}) match are eligible to be displayed.`
+                  : selectedYearOfStudy && selectedYearOfStudy !== 'all'
+                    ? `No students found for Year ${selectedYearOfStudy}.`
+                    : 'No eligible students found for the assigned courses.'
               }
             />
           ) : (
@@ -1098,7 +1248,7 @@ export function EntermarkPage() {
               }}
             >
               <FileCheck className="size-5 text-primary" />
-              {currentOffering?.gradeStatus === 'rejected'
+              {activeGradeStatus === 'rejected'
                 ? 'Resubmit Grades for Department Approval'
                 : 'Submit Grades for Department Approval'}
             </DialogTitle>
@@ -1273,7 +1423,7 @@ export function EntermarkPage() {
               disabled={submittingGrades || assessments.length === 0}
             >
               <Send className="size-4 mr-1.5" />
-              {currentOffering?.gradeStatus === 'rejected' ? 'Resubmit to Dept Head' : 'Submit to Dept Head'}
+              {activeGradeStatus === 'rejected' ? 'Resubmit to Dept Head' : 'Submit to Dept Head'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1658,6 +1808,20 @@ function EnterMarkDialog({
   const [mark, setMark] = useState(
     initialRow?.mark != null ? String(initialRow.mark) : '',
   )
+
+  useEffect(() => {
+    if (initialRow && selectedAssessmentId) {
+      const currentVal =
+        initialRow.effectiveMarks?.[selectedAssessmentId] ??
+        initialRow.row?.marks?.[selectedAssessmentId] ??
+        (initialRow.assessment?.id === selectedAssessmentId ? initialRow.mark : null)
+      if (currentVal != null && currentVal !== '') {
+        setMark(String(currentVal))
+      } else {
+        setMark('')
+      }
+    }
+  }, [initialRow, selectedAssessmentId])
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
@@ -1953,11 +2117,11 @@ function EnterMarkDialog({
                   </p>
                   <p>
                     <span className="text-muted-foreground font-medium">StudentID: </span>
-                    <span className="font-mono text-xs font-semibold">{targetStudent?.studentNumber ?? initialRow?.student?.studentNumber}</span>
+                    <span className="font-mono text-xs font-semibold">{targetStudent?.studentNumber ?? initialRow?.student?.studentNumber ?? initialRow?.studentId}</span>
                   </p>
                   <p>
                     <span className="text-muted-foreground font-medium">Student Name: </span>
-                    <span className="font-semibold">{targetStudent?.name ?? initialRow?.student?.name}</span>
+                    <span className="font-semibold">{targetStudent?.name ?? initialRow?.student?.name ?? initialRow?.studentName}</span>
                   </p>
                   <p>
                     <span className="text-muted-foreground font-medium">Assessment Type: </span>
@@ -1991,6 +2155,31 @@ function EnterMarkDialog({
                   ) : null}
                 </div>
               </div>
+
+              {courseAssessments.length > 1 && (
+                <FormField label="Assessment Component" required className="mb-3">
+                  <Select value={selectedAssessmentId} onValueChange={setSelectedAssessmentId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select assessment to edit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {courseAssessments.map((a) => {
+                        const typeStr = typeLabel(a.type)
+                        const maxScore = Number(a.weight ?? a.maxMarks ?? 100)
+                        const isDistinct = a.name && a.name.trim().toLowerCase() !== typeStr.toLowerCase()
+                        const labelText = isDistinct
+                          ? `${typeStr} (${a.name}) — ${maxScore} Marks (${a.weight}%)`
+                          : `${typeStr} — ${maxScore} Marks (${a.weight}%)`
+                        return (
+                          <SelectItem key={a.id} value={a.id}>
+                            {labelText}
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+              )}
 
               <FormField
                 label={`Mark (Out of ${targetMax})`}

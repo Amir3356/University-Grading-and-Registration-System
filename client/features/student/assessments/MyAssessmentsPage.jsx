@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { ClipboardList } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/common/DataTable'
 import { FilterSelect } from '@/components/common/FilterSelect'
@@ -20,7 +19,6 @@ function getAssessmentStatus(a, today) {
 }
 
 export function MyAssessmentsPage() {
-  const navigate = useNavigate()
   const [statusFilter, setStatusFilter] = useState('all')
   const [courseFilter, setCourseFilter] = useState('all')
 
@@ -176,7 +174,6 @@ export function MyAssessmentsPage() {
         error={error}
         onRetry={refetch}
         rowKey={(r) => r.id}
-        onRowClick={(r) => navigate(`/student/courses/${r.enrollmentId}`)}
         searchPlaceholder="Search course code, assessment type, or name…"
         toolbar={toolbar}
         emptyIcon={ClipboardList}

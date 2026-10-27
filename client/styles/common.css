@@ -46,6 +46,88 @@
   transition: border-color 0.15s;
 }
 
+/* Stat cards horizontal container / grid */
+.stat-cards-horizontal {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .stat-cards-horizontal {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .stat-cards-horizontal {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Department submission details metadata grid */
+.dept-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .dept-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .dept-meta-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dept-meta-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  box-shadow: var(--shadow-xs);
+  min-width: 0;
+}
+
+.dept-meta-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+}
+
+.dept-meta-card__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.dept-meta-card__label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground);
+}
+
+.dept-meta-card__value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
 a.stat-card:hover {
   border-color: color-mix(in oklch, var(--teal) 50%, transparent);
 }

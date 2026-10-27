@@ -11,7 +11,7 @@ import { PageHeader } from '@/components/common/PageHeader'
 import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery, useMutation } from '@/hooks/useStore'
-import { formatSemesterTerm, formatYearOfStudy, getCourseStudyYear } from '@/lib/format'
+import { formatSemesterOptionLabel, formatSemesterTerm, formatYearOfStudy, getCourseStudyYear } from '@/lib/format'
 import { onUserChange } from '@/lib/syncEvents'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
@@ -24,66 +24,7 @@ export const cleanTeacherName = (name) => {
   return name.replace(/^Dr\.?\s+/i, '').trim()
 }
 
-export const formatSemesterOptionLabel = (s, academicYears = []) => {
-  if (!s) return '—'
-
-  const termLower = String(s.term || '').toLowerCase()
-  const nameLower = String(s.name || '').toLowerCase()
-  let termLabel = ''
-  if (termLower === 'first' || termLower === 'fall' || termLower === '1' || /first|fall|\b1st\b/i.test(nameLower)) {
-    termLabel = 'First Semester'
-  } else if (termLower === 'second' || termLower === 'spring' || termLower === '2' || /second|spring|\b2nd\b/i.test(nameLower)) {
-    termLabel = 'Second Semester'
-  } else if (s.term) {
-    termLabel = `${s.term} Semester`
-  } else {
-    termLabel = 'First Semester'
-  }
-
-  let year = ''
-  const nameMatch = String(s.name || '').match(/\b(20\d\d)\b/)
-  if (nameMatch) {
-    year = nameMatch[1]
-  }
-
-  if (!year) {
-    const ayId = s.academic_year_id ?? s.academicYearId ?? s.academic_year?.id
-    const ay = (academicYears ?? []).find((y) => y.id === ayId) || s.academic_year
-    const ayMatch = String(ay?.name || ay?.id || '').match(/\b(20\d\d)\b/)
-    if (ayMatch) year = ayMatch[1]
-  }
-
-  if (!year && (s.academic_year_id || s.academicYearId)) {
-    const ayIdMatch = String(s.academic_year_id || s.academicYearId).match(/\b(20\d\d)\b/)
-    if (ayIdMatch) year = ayIdMatch[1]
-  }
-
-  if (!year && (s.startDate || s.start_date)) {
-    const d = new Date(s.startDate || s.start_date)
-    let y = d.getFullYear()
-    if (termLabel === 'Second Semester' && d.getMonth() < 7) {
-      y -= 1
-    }
-    year = String(y)
-  }
-
-  if (!year && s.id) {
-    const idMatch = String(s.id).match(/\b(20\d\d)\b/)
-    if (idMatch) {
-      let y = parseInt(idMatch[1], 10)
-      if (termLabel === 'Second Semester' && String(s.id).includes('spring')) {
-        y -= 1
-      }
-      year = String(y)
-    }
-  }
-
-  if (!year) {
-    year = String(new Date().getFullYear())
-  }
-
-  return `${year} ${termLabel}`
-}
+export { formatSemesterOptionLabel }
 
 export const YEAR_OF_STUDY_OPTIONS = [
   { value: '', label: 'All Years' },

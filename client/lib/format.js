@@ -148,6 +148,88 @@ export function formatSemesterName(name) {
   return name
 }
 
+export function formatSemesterOptionLabel(s, academicYears = []) {
+  if (!s) return '—'
+
+  const termLower = String(s.term || '').toLowerCase()
+  const nameLower = String(s.name || '').toLowerCase()
+  let termLabel
+  if (termLower === 'first' || termLower === 'fall' || termLower === '1' || /first|fall|\b1st\b/i.test(nameLower)) {
+    termLabel = 'First Semester'
+  } else if (termLower === 'second' || termLower === 'spring' || termLower === '2' || /second|spring|\b2nd\b/i.test(nameLower)) {
+    termLabel = 'Second Semester'
+  } else if (s.term) {
+    termLabel = `${s.term} Semester`
+  } else {
+    termLabel = 'First Semester'
+  }
+
+  let year = ''
+  const nameMatch = String(s.name || '').match(/\b(20\d\d)\b/)
+  if (nameMatch) {
+    year = nameMatch[1]
+  }
+
+  if (!year) {
+    const ayId = s.academic_year_id ?? s.academicYearId ?? s.academic_year?.id ?? s.academicYear?.id
+    const ay = (academicYears ?? []).find((y) => y.id === ayId) || s.academic_year || s.academicYear
+    const ayMatch = String(ay?.name || ay?.id || '').match(/\b(20\d\d)\b/)
+    if (ayMatch) year = ayMatch[1]
+  }
+
+  if (!year && (s.academic_year_id || s.academicYearId)) {
+    const ayIdMatch = String(s.academic_year_id || s.academicYearId).match(/\b(20\d\d)\b/)
+    if (ayIdMatch) year = ayIdMatch[1]
+  }
+
+  if (!year && (s.startDate || s.start_date)) {
+    const d = new Date(s.startDate || s.start_date)
+    let y = d.getFullYear()
+    if (termLabel === 'Second Semester' && d.getMonth() < 7) {
+      y -= 1
+    }
+    year = String(y)
+  }
+
+  if (!year && s.id) {
+    const idMatch = String(s.id).match(/\b(20\d\d)\b/)
+    if (idMatch) {
+      let y = parseInt(idMatch[1], 10)
+      if (termLabel === 'Second Semester' && String(s.id).includes('spring')) {
+        y -= 1
+      }
+      year = String(y)
+    }
+  }
+
+  if (!year) {
+    year = String(new Date().getFullYear())
+  }
+
+  return `${year} ${termLabel}`
+}
+
+/**
+ * Resolves the academic year number (e.g. 2026) aligned with a semester or course,
+ * matching how Teacher Assignment resolves the year for its Semester column.
+ */
+export function formatAcademicYear(s, academicYears = []) {
+  if (!s) return '—'
+  const label = formatSemesterOptionLabel(s, academicYears)
+  const match = label.match(/\b(20\d\d)\b/)
+  if (match) return match[1]
+
+  const rawMatch =
+    String(s.name || '').match(/\b(20\d\d)\b/) ||
+    String(s.academicYear?.name || s.academic_year?.name || '').match(/\b(20\d\d)\b/) ||
+    String(s.academicYear?.id || s.academic_year_id || s.academicYearId || '').match(/\b(20\d\d)\b/) ||
+    String(s.startDate || s.start_date || '').match(/\b(20\d\d)\b/) ||
+    String(s.id || '').match(/\b(20\d\d)\b/)
+
+  if (rawMatch) return rawMatch[1]
+  return String(new Date().getFullYear())
+}
+
 export const GRADE_STATUS_LABELS = {
   not_started: 'Not started',
   draft: 'Draft',

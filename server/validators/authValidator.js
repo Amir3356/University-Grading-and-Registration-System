@@ -4,7 +4,7 @@ export const loginSchema = z.object({
   role: z.enum(['admin', 'dept_head', 'teacher', 'student']).optional().nullable(),
   identifier: z.string().optional(),
   username: z.string().optional(),
-  password: z.string().optional(),
+  password: z.string().min(1, 'Password is required.'),
 }).refine((data) => (data.identifier && data.identifier.trim()) || (data.username && data.username.trim()), {
   message: 'Username or identifier is required.',
   path: ['username'],

@@ -24,7 +24,7 @@ export async function createAssessment(offeringId, data, caller) {
   }
 
   if (['submitted', 'approved', 'published'].includes(offering.grade_status)) {
-    throw new ConflictError('Cannot add assessments: final grades for this offering have already been submitted.');
+    throw new ConflictError('Cannot add assessments: grades are locked while under review, approved, or published.');
   }
 
   const errors = {};
@@ -91,7 +91,7 @@ export async function updateAssessment(id, data, caller) {
   }
 
   if (['submitted', 'approved', 'published'].includes(offering.grade_status)) {
-    throw new ConflictError('Cannot update assessments: final grades for this offering have already been submitted.');
+    throw new ConflictError('Cannot update assessments: grades are locked while under review, approved, or published.');
   }
 
   if (data.name?.trim()) {
@@ -143,7 +143,7 @@ export async function deleteAssessment(id, caller) {
   }
 
   if (['submitted', 'approved', 'published'].includes(offering.grade_status)) {
-    throw new ConflictError('Cannot delete assessments: final grades for this offering have already been submitted.');
+    throw new ConflictError('Cannot delete assessments: grades are locked while under review, approved, or published.');
   }
 
   await asmRepo.deleteAssessment(id);

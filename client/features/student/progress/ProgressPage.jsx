@@ -1,5 +1,4 @@
 import { AlertTriangle, Award, BookCheck, Calculator, GraduationCap, Hourglass, ListTodo, RotateCcw } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,7 +20,6 @@ import { GpaTrendChart, ResultStatus, StandingBadge } from '../components/Studen
 import { incompletePolicyText, repeatPolicyText, withdrawalPolicyText } from '../components/policy'
 
 export function ProgressPage() {
-  const navigate = useNavigate()
   const { data, loading, error, refetch } = useQuery(() => store.student.getMyProgress(), [])
 
   if (error) {
@@ -164,7 +162,6 @@ export function ProgressPage() {
           <DataTable
             rows={p.completed}
             rowKey={(r) => r.enrollmentId}
-            onRowClick={(r) => navigate(`/student/courses/${r.enrollmentId}`)}
             initialSort={{ key: 'semester', dir: 'asc' }}
             emptyTitle="No completed courses yet"
             emptyDescription="Courses you pass appear here once results are published."
@@ -203,9 +200,9 @@ export function ProgressPage() {
                     <ul className="divide-y rounded-md border">
                       {f.attempts.map((a) => (
                         <li key={a.enrollmentId} className="flex items-center justify-between gap-3 px-3 py-2">
-                          <Link to={`/student/courses/${a.enrollmentId}`} className="text-primary underline-offset-4 hover:underline">
+                          <span className="font-medium text-foreground">
                             {a.semesterName}
-                          </Link>
+                          </span>
                           <span className="flex items-center gap-2">
                             <span className="tabular text-muted-foreground">{a.special ? '—' : formatNumber(a.totalScore, 2)}</span>
                             <GradeBadge letter={a.letter} passed={a.passed} />
@@ -229,7 +226,6 @@ export function ProgressPage() {
           <DataTable
             rows={p.inProgress}
             rowKey={(r) => r.enrollmentId}
-            onRowClick={(r) => navigate(`/student/courses/${r.enrollmentId}`)}
             emptyTitle="No courses in progress"
             columns={[
               { key: 'code', header: 'Code', value: (r) => r.course.code, className: 'font-medium' },

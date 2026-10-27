@@ -12,12 +12,15 @@ export const typeLabel = (type) => ASSESSMENT_TYPES.find((t) => t.value === type
 
 export const offeringLabel = (o) => (o ? `${o.course.code} — ${o.course.title}` : '')
 
-export const lockedExplanation = (status) =>
-  status === 'published'
-    ? 'Grades for this course are published to students and can no longer be modified.'
-    : status === 'approved'
-      ? 'Grades for this course were approved and are awaiting publication. They can no longer be modified.'
-      : 'Grades for this course were submitted and are locked while the registrar reviews them.'
+export const lockedExplanation = (status) => {
+  if (status === 'published') {
+    return 'Grades for this course are published to students and can no longer be modified.'
+  }
+  if (status === 'approved') {
+    return 'Grades for this course have been approved by the Department Head. To adjust marks or assessments, the Department Head must allow editing.'
+  }
+  return 'Grades for this course were submitted and are locked while the Department Head reviews them.'
+}
 
 /** Pick the default offering: the URL param, else the first current-semester offering, else the first one. */
 export function defaultOfferingId(offerings, paramId, currentSemesterId) {

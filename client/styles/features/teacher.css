@@ -105,6 +105,11 @@
   text-align: center;
 }
 
+.tea-col-course {
+  min-width: 120px;
+  text-align: center;
+}
+
 .tea-col-section {
   min-width: 140px;
   text-align: center;

@@ -22,27 +22,21 @@ export async function login({ role, identifier, username, password, userAgent, i
   }
 
   // Verify password
-  let passwordValid = false;
-  if (password && String(password).trim() !== '') {
-    const rawPass = String(password);
-    const trimmedPass = rawPass.trim();
-    // Try the entered password (raw and trimmed)
-    passwordValid = (await comparePassword(rawPass, user.password_hash)) ||
-                    (await comparePassword(trimmedPass, user.password_hash));
+  if (!password || String(password).trim() === '') {
+    throw new UnauthorizedError('Invalid username or password');
+  }
 
-    // Fallback: for non-admin provisioned accounts, also accept the default password
-    // This handles cases where the user enters 'Password123!' but the hash was generated
-    // with a slightly different casing or the password field had unexpected whitespace
-    if (!passwordValid && ['student', 'teacher', 'dept_head'].includes(user.role_id)) {
-      if (trimmedPass === 'Password123!') {
-        passwordValid = true;
-      } else {
-        passwordValid = await comparePassword('Password123!', user.password_hash);
-      }
+  const rawPass = String(password);
+  const trimmedPass = rawPass.trim();
+  let passwordValid = (await comparePassword(rawPass, user.password_hash)) ||
+                      (await comparePassword(trimmedPass, user.password_hash));
+
+  // If the account was provisioned with a default password, allow sign in if the user enters either default password
+  if (!passwordValid && ['teacher', 'student', 'dept_head'].includes(user.role_id)) {
+    if (trimmedPass === 'Password123!' || trimmedPass === 'AEHJSS36') {
+      passwordValid = (await comparePassword('Password123!', user.password_hash)) ||
+                      (await comparePassword('AEHJSS36', user.password_hash));
     }
-  } else if (['student', 'teacher', 'dept_head'].includes(role || user.role_id)) {
-    // When logging in from client UI where password field was omitted for role credentials
-    passwordValid = true;
   }
 
   if (!passwordValid) {

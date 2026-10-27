@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
-  AlertCircle,
   ClipboardList,
   Pencil,
   Plus,
@@ -8,7 +7,7 @@ import {
 } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { DataTable } from '@/components/common/DataTable'
@@ -22,7 +21,7 @@ import { useQuery } from '@/hooks/useStore'
 import { formatYearOfStudy, getCourseStudyYear } from '@/lib/format'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
-import { defaultOfferingId, isLockedStatus, lockedExplanation, typeLabel } from '../lib'
+import { isLockedStatus, typeLabel } from '../lib'
 import { AssessmentFormDialog } from './AssessmentFormDialog'
 
 export function AssessmentsPage() {
@@ -41,18 +40,6 @@ export function AssessmentsPage() {
   useWebSocketEvent('OFFERING_UPDATED', () => refetchOfferings())
   useWebSocketEvent('OFFERING_CREATED', () => refetchOfferings())
   useWebSocketEvent('OFFERING_DELETED', () => refetchOfferings())
-  useWebSocketEvent('ASSESSMENT_CREATED', () => {
-    refetchAssessments()
-    refetchOfferings()
-  })
-  useWebSocketEvent('ASSESSMENT_UPDATED', () => {
-    refetchAssessments()
-    refetchOfferings()
-  })
-  useWebSocketEvent('ASSESSMENT_DELETED', () => {
-    refetchAssessments()
-    refetchOfferings()
-  })
 
   // Deduplicate courses so each assigned course appears only once in the dropdown
   const uniqueCourses = useMemo(() => {
@@ -81,26 +68,22 @@ export function AssessmentsPage() {
     return Array.from(map.values())
   }, [offerings, paramOfferingId, currentSemesterId])
 
-  // Distinct years of study that the teacher teaches
+  // Distinct years of study that the teacher teaches across assigned course offerings
   const teacherYearOptions = useMemo(() => {
     const list = offerings ?? []
     const yearSet = new Set()
     for (const o of list) {
-      const y = o?.yearOfStudy ?? o?.year_of_study ?? (o?.course ? getCourseStudyYear(o.course) : null)
+      const y =
+        o?.yearOfStudy ??
+        o?.year_of_study ??
+        o?.course?.yearOfStudy ??
+        (o?.course?.level ? Math.floor(o.course.level / 100) : null) ??
+        (o?.course ? getCourseStudyYear(o.course) : null)
       if (y != null && y !== '') {
         yearSet.add(String(y))
       }
     }
     const sorted = Array.from(yearSet).sort((a, b) => Number(a) - Number(b))
-    if (sorted.length === 0) {
-      return [
-        { value: '1', label: 'Year 1' },
-        { value: '2', label: 'Year 2' },
-        { value: '3', label: 'Year 3' },
-        { value: '4', label: 'Year 4' },
-        { value: '5', label: 'Year 5' },
-      ]
-    }
     return sorted.map((y) => ({
       value: String(y),
       label: `Year ${y}`,
@@ -109,7 +92,7 @@ export function AssessmentsPage() {
 
   // 2. Year and Offering selection state
   const [selectedYearOfStudy, setSelectedYearOfStudy] = useState('')
-  const [selectedOfferingId, setSelectedOfferingId] = useState(null)
+  const [selectedCourseId, setSelectedCourseId] = useState('all')
 
   // Filter courses by selected Year of Study
   const filteredCourses = useMemo(() => {
@@ -121,82 +104,138 @@ export function AssessmentsPage() {
     })
   }, [uniqueCourses, selectedYearOfStudy])
 
-  const activeOfferingId =
-    selectedOfferingId ??
-    defaultOfferingId(filteredCourses, paramOfferingId, currentSemesterId) ??
-    filteredCourses[0]?.id ??
-    uniqueCourses[0]?.id ??
-    ''
+  // If a specific course was selected but does not belong to the selected year, treat as 'all'
+  const effectiveCourseId = useMemo(() => {
+    if (!selectedCourseId || selectedCourseId === 'all') return 'all'
+    const matches = filteredCourses.some((o) => {
+      const cId = o.course?.id || o.courseId || o.course_id || o.course?.code || o.id
+      return cId === selectedCourseId || o.id === selectedCourseId
+    })
+    return matches ? selectedCourseId : 'all'
+  }, [filteredCourses, selectedCourseId])
 
-  const offering =
-    offerings?.find((o) => o.id === activeOfferingId) ??
-    filteredCourses[0] ??
-    uniqueCourses[0] ??
-    null
+  const activeCourseId = effectiveCourseId && effectiveCourseId !== 'all' ? effectiveCourseId : ''
 
-  const activeCourseId = useMemo(() => {
-    return (
-      offering?.course?.id ||
-      offering?.courseId ||
-      offering?.course_id ||
-      offering?.course?.code ||
-      ''
-    )
-  }, [offering])
+  // Determine target offerings based on user filter selections
+  const targetOfferings = useMemo(() => {
+    if (!offerings || offerings.length === 0) return []
+
+    // 1. If a specific course is selected in the Course dropdown
+    if (effectiveCourseId && effectiveCourseId !== 'all') {
+      const matching = offerings.filter((o) => {
+        const cId = o.course?.id || o.courseId || o.course_id || o.course?.code || o.id
+        return cId === effectiveCourseId || o.id === effectiveCourseId
+      })
+      if (matching.length > 0) return matching
+    }
+
+    // 2. If a specific year of study is selected
+    if (selectedYearOfStudy && selectedYearOfStudy !== 'all') {
+      const byYear = offerings.filter((o) => {
+        const y = o?.yearOfStudy ?? o?.year_of_study ?? (o?.course ? getCourseStudyYear(o.course) : null)
+        return String(y) === String(selectedYearOfStudy)
+      })
+      if (byYear.length > 0) return byYear
+    }
+
+    // 3. "All Years of Study" -> return all offerings assigned to the teacher by Department Head
+    return offerings
+  }, [offerings, effectiveCourseId, selectedYearOfStudy])
+
+  const offering = useMemo(() => {
+    if (effectiveCourseId && effectiveCourseId !== 'all') {
+      const found = (offerings ?? []).find((o) => {
+        const cId = o.course?.id || o.courseId || o.course_id || o.course?.code || o.id
+        return cId === effectiveCourseId || o.id === effectiveCourseId
+      })
+      if (found) return found
+    }
+    return targetOfferings[0] || offerings?.[0] || null
+  }, [effectiveCourseId, targetOfferings, offerings])
 
   const handleYearOfStudyChange = (year) => {
     const val = year || ''
     setSelectedYearOfStudy(val)
+    if (!val || val === 'all') {
+      setSelectedCourseId('all')
+    }
+  }
+
+  const handleCourseChange = (cId) => {
+    const val = cId || 'all'
+    setSelectedCourseId(val)
     if (val && val !== 'all') {
-      const matching = uniqueCourses.filter((o) => {
-        const y = o?.yearOfStudy ?? o?.year_of_study ?? (o?.course ? getCourseStudyYear(o.course) : null)
-        return String(y) === String(val)
+      const target = (offerings ?? []).find((o) => {
+        const key = o.course?.id || o.courseId || o.course_id || o.course?.code || o.id
+        return key === val
       })
-      if (matching.length > 0) {
-        const currentMatches = matching.some((o) => o.id === activeOfferingId)
-        if (!currentMatches) {
-          setSelectedOfferingId(matching[0].id)
+      if (target) {
+        const offYear =
+          target?.yearOfStudy ??
+          target?.year_of_study ??
+          target?.course?.yearOfStudy ??
+          (target?.course?.level ? Math.floor(target.course.level / 100) : null) ??
+          (target?.course ? getCourseStudyYear(target.course) : null)
+        if (offYear != null && offYear !== '') {
+          setSelectedYearOfStudy(String(offYear))
         }
       }
     }
   }
 
-  // Ensure active offering belongs to the selected year of study if one is selected
-  useEffect(() => {
-    if (selectedYearOfStudy && selectedYearOfStudy !== 'all' && filteredCourses.length > 0) {
-      const currentMatches = filteredCourses.some((o) => o.id === activeOfferingId)
-      if (!currentMatches) {
-        setSelectedOfferingId(filteredCourses[0].id)
-      }
-    }
-  }, [selectedYearOfStudy, filteredCourses, activeOfferingId])
-
-  const handleCourseChange = (cId) => {
-    const matching = (offerings ?? []).filter((o) => {
-      const key = o.course?.id || o.courseId || o.course_id || o.course?.code || o.id
-      return key === cId
-    })
-    if (!matching.length) return
-    const target =
-      matching.find((o) => o.id === paramOfferingId) ||
-      matching.find((o) => o.semester?.isCurrent || o.semester?.is_current || o.semesterId === currentSemesterId) ||
-      matching[0]
-    if (target) {
-      setSelectedOfferingId(target.id)
-    }
-  }
-
-  // 3. Fetch assessments for active offering
+  // 3. Fetch assessments across target offerings
+  const targetOfferingIdsKey = targetOfferings.map((o) => o.id).sort().join(',')
   const {
     data: assessments,
     loading: assessmentsLoading,
     error: assessmentsError,
     refetch: refetchAssessments,
   } = useQuery(
-    () => (activeOfferingId ? store.grades.listAssessments(activeOfferingId) : []),
-    [activeOfferingId],
-    { enabled: Boolean(activeOfferingId) }
+    async () => {
+      if (!targetOfferings || targetOfferings.length === 0) return []
+      if (targetOfferings.length === 1) {
+        const list = await store.grades.listAssessments(targetOfferings[0].id)
+        return (list || []).map((a) => ({
+          ...a,
+          offeringId: targetOfferings[0].id,
+          offering: targetOfferings[0],
+        }))
+      }
+
+      const results = await Promise.allSettled(
+        targetOfferings.map((o) => store.grades.listAssessments(o.id))
+      )
+      const combined = []
+      for (let i = 0; i < results.length; i++) {
+        if (results[i].status === 'fulfilled' && Array.isArray(results[i].value)) {
+          const off = targetOfferings[i]
+          for (const a of results[i].value) {
+            combined.push({
+              ...a,
+              offeringId: off.id,
+              offering: off,
+            })
+          }
+        }
+      }
+      return combined
+    },
+    [targetOfferingIdsKey],
+    { enabled: targetOfferings.length > 0 }
   )
+
+  useWebSocketEvent('ASSESSMENT_CREATED', () => {
+    refetchAssessments()
+    refetchOfferings()
+  })
+  useWebSocketEvent('ASSESSMENT_UPDATED', () => {
+    refetchAssessments()
+    refetchOfferings()
+  })
+  useWebSocketEvent('ASSESSMENT_DELETED', () => {
+    refetchAssessments()
+    refetchOfferings()
+  })
 
   // 4. Modal and action states
   const [dialog, setDialog] = useState({ open: false, assessment: null })
@@ -204,7 +243,24 @@ export function AssessmentsPage() {
 
   // 5. Computed states
   const isLocked = Boolean(isLockedStatus(offering?.gradeStatus))
-  const safeAssessments = useMemo(() => assessments ?? [], [assessments])
+  const safeAssessments = useMemo(() => {
+    if (!assessments) return []
+    return assessments.filter((a) => {
+      const targetOff = a.offering || (offerings ?? []).find((o) => o.id === a.offeringId)
+      const y = targetOff?.yearOfStudy ?? targetOff?.year_of_study ?? (targetOff?.course ? getCourseStudyYear(targetOff.course) : null)
+
+      if (selectedYearOfStudy && selectedYearOfStudy !== 'all') {
+        if (y != null && String(y) !== String(selectedYearOfStudy)) return false
+      }
+
+      if (effectiveCourseId && effectiveCourseId !== 'all') {
+        const cId = targetOff?.course?.id || targetOff?.courseId || targetOff?.course_id || targetOff?.course?.code || targetOff?.id
+        if (cId !== effectiveCourseId && targetOff?.id !== effectiveCourseId) return false
+      }
+
+      return true
+    })
+  }, [assessments, selectedYearOfStudy, effectiveCourseId, offerings])
 
   // Handle assessment deletion
   const handleDelete = async () => {
@@ -243,16 +299,33 @@ export function AssessmentsPage() {
       },
     },
     {
+      key: 'course',
+      header: 'Course',
+      align: 'center',
+      value: (a) => {
+        const targetOff = a.offering || (offerings ?? []).find((o) => o.id === a.offeringId)
+        return targetOff?.course?.code || ''
+      },
+      cell: (a) => {
+        const targetOff = a.offering || (offerings ?? []).find((o) => o.id === a.offeringId)
+        return (
+          <Badge variant="outline" className="font-mono text-xs font-semibold px-2 py-0.5">
+            {targetOff?.course?.code || '—'}
+          </Badge>
+        )
+      },
+    },
+    {
       key: 'yearOfStudy',
       header: 'Year of Study',
       align: 'center',
       value: (a) => {
-        const targetOff = (offerings ?? []).find((o) => o.id === a.offeringId) || offering
+        const targetOff = a.offering || (offerings ?? []).find((o) => o.id === a.offeringId) || offering
         const y = targetOff?.yearOfStudy ?? targetOff?.year_of_study ?? (targetOff?.course ? getCourseStudyYear(targetOff.course) : null)
         return formatYearOfStudy(y)
       },
       cell: (a) => {
-        const targetOff = (offerings ?? []).find((o) => o.id === a.offeringId) || offering
+        const targetOff = a.offering || (offerings ?? []).find((o) => o.id === a.offeringId) || offering
         const y = targetOff?.yearOfStudy ?? targetOff?.year_of_study ?? (targetOff?.course ? getCourseStudyYear(targetOff.course) : null)
         return (
           <span className="tabular font-medium">
@@ -289,31 +362,35 @@ export function AssessmentsPage() {
       searchable: false,
       export: false,
       align: 'right',
-      cell: (a) => (
-        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            title="Edit Assessment"
-            aria-label="Edit Assessment"
-            disabled={isLocked}
-            onClick={() => setDialog({ open: true, assessment: a })}
-          >
-            <Pencil className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-            title="Delete Assessment"
-            aria-label="Delete Assessment"
-            disabled={isLocked}
-            onClick={() => setDeleting(a)}
-          >
-            <Trash2 className="size-4" />
-          </Button>
-        </div>
-      ),
+      cell: (a) => {
+        const targetOff = a.offering || (offerings ?? []).find((o) => o.id === a.offeringId) || offering
+        const itemLocked = Boolean(isLockedStatus(targetOff?.gradeStatus))
+        return (
+          <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title="Edit Assessment"
+              aria-label="Edit Assessment"
+              disabled={itemLocked}
+              onClick={() => setDialog({ open: true, assessment: a })}
+            >
+              <Pencil className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              title="Delete Assessment"
+              aria-label="Delete Assessment"
+              disabled={itemLocked}
+              onClick={() => setDeleting(a)}
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        )
+      },
     },
   ]
 
@@ -342,15 +419,6 @@ export function AssessmentsPage() {
           </Button>
         }
       />
-
-      {isLocked && (
-        <Alert variant="warning" className="mb-4">
-          <AlertCircle className="size-4" />
-          <AlertTitle>Assessments locked</AlertTitle>
-          <AlertDescription>{lockedExplanation(offering?.gradeStatus)}</AlertDescription>
-        </Alert>
-      )}
-
 
       {uniqueCourses.length === 0 ? (
         <EmptyState
@@ -391,7 +459,9 @@ export function AssessmentsPage() {
                 label="Course"
                 value={activeCourseId}
                 onChange={handleCourseChange}
-                includeAll={false}
+                includeAll={true}
+                allLabel="All Courses"
+                placeholder="Filter by Course"
                 options={filteredCourses.map((o) => {
                   const cId = o.course?.id || o.courseId || o.course_id || o.course?.code || o.id
                   return {
@@ -416,11 +486,14 @@ export function AssessmentsPage() {
         offerings={offerings ?? []}
         existingAssessments={safeAssessments}
         onSaved={(savedOfferingId) => {
-          if (savedOfferingId && savedOfferingId !== activeOfferingId) {
-            setSelectedOfferingId(savedOfferingId)
+          if (savedOfferingId) {
             const savedOff = (offerings ?? []).find((o) => o.id === savedOfferingId)
+            const savedCId = savedOff?.course?.id || savedOff?.courseId || savedOff?.course_id || savedOff?.course?.code || savedOff?.id
+            if (savedCId && selectedCourseId && selectedCourseId !== 'all' && selectedCourseId !== savedCId) {
+              setSelectedCourseId(savedCId)
+            }
             const y = savedOff?.yearOfStudy ?? savedOff?.year_of_study ?? (savedOff?.course ? getCourseStudyYear(savedOff.course) : null)
-            if (y && selectedYearOfStudy && selectedYearOfStudy !== String(y)) {
+            if (y && selectedYearOfStudy && selectedYearOfStudy !== 'all' && selectedYearOfStudy !== String(y)) {
               setSelectedYearOfStudy(String(y))
             }
           }
