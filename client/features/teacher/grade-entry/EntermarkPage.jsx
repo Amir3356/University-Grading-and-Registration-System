@@ -1,12 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   AlertCircle,
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
+  Edit3,
   NotebookPen,
   Plus,
-  RotateCcw,
   Save,
 } from 'lucide-react'
 import {
@@ -49,7 +46,7 @@ import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
 import { getCourseStudyYear } from '@/lib/format'
-import { computeWeightedTotal, gradeForScore, validateMark } from '@/lib/grading'
+import { DEFAULT_GRADE_SCALE, computeWeightedTotal, gradeForScore, isPassing, validateMark } from '@/lib/grading'
 import { cn } from '@/lib/utils'
 import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
@@ -78,6 +75,24 @@ export function EntermarkPage() {
   useWebSocketEvent('OFFERING_DELETED', () => {
     refetchOfferings()
   })
+  useWebSocketEvent('GRADING_POLICY_UPDATED', () => {
+    refetchGradebook()
+    toast.info('Grading policy updated by Admin — grades updated in real time.', {
+      id: 'grading-policy-toast',
+    })
+  })
+  useWebSocketEvent('GRADE_SCALE_UPDATED', () => {
+    refetchGradebook()
+  })
+  useWebSocketEvent('ASSESSMENT_CREATED', () => {
+    refetchGradebook()
+  })
+  useWebSocketEvent('ASSESSMENT_UPDATED', () => {
+    refetchGradebook()
+  })
+  useWebSocketEvent('ASSESSMENT_DELETED', () => {
+    refetchGradebook()
+  })
 
   // 2. Offering selection state
   const [selectedOfferingId, setSelectedOfferingId] = useState(null)
@@ -100,8 +115,6 @@ export function EntermarkPage() {
   // 3. Fetch gradebook for the active offering (combining sibling sections if multiple exist)
   const {
     data: gradebook,
-    loading: gbLoading,
-    error: gbError,
     refetch: refetchGradebook,
   } = useQuery(
     async () => {
@@ -145,9 +158,10 @@ export function EntermarkPage() {
     { enabled: Boolean(activeOfferingId) },
   )
 
-  // 4. Spreadsheet Grid states
+  // 4. Spreadsheet Grid states & TanStack Table
   const [gridEdits, setGridEdits] = useState({})
-  const [gridSearch, setGridSearch] = useState('')
+  const [globalFilter, setGlobalFilter] = useState('')
+  const [sorting, setSorting] = useState([])
   const [savingGrid, setSavingGrid] = useState(false)
   const [editModalData, setEditModalData] = useState(null) // { row, isNew?: boolean }
 
@@ -156,6 +170,11 @@ export function EntermarkPage() {
   const assessments = useMemo(() => gradebook?.assessments ?? [], [gradebook?.assessments])
   const isLocked = Boolean(isLockedStatus(currentOffering?.gradeStatus))
   const gbRows = gradebook?.rows
+  const scale = useMemo(
+    () => (gradebook?.scale && gradebook.scale.length > 0 ? gradebook.scale : DEFAULT_GRADE_SCALE),
+    [gradebook?.scale]
+  )
+  const passMark = gradebook?.passMark ?? 50
 
   // Deduplicated offerings for course filter dropdown
   const uniqueCourseOfferings = useMemo(() => {
@@ -188,8 +207,9 @@ export function EntermarkPage() {
         const k = `${r.enrollmentId}:${a.id}`
         if (!(k in gridEdits)) continue
 
+        const maxAllowed = Number(a.weight ?? a.maxMarks ?? 100)
         const raw = String(gridEdits[k]).trim()
-        const err = validateMark(raw, a.maxMarks)
+        const err = validateMark(raw, maxAllowed)
         if (err) {
           errors[k] = err
           invalid++
@@ -212,13 +232,21 @@ export function EntermarkPage() {
     return { gridChanges: changes, gridErrors: errors, invalidCount: invalid }
   }, [gbRows, assessments, gridEdits, activeOfferingId])
 
-  // Save batch changes from spreadsheet grid
-  const handleSaveGrid = async () => {
-    if (invalidCount > 0) {
-      toast.error(`Please fix ${invalidCount} invalid mark(s) before saving.`)
+  // Save batch changes from spreadsheet grid (all or for a specific assessment type)
+  const handleSaveGrid = async (specificAssessmentId = null) => {
+    const toSave = specificAssessmentId
+      ? gridChanges.filter((c) => c.assessmentId === specificAssessmentId)
+      : gridChanges
+
+    const invalidInTarget = specificAssessmentId
+      ? Object.keys(gridErrors).filter((k) => k.endsWith(`:${specificAssessmentId}`)).length
+      : invalidCount
+
+    if (invalidInTarget > 0) {
+      toast.error(`Please fix ${invalidInTarget} invalid mark(s) before saving.`)
       return
     }
-    if (gridChanges.length === 0) {
+    if (toSave.length === 0) {
       toast.info('No changes to save.')
       return
     }
@@ -226,7 +254,7 @@ export function EntermarkPage() {
     setSavingGrid(true)
     try {
       const byOffering = {}
-      for (const c of gridChanges) {
+      for (const c of toSave) {
         const offId = c.offeringId || activeOfferingId
         if (!byOffering[offId]) byOffering[offId] = []
         byOffering[offId].push({
@@ -240,8 +268,19 @@ export function EntermarkPage() {
         await store.grades.saveScores(offId, { changes })
       }
 
-      toast.success(`Marks saved successfully (${gridChanges.length} score(s) updated).`)
-      setGridEdits({})
+      toast.success(`Marks saved successfully (${toSave.length} score(s) updated).`)
+
+      if (specificAssessmentId) {
+        setGridEdits((prev) => {
+          const next = { ...prev }
+          for (const c of toSave) {
+            delete next[`${c.enrollmentId}:${c.assessmentId}`]
+          }
+          return next
+        })
+      } else {
+        setGridEdits({})
+      }
       refetchGradebook()
     } catch (err) {
       toast.error(err.message || 'Failed to save marks.')
@@ -279,51 +318,265 @@ export function EntermarkPage() {
     }
   }
 
-  // Live grid rows computed with effective marks, weighted totals, and grades
-  const gridStudents = useMemo(() => {
+  // 5. TanStack Table Data
+  const tableData = useMemo(() => {
     if (!gbRows) return []
-    const q = gridSearch.trim().toLowerCase()
 
-    return gbRows
-      .map((r) => {
-        const effectiveMarks = {}
-        for (const a of assessments) {
-          const k = `${r.enrollmentId}:${a.id}`
-          if (k in gridEdits) {
-            const raw = String(gridEdits[k]).trim()
-            effectiveMarks[a.id] = raw === '' ? null : Number(raw)
-          } else {
-            const saved = r.marks?.[a.id] ?? r.marks?.[a.id.replace(/_([a-z])/g, (_, l) => l.toUpperCase())] ?? null
-            effectiveMarks[a.id] = saved
-          }
+    return gbRows.map((r) => {
+      const effectiveMarks = {}
+      for (const a of assessments) {
+        const k = `${r.enrollmentId}:${a.id}`
+        if (k in gridEdits) {
+          const raw = String(gridEdits[k]).trim()
+          effectiveMarks[a.id] = raw === '' ? null : Number(raw)
+        } else {
+          const saved = r.marks?.[a.id] ?? r.marks?.[a.id.replace(/_([a-z])/g, (_, l) => l.toUpperCase())] ?? null
+          effectiveMarks[a.id] = saved
         }
-        const calc = computeWeightedTotal(assessments, effectiveMarks)
-        const grade = calc.complete ? gradeForScore(calc.total) : null
-        const isWithdrawn = r.enrollment?.status === 'withdrawn'
+      }
+      const calc = computeWeightedTotal(assessments, effectiveMarks)
+      const grade = calc.complete ? gradeForScore(calc.total, scale) : null
+      const points = grade != null ? (grade.points ?? grade.gradePoints ?? 0) : null
+      const passed = calc.complete && calc.total != null ? isPassing(calc.total, passMark) : null
+      const isWithdrawn = r.enrollment?.status === 'withdrawn'
 
+      return {
+        enrollmentId: r.enrollmentId,
+        studentId: r.student?.studentNumber || '',
+        studentName: r.student?.name || '',
+        section: r.section || currentOffering?.section || 'A',
+        student: r.student,
+        effectiveMarks,
+        calc,
+        grade,
+        points: isWithdrawn ? null : points,
+        passed,
+        withdrawn: isWithdrawn,
+        row: r,
+      }
+    })
+  }, [gbRows, assessments, gridEdits, currentOffering, scale, passMark])
+
+  // 6. TanStack Table Column Definitions with generous spacing between headers
+  const tableColumns = useMemo(() => {
+    const cols = [
+      {
+        accessorKey: 'studentId',
+        header: 'StudentID',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs font-semibold whitespace-nowrap text-muted-foreground">
+            {row.original.studentId}
+          </span>
+        ),
+        meta: {
+          colClass: 'tea-col-student-id',
+        },
+      },
+      {
+        accessorKey: 'studentName',
+        header: 'Student Name',
+        cell: ({ row }) => (
+          <span className="font-semibold whitespace-nowrap text-foreground">
+            {row.original.studentName}
+          </span>
+        ),
+        meta: {
+          colClass: 'tea-col-student-name',
+        },
+      },
+      {
+        accessorKey: 'section',
+        header: 'Section',
+        cell: ({ row }) => (
+          <Badge variant="outline" className="text-xs px-2.5 py-0.5">
+            Section {row.original.section}
+          </Badge>
+        ),
+        meta: {
+          colClass: 'tea-col-section',
+        },
+      },
+      ...assessments.map((a, colIdx) => {
+        const maxAllowed = Number(a.weight ?? a.maxMarks ?? 100)
         return {
-          row: r,
-          student: r.student,
-          section: r.section || currentOffering?.section || 'A',
-          effectiveMarks,
-          calc,
-          grade,
-          withdrawn: isWithdrawn,
+          id: `assessment_${a.id}`,
+          accessorFn: (row) => (row.effectiveMarks[a.id] != null ? row.effectiveMarks[a.id] : -1),
+          enableSorting: true,
+          header: () => (
+            <div className="tea-assessment-header">
+              <span className="tea-assessment-title">
+                {a.name || typeLabel(a.type)}
+              </span>
+              <span className="tea-assessment-meta">
+                Max: {maxAllowed} · {a.weight}%
+              </span>
+            </div>
+          ),
+          cell: ({ row, table }) => {
+            const s = row.original
+            const rowIdx = row.index
+            const k = `${s.enrollmentId}:${a.id}`
+            const isEdited = k in gridEdits
+            const errorMsg = gridErrors[k]
+            const currentVal = isEdited
+              ? gridEdits[k]
+              : s.effectiveMarks[a.id] != null
+                ? String(s.effectiveMarks[a.id])
+                : ''
+
+            return (
+              <Input
+                data-cell={`${rowIdx}-${colIdx}`}
+                type="number"
+                step="any"
+                min="0"
+                max={maxAllowed}
+                disabled={isLocked || s.withdrawn}
+                value={currentVal}
+                onChange={(e) => {
+                  const val = e.target.value
+                  if (val !== '' && val !== null) {
+                    const num = Number(val)
+                    if (!Number.isNaN(num) && num > maxAllowed) {
+                      toast.error(`Cannot insert mark above ${maxAllowed} for ${a.name || typeLabel(a.type)}.`, {
+                        id: `max-cap-${a.id}`,
+                      })
+                      return
+                    }
+                    if (!Number.isNaN(num) && num < 0) {
+                      return
+                    }
+                  }
+                  updateGridCell(s.enrollmentId, a.id, val)
+                }}
+                onKeyDown={(e) => handleGridKeyDown(e, rowIdx, colIdx, table.getRowModel().rows.length)}
+                placeholder="—"
+                className={cn(
+                  "tea-grid-input",
+                  isEdited && "tea-grid-input--dirty",
+                  errorMsg && "tea-grid-input--error"
+                )}
+                title={errorMsg || (s.withdrawn ? 'Withdrawn' : undefined)}
+              />
+            )
+          },
+          meta: {
+            colClass: 'tea-col-assessment',
+          },
         }
-      })
-      .filter(({ student, section }) => {
-        if (!q) return true
-        const name = String(student?.name || '').toLowerCase()
-        const sNum = String(student?.studentNumber || '').toLowerCase()
-        const sec = String(section || '').toLowerCase()
-        return (
-          name.includes(q) ||
-          sNum.includes(q) ||
-          sec.includes(q) ||
-          `section ${sec}`.includes(q)
-        )
-      })
-  }, [gbRows, assessments, gridEdits, currentOffering, gridSearch])
+      }),
+      {
+        id: 'totalScore',
+        accessorFn: (row) => (row.calc.total != null ? row.calc.total : -1),
+        header: 'Total (%)',
+        cell: ({ row }) => (
+          <span className="font-mono font-semibold text-sm">
+            {row.original.calc.total != null ? `${row.original.calc.total}%` : '—'}
+          </span>
+        ),
+        meta: {
+          colClass: 'tea-col-total',
+        },
+      },
+      {
+        id: 'grade',
+        accessorFn: (row) => row.grade?.letter ?? '',
+        header: 'Grade',
+        cell: ({ row }) => (
+          row.original.grade?.letter ? (
+            <GradeBadge letter={row.original.grade.letter} passed={row.original.passed} />
+          ) : (
+            <span className="text-muted-foreground font-mono">—</span>
+          )
+        ),
+        meta: {
+          colClass: 'tea-col-grade',
+        },
+      },
+      {
+        id: 'gradePoints',
+        accessorFn: (row) => (row.points != null ? Number(row.points) : -1),
+        header: 'Grade Points',
+        cell: ({ row }) => (
+          row.original.points != null ? (
+            <span className="font-mono font-semibold text-sm tabular text-foreground">
+              {Number(row.original.points).toFixed(2)}
+            </span>
+          ) : (
+            <span className="text-muted-foreground font-mono">—</span>
+          )
+        ),
+        meta: {
+          colClass: 'tea-col-points',
+        },
+      },
+      {
+        id: 'status',
+        accessorFn: (row) => (row.calc.complete ? 1 : 0),
+        header: 'Status',
+        cell: ({ row }) => (
+          <Badge variant={row.original.calc.complete ? 'success' : 'warning'} className="px-2.5 py-0.5">
+            {row.original.calc.complete
+              ? 'Complete'
+              : `${row.original.calc.enteredCount}/${row.original.calc.expectedCount} Entered`}
+          </Badge>
+        ),
+        meta: {
+          colClass: 'tea-col-status',
+        },
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setEditModalData({ isNew: false, row: row.original })}
+            disabled={isLocked}
+            title="Open mark entry dialog"
+          >
+            <Edit3 className="size-3.5 mr-1" />
+            Edit
+          </Button>
+        ),
+        meta: {
+          colClass: 'tea-col-actions',
+        },
+      },
+    ]
+    return cols
+  }, [assessments, gridEdits, gridErrors, isLocked])
+
+  // 7. TanStack Table Instance
+  const table = useReactTable({
+    data: tableData,
+    columns: tableColumns,
+    state: {
+      globalFilter,
+      sorting,
+    },
+    onGlobalFilterChange: setGlobalFilter,
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    globalFilterFn: (row, columnId, filterValue) => {
+      const q = String(filterValue).toLowerCase().trim()
+      if (!q) return true
+      const orig = row.original
+      const sNum = String(orig.studentId || '').toLowerCase()
+      const sName = String(orig.studentName || '').toLowerCase()
+      const sec = String(orig.section || '').toLowerCase()
+      return (
+        sNum.includes(q) ||
+        sName.includes(q) ||
+        sec.includes(q) ||
+        `section ${sec}`.includes(q)
+      )
+    },
+  })
 
   if (offeringsLoading && !offerings) return <PageSkeleton />
   if (offeringsError) return <ErrorState error={offeringsError} onRetry={refetchOfferings} />
@@ -336,36 +589,32 @@ export function EntermarkPage() {
         centered
         actions={
           <div className="flex items-center gap-2">
-            {gridChanges.length > 0 && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setGridEdits({})}
-                  disabled={savingGrid}
-                >
-                  <RotateCcw className="size-4 mr-1.5" /> Discard
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleSaveGrid}
-                  disabled={savingGrid || invalidCount > 0}
-                >
-                  <Save className="size-4 mr-1.5" /> Save Changes ({gridChanges.length})
-                </Button>
-              </>
-            )}
             <Button
-              variant={gridChanges.length > 0 ? 'outline' : 'default'}
+              variant="outline"
               size="sm"
-              disabled={!activeOfferingId || isLocked || assessments.length === 0}
-              onClick={() => {
-                refetchOfferings()
-                refetchGradebook()
-                setEditModalData({ isNew: true })
-              }}
+              onClick={() => setEditModalData({ isNew: true })}
+              disabled={isLocked || !currentOffering}
+              title="Open enter mark dialog"
             >
-              <Plus className="size-4 mr-1.5" /> Enter Mark
+              <Plus className="size-4 mr-1.5" />
+              Enter Mark
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => handleSaveGrid()}
+              disabled={savingGrid || gridChanges.length === 0 || invalidCount > 0}
+              title={
+                gridChanges.length === 0
+                  ? 'No unsaved marks to save'
+                  : `Save ${gridChanges.length} unsaved mark(s)`
+              }
+            >
+              <Save className="size-4 mr-1.5" />
+              {savingGrid
+                ? 'Saving…'
+                : gridChanges.length > 0
+                  ? `Save All Marks (${gridChanges.length})`
+                  : 'Save All Marks'}
             </Button>
           </div>
         }
@@ -387,9 +636,18 @@ export function EntermarkPage() {
         />
       ) : (
         <div className="space-y-4">
-          {/* Grid Toolbar & Status */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
+          {/* Grid Toolbar: Search on left, Dropdown option on right edge */}
+          <div className="tea-grid-toolbar">
+            <div className="tea-grid-toolbar-left">
+              <SearchInput
+                value={globalFilter ?? ''}
+                onChange={setGlobalFilter}
+                placeholder="Search student by name, ID, or section…"
+                className="w-72"
+              />
+            </div>
+
+            <div className="tea-grid-toolbar-right">
               <FilterSelect
                 label="Course"
                 value={activeOfferingId}
@@ -402,138 +660,67 @@ export function EntermarkPage() {
                   value: o.id,
                   label: `${o.course.code} — ${o.course.title} (${o.semester.name})`,
                 }))}
-                className="sm:w-80"
+                className="w-80"
+                align="end"
               />
-              <SearchInput
-                value={gridSearch}
-                onChange={setGridSearch}
-                placeholder="Search student by name, ID, or section…"
-                className="sm:w-72"
-              />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
-                <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[11px]">Enter</kbd> / <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[11px]">↓</kbd> next student · <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[11px]">Tab</kbd> next assessment
-              </div>
-              {gridChanges.length > 0 && (
-                <Badge variant="warning" className="h-7 px-2.5">
-                  {gridChanges.length} unsaved mark{gridChanges.length === 1 ? '' : 's'}
-                </Badge>
-              )}
             </div>
           </div>
 
-          {/* Spreadsheet Table */}
+          {/* TanStack Spreadsheet Table */}
           {assessments.length === 0 ? (
             <EmptyState
               icon={NotebookPen}
               title="No assessment types configured"
               description="Please create assessments under Assessment Management before entering marks for this course."
             />
-          ) : gridStudents.length === 0 ? (
+          ) : table.getRowModel().rows.length === 0 ? (
             <EmptyState
               icon={NotebookPen}
               title="No students found"
               description={
-                gridSearch
+                globalFilter
                   ? 'No students match your search criteria.'
                   : 'No enrolled students found for this course.'
               }
             />
           ) : (
-            <div className="overflow-x-auto rounded-lg border bg-card shadow-sm">
-              <table className="w-full border-collapse text-sm">
+            <div className="tea-spreadsheet-wrap">
+              <table className="tea-spreadsheet-table">
                 <thead>
-                  <tr className="border-b bg-muted/60 text-xs text-muted-foreground">
-                    <th className="sticky left-0 z-20 bg-muted/95 px-4 py-3 text-left font-semibold uppercase">
-                      StudentID
-                    </th>
-                    <th className="sticky left-[120px] z-20 bg-muted/95 px-4 py-3 text-left font-semibold uppercase">
-                      Student Name
-                    </th>
-                    <th className="px-3 py-3 text-center font-semibold uppercase">
-                      Section
-                    </th>
-                    {assessments.map((a, colIdx) => (
-                      <th key={a.id} className="min-w-32 px-3 py-3 text-center font-semibold">
-                        <span className="block text-foreground">{typeLabel(a.type)}</span>
-                        <span className="block text-[11px] font-normal text-muted-foreground">
-                          Max: {a.maxMarks} ({a.weight}%)
-                        </span>
-                      </th>
-                    ))}
-                    <th className="px-3 py-3 text-center font-semibold uppercase">Total (%)</th>
-                    <th className="px-3 py-3 text-center font-semibold uppercase">Grade</th>
-                    <th className="px-3 py-3 text-center font-semibold uppercase">Status</th>
-                  </tr>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <tr key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => {
+                        const meta = header.column.columnDef.meta || {}
+                        return (
+                          <th
+                            key={header.id}
+                            className={meta.colClass}
+                          >
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(header.column.columnDef.header, header.getContext())}
+                          </th>
+                        )
+                      })}
+                    </tr>
+                  ))}
                 </thead>
-                <tbody className="divide-y">
-                  {gridStudents.map((s, rowIdx) => {
-                    return (
-                      <tr key={s.row.enrollmentId} className="hover:bg-muted/30 transition-colors">
-                        <td className="sticky left-0 z-10 bg-card px-4 py-2.5 font-mono text-xs font-semibold whitespace-nowrap">
-                          {s.student?.studentNumber}
-                        </td>
-                        <td className="sticky left-[120px] z-10 bg-card px-4 py-2.5 font-medium whitespace-nowrap">
-                          {s.student?.name}
-                        </td>
-                        <td className="px-3 py-2.5 text-center text-xs whitespace-nowrap">
-                          <Badge variant="outline">Section {s.section}</Badge>
-                        </td>
-                        {assessments.map((a, colIdx) => {
-                          const k = `${s.row.enrollmentId}:${a.id}`
-                          const isEdited = k in gridEdits
-                          const errorMsg = gridErrors[k]
-                          const currentVal = isEdited
-                            ? gridEdits[k]
-                            : s.effectiveMarks[a.id] != null
-                              ? String(s.effectiveMarks[a.id])
-                              : ''
-
-                          return (
-                            <td key={a.id} className="px-2 py-1.5 text-center">
-                              <Input
-                                data-cell={`${rowIdx}-${colIdx}`}
-                                type="number"
-                                step="any"
-                                min="0"
-                                max={a.maxMarks}
-                                disabled={isLocked || s.withdrawn}
-                                value={currentVal}
-                                onChange={(e) => updateGridCell(s.row.enrollmentId, a.id, e.target.value)}
-                                onKeyDown={(e) => handleGridKeyDown(e, rowIdx, colIdx, gridStudents.length)}
-                                placeholder="—"
-                                className={cn(
-                                  "h-9 w-24 text-center font-mono text-sm transition-all mx-auto",
-                                  isEdited && "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500 font-semibold",
-                                  errorMsg && "border-destructive bg-destructive/10 ring-1 ring-destructive"
-                                )}
-                                title={errorMsg || (s.withdrawn ? 'Withdrawn' : undefined)}
-                              />
-                            </td>
-                          )
-                        })}
-                        <td className="px-3 py-2.5 text-center font-mono font-semibold">
-                          {s.calc.total != null ? `${s.calc.total}%` : '—'}
-                        </td>
-                        <td className="px-3 py-2.5 text-center">
-                          {s.grade?.letter ? (
-                            <GradeBadge letter={s.grade.letter} />
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5 text-center whitespace-nowrap">
-                          <Badge variant={s.calc.complete ? 'success' : 'warning'}>
-                            {s.calc.complete
-                              ? 'Complete'
-                              : `${s.calc.enteredCount}/${s.calc.expectedCount} Entered`}
-                          </Badge>
-                        </td>
-                      </tr>
-                    )
-                  })}
+                <tbody>
+                  {table.getRowModel().rows.map((row) => (
+                    <tr key={row.id}>
+                      {row.getVisibleCells().map((cell) => {
+                        const meta = cell.column.columnDef.meta || {}
+                        return (
+                          <td
+                            key={cell.id}
+                            className={meta.colClass}
+                          >
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -557,6 +744,7 @@ export function EntermarkPage() {
           assessments={assessments}
           students={gradebook?.rows ?? []}
           requiresReason={Boolean(gradebook?.requiresReason)}
+          scale={scale}
           onSuccess={() => {
             setEditModalData(null)
             refetchGradebook()
@@ -580,6 +768,7 @@ function EnterMarkDialog({
   students,
   requiresReason,
   onSuccess,
+  scale,
 }) {
   const { user, profile } = useAuth()
   const lookups = useLookups()
@@ -948,8 +1137,30 @@ function EnterMarkDialog({
 
   const targetAssessment = courseAssessments.find((a) => a.id === selectedAssessmentId)
   const targetStudent = candidateStudents.find((s) => s.id === selectedStudentId) || (initialRow ? { ...initialRow.student, enrollmentId: initialRow.enrollmentId } : null)
+  const targetMax = targetAssessment ? Number(targetAssessment.weight ?? targetAssessment.maxMarks ?? 100) : 100
+  const validationError = targetAssessment ? validateMark(mark, targetMax) : null
 
-  const validationError = targetAssessment ? validateMark(mark, targetAssessment.maxMarks) : null
+  const projectedCalc = useMemo(() => {
+    if (!targetAssessment || mark === '' || validationError) return null
+    const stuRow =
+      initialRow?.row ||
+      initialRow ||
+      students.find(
+        (r) =>
+          r.enrollmentId === selectedStudentId ||
+          r.student?.id === selectedStudentId,
+      )
+    const effectiveMarks = { ...(stuRow?.marks || stuRow?.effectiveMarks || {}) }
+    effectiveMarks[targetAssessment.id] = Number(mark)
+    const calc = computeWeightedTotal(courseAssessments, effectiveMarks)
+    const grade = calc.complete ? gradeForScore(calc.total, scale) : null
+    const points = grade != null ? (grade.points ?? grade.gradePoints ?? 0) : null
+    return {
+      calc,
+      grade,
+      points,
+    }
+  }, [targetAssessment, mark, validationError, initialRow, students, selectedStudentId, courseAssessments, scale])
 
   const handleSubmit = async (e) => {
     e?.preventDefault()
@@ -1153,10 +1364,11 @@ function EnterMarkDialog({
                     <SelectContent>
                       {courseAssessments.map((a) => {
                         const typeStr = typeLabel(a.type)
+                        const maxScore = Number(a.weight ?? a.maxMarks ?? 100)
                         const isDistinct = a.name && a.name.trim().toLowerCase() !== typeStr.toLowerCase()
                         const labelText = isDistinct
-                          ? `${typeStr} (${a.name}) — ${a.maxMarks} Marks (${a.weight}%)`
-                          : `${typeStr} — ${a.maxMarks} Marks (${a.weight}%)`
+                          ? `${typeStr} (${a.name}) — ${maxScore} Marks (${a.weight}%)`
+                          : `${typeStr} — ${maxScore} Marks (${a.weight}%)`
                         return (
                           <SelectItem key={a.id} value={a.id}>
                             {labelText}
@@ -1168,7 +1380,7 @@ function EnterMarkDialog({
                 </FormField>
 
                 <FormField
-                  label={`Mark (Out of ${targetAssessment?.maxMarks ?? 100})`}
+                  label={`Mark (Out of ${targetMax})`}
                   required
                   error={validationError}
                 >
@@ -1176,13 +1388,26 @@ function EnterMarkDialog({
                     type="number"
                     step="any"
                     min="0"
-                    max={targetAssessment?.maxMarks}
+                    max={targetMax}
                     value={mark}
                     onChange={(e) => {
-                      setMark(e.target.value)
+                      const val = e.target.value
+                      if (val !== '' && val !== null) {
+                        const num = Number(val)
+                        if (!Number.isNaN(num) && num > targetMax) {
+                          toast.error(`Cannot insert mark above ${targetMax} for ${targetAssessment?.name || typeLabel(targetAssessment?.type)}.`, {
+                            id: 'modal-max-cap',
+                          })
+                          return
+                        }
+                        if (!Number.isNaN(num) && num < 0) {
+                          return
+                        }
+                      }
+                      setMark(val)
                       setError(null)
                     }}
-                    placeholder={`0 to ${targetAssessment?.maxMarks ?? 100}`}
+                    placeholder={`0 to ${targetMax}`}
                   />
                 </FormField>
               </div>
@@ -1220,13 +1445,28 @@ function EnterMarkDialog({
                   </p>
                   <p>
                     <span className="text-muted-foreground font-medium">Max Marks: </span>
-                    <span className="tabular font-semibold">{targetAssessment?.maxMarks}</span>
+                    <span className="tabular font-semibold">{targetMax}</span>
                   </p>
+                  {projectedCalc?.points != null ? (
+                    <p>
+                      <span className="text-muted-foreground font-medium">Projected Grade Points: </span>
+                      <span className="font-mono text-xs font-semibold tabular text-primary">
+                        {Number(projectedCalc.points).toFixed(2)} pts ({projectedCalc.grade?.letter})
+                      </span>
+                    </p>
+                  ) : (initialRow?.points != null || initialRow?.grade?.points != null) ? (
+                    <p>
+                      <span className="text-muted-foreground font-medium">Grade Points: </span>
+                      <span className="font-mono text-xs font-semibold tabular">
+                        {Number(initialRow?.points ?? initialRow?.grade?.points).toFixed(2)} pts
+                      </span>
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
               <FormField
-                label={`Mark (Out of ${targetAssessment?.maxMarks ?? 100})`}
+                label={`Mark (Out of ${targetMax})`}
                 required
                 error={validationError}
               >
@@ -1234,13 +1474,26 @@ function EnterMarkDialog({
                   type="number"
                   step="any"
                   min="0"
-                  max={targetAssessment?.maxMarks}
+                  max={targetMax}
                   value={mark}
                   onChange={(e) => {
-                    setMark(e.target.value)
+                    const val = e.target.value
+                    if (val !== '' && val !== null) {
+                      const num = Number(val)
+                      if (!Number.isNaN(num) && num > targetMax) {
+                        toast.error(`Cannot insert mark above ${targetMax} for ${targetAssessment?.name || typeLabel(targetAssessment?.type)}.`, {
+                          id: 'modal-max-cap',
+                        })
+                        return
+                      }
+                      if (!Number.isNaN(num) && num < 0) {
+                        return
+                      }
+                    }
+                    setMark(val)
                     setError(null)
                   }}
-                  placeholder={`0 to ${targetAssessment?.maxMarks ?? 100}`}
+                  placeholder={`0 to ${targetMax}`}
                   autoFocus
                 />
               </FormField>

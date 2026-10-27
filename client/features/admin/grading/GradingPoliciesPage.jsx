@@ -6,14 +6,13 @@ import {
   X,
   Save,
   Check,
-  AlertTriangle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { ErrorState } from '@/components/common/ErrorState'
 import { PageSkeleton } from '@/components/common/Loading'
 import { useQuery } from '@/hooks/useStore'
-import { DEFAULT_GRADE_SCALE, validateGradeScale } from '@/lib/grading'
+import { DEFAULT_GRADE_SCALE, formatGradePoints, validateGradeScale } from '@/lib/grading'
 import { store } from '@/store'
 
 let rowSeq = 0
@@ -21,9 +20,9 @@ const withKeys = (entries) =>
   entries.map((e) => ({
     key: e.key || `row-${++rowSeq}`,
     letter: e.letter,
-    min: String(e.min ?? e.min_score),
-    max: String(e.max ?? e.max_score),
-    points: String(e.points ?? e.grade_points),
+    min: String(e.min ?? e.minScore ?? e.min_score ?? 0),
+    max: String(e.max ?? e.maxScore ?? e.max_score ?? 100),
+    points: String(e.points ?? e.gradePoints ?? e.grade_points ?? 0),
   }))
 
 const EMPTY_GRADE_FORM = {
@@ -40,9 +39,18 @@ export function GradingPoliciesPage() {
     { live: false }
   )
 
-  const initialScale = useMemo(() => data?.scale?.entries ?? DEFAULT_GRADE_SCALE, [data?.scale?.entries])
+  const initialScale = useMemo(() => {
+    const list = data?.scale?.entries
+    return Array.isArray(list) && list.length > 0 ? list : DEFAULT_GRADE_SCALE
+  }, [data?.scale?.entries])
 
-  const [rows, setRows] = useState(() => withKeys([...initialScale].sort((a, b) => b.min - a.min)))
+  const [rows, setRows] = useState(() =>
+    withKeys(
+      [...initialScale].sort(
+        (a, b) => Number(b.min ?? b.minScore ?? 0) - Number(a.min ?? a.minScore ?? 0)
+      )
+    )
+  )
 
   // Drawer configuration state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
@@ -50,12 +58,20 @@ export function GradingPoliciesPage() {
   const [gradeForm, setGradeForm] = useState(EMPTY_GRADE_FORM)
 
   const [savingScale, setSavingScale] = useState(false)
-  const [confirmSaveScale, setConfirmSaveScale] = useState(false)
+  const [gradeToDelete, setGradeToDelete] = useState(null)
+  const [deletingGrade, setDeletingGrade] = useState(false)
 
   // Sync state if remote data changes
   useEffect(() => {
-    if (data?.scale?.entries) {
-      setRows(withKeys([...data.scale.entries].sort((a, b) => b.min - a.min)))
+    const list = data?.scale?.entries
+    if (Array.isArray(list) && list.length > 0) {
+      setRows(
+        withKeys(
+          [...list].sort(
+            (a, b) => Number(b.min ?? b.minScore ?? 0) - Number(a.min ?? a.minScore ?? 0)
+          )
+        )
+      )
     }
   }, [data?.scale?.entries])
 
@@ -83,12 +99,12 @@ export function GradingPoliciesPage() {
 
   const dirtyScale = useMemo(() => {
     const originalSorted = [...initialScale]
-      .sort((a, b) => b.min - a.min)
+      .sort((a, b) => Number(b.min ?? b.minScore ?? 0) - Number(a.min ?? a.minScore ?? 0))
       .map((e) => ({
         letter: e.letter,
-        min: Number(e.min ?? e.min_score),
-        max: Number(e.max ?? e.max_score),
-        points: Number(e.points ?? e.grade_points),
+        min: Number(e.min ?? e.minScore ?? e.min_score ?? 0),
+        max: Number(e.max ?? e.maxScore ?? e.max_score ?? 0),
+        points: Number(e.points ?? e.gradePoints ?? e.grade_points ?? 0),
       }))
 
     const currentSorted = rows
@@ -117,18 +133,74 @@ export function GradingPoliciesPage() {
       letter: row.letter,
       min: row.min,
       max: row.max,
-      points: row.points,
+      points: formatGradePoints(row.points),
     })
     setIsDrawerOpen(true)
   }
 
-  // Delete grade row from scale
-  const handleDeleteGrade = (key) => {
-    setRows((prev) => prev.filter((r) => r.key !== key))
-    if (editingGradeKey === key) {
-      setIsDrawerOpen(false)
+  // Prompt to delete grade row with database persistence
+  const handlePromptDeleteGrade = (row) => {
+    setGradeToDelete(row)
+  }
+
+  // Confirm delete grade row and persist to database
+  const handleConfirmDeleteGrade = async () => {
+    if (!gradeToDelete) return false
+    const targetKey = gradeToDelete.key
+    const sorted = [...rows].sort((a, b) => Number(b.min) - Number(a.min))
+    const targetIdx = sorted.findIndex((r) => r.key === targetKey)
+    if (targetIdx === -1) {
+      setGradeToDelete(null)
+      return true
     }
-    toast.success('Grade band removed from scale.')
+
+    const target = sorted[targetIdx]
+    const nextRows = sorted.filter((r) => r.key !== targetKey)
+
+    // Bridge score boundaries so the scale remains continuous (0..100) without gaps
+    if (nextRows.length > 0) {
+      if (targetIdx === 0) {
+        // Highest grade deleted: expand next grade's max to 100
+        nextRows[0] = { ...nextRows[0], max: target.max }
+      } else if (targetIdx === sorted.length - 1) {
+        // Lowest grade deleted: expand previous grade's min to 0
+        nextRows[nextRows.length - 1] = {
+          ...nextRows[nextRows.length - 1],
+          min: target.min,
+        }
+      } else {
+        // Middle grade deleted: expand the grade below it up to target's max
+        nextRows[targetIdx] = {
+          ...nextRows[targetIdx],
+          max: target.max,
+        }
+      }
+    }
+
+    const payloadEntries = nextRows.map((r) => ({
+      letter: r.letter.trim(),
+      min: Number(r.min),
+      max: Number(r.max),
+      points: Number(r.points),
+    }))
+
+    setDeletingGrade(true)
+    try {
+      await store.grades.updateGradeScale(payloadEntries)
+      setRows(withKeys(nextRows))
+      if (editingGradeKey === targetKey) {
+        setIsDrawerOpen(false)
+      }
+      toast.success(`Grade '${gradeToDelete.letter}' permanently deleted from database.`)
+      refetch()
+      setGradeToDelete(null)
+      return true
+    } catch (err) {
+      toast.error(err?.message || `Failed to delete grade '${gradeToDelete.letter}'.`)
+      return false
+    } finally {
+      setDeletingGrade(false)
+    }
   }
 
   // Save grade form from drawer
@@ -188,6 +260,11 @@ export function GradingPoliciesPage() {
 
   // Save scale to backend
   const handleSaveScale = async () => {
+    if (scaleErrors.length > 0) {
+      toast.error(scaleErrors[0] || 'Please resolve scale validation errors before saving.')
+      return false
+    }
+
     const payloadEntries = rows.map((r) => ({
       letter: r.letter.trim(),
       min: Number(r.min),
@@ -197,16 +274,17 @@ export function GradingPoliciesPage() {
 
     const errs = validateGradeScale(payloadEntries)
     if (errs.length > 0) {
-      toast.error('Please resolve scale validation errors before saving.')
+      toast.error(errs[0] || 'Please resolve scale validation errors before saving.')
       return false
     }
 
     setSavingScale(true)
     try {
       await store.grades.updateGradeScale(payloadEntries)
-      toast.success('Grading scale successfully saved and activated.')
+      toast.success('Grading scale successfully saved and applied.', {
+        description: 'The updated scale is now active across the university system.',
+      })
       refetch()
-      setConfirmSaveScale(false)
       return true
     } catch (err) {
       toast.error(err?.message || 'Failed to save grading scale.')
@@ -279,7 +357,7 @@ export function GradingPoliciesPage() {
                           {r.min}% – {r.max}%
                         </td>
                         <td className="tabular font-semibold text-primary">
-                          {Number(r.points).toFixed(2)}
+                          {formatGradePoints(r.points)}
                         </td>
                         <td>
                           <div className="flex items-center justify-end gap-1.5">
@@ -295,7 +373,7 @@ export function GradingPoliciesPage() {
                             <button
                               type="button"
                               className="reg-action-delete"
-                              onClick={() => handleDeleteGrade(r.key)}
+                              onClick={() => handlePromptDeleteGrade(r)}
                               aria-label={`Delete ${r.letter}`}
                             >
                               <Trash2 size={14} aria-hidden="true" />
@@ -309,38 +387,13 @@ export function GradingPoliciesPage() {
               </table>
             </div>
 
-            {/* Validation Errors Alert */}
-            {scaleErrors.length > 0 && (
-              <div className="mt-4 p-3.5 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive text-sm flex items-start gap-2.5">
-                <AlertTriangle size={18} className="mt-0.5 shrink-0" />
-                <div>
-                  <p className="font-semibold">The grading scale requires adjustments:</p>
-                  <ul className="list-disc pl-4 mt-1.5 space-y-1 text-xs">
-                    {scaleErrors.map((err) => (
-                      <li key={err}>{err}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-
             {/* Save Scale Footer */}
-            <div className="mt-4 pt-3 border-t flex items-center justify-between flex-wrap gap-2">
-              <div>
-                {dirtyScale ? (
-                  <span className="text-xs font-medium text-amber-600 dark:text-amber-400 inline-flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
-                    Unsaved changes in grading scale
-                  </span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">All scale changes saved</span>
-                )}
-              </div>
+            <div className="mt-4 pt-3 border-t flex items-center justify-end flex-wrap gap-2">
               <button
                 type="button"
                 className="reg-btn-primary"
-                disabled={scaleErrors.length > 0 || !dirtyScale || savingScale}
-                onClick={() => setConfirmSaveScale(true)}
+                disabled={savingScale}
+                onClick={handleSaveScale}
               >
                 <Save size={16} aria-hidden="true" />
                 {savingScale ? 'Saving...' : 'Save & Apply Scale'}
@@ -438,7 +491,7 @@ export function GradingPoliciesPage() {
                     className="reg-search-input"
                     value={gradeForm.points}
                     onChange={(e) => setGradeForm((f) => ({ ...f, points: e.target.value }))}
-                    placeholder="e.g. 4.00"
+                    placeholder="e.g. 4.0"
                     required
                   />
                 </div>
@@ -463,14 +516,20 @@ export function GradingPoliciesPage() {
         )}
       </div>
 
-      {/* Confirmation Dialog for Scale Save */}
+
+      {/* Confirmation Dialog for Grade Deletion */}
       <ConfirmDialog
-        open={confirmSaveScale}
-        onOpenChange={setConfirmSaveScale}
-        title="Save and activate grading scale?"
-        description="The new scale applies to all letter grades and GPA calculations computed from now on, including students' cumulative GPAs. Submitted grades keep their assigned letter."
-        confirmLabel="Save & Apply Scale"
-        onConfirm={handleSaveScale}
+        open={Boolean(gradeToDelete)}
+        onOpenChange={(open) => !open && setGradeToDelete(null)}
+        title={gradeToDelete ? `Delete Grade '${gradeToDelete.letter}'?` : 'Delete Grade?'}
+        description={
+          gradeToDelete
+            ? `Are you sure you want to permanently delete grade '${gradeToDelete.letter}' (${gradeToDelete.min}% – ${gradeToDelete.max}%, ${formatGradePoints(gradeToDelete.points)} pts) from the database? Adjacent grade boundaries will automatically adjust to preserve a complete 0–100 scale.`
+            : 'Are you sure you want to delete this grade band?'
+        }
+        confirmLabel={deletingGrade ? 'Deleting…' : 'Delete Grade'}
+        variant="destructive"
+        onConfirm={handleConfirmDeleteGrade}
       />
     </div>
   )

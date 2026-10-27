@@ -48,10 +48,6 @@ export async function importScores(offeringId, { records, dryRun = true, reason 
   return await api.post(`/offerings/${offeringId}/gradebook/import`, { records, dryRun, reason });
 }
 
-export async function submitGrades(offeringId, { note } = {}) {
-  return await api.post(`/offerings/${offeringId}/grade-submissions`, { note });
-}
-
 export async function listApprovalRequests(params = {}) {
   return await api.get('/grade-submissions', params);
 }
@@ -95,7 +91,6 @@ export const setAssessmentReleasedApi = setAssessmentReleased;
 export const getGradebookApi = getGradebook;
 export const saveScoresApi = saveScores;
 export const importScoresApi = importScores;
-export const submitGradesApi = submitGrades;
 export const listApprovalRequestsApi = listApprovalRequests;
 export const getApprovalRequestApi = getApprovalRequest;
 export const approveGradesApi = approveGrades;

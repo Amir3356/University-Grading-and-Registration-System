@@ -62,11 +62,11 @@ class WebSocketClient {
         }
       };
 
-      this.ws.onerror = (err) => {
+      this.ws.onerror = () => {
         console.warn('[WebSocket Client] Connection error, will attempt reconnect...');
         this.ws?.close();
       };
-    } catch (err) {
+    } catch {
       this.scheduleReconnect();
     }
   }

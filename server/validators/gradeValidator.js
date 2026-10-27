@@ -35,10 +35,6 @@ export const saveScoresSchema = z.object({
   reason: z.string().optional().nullable(),
 });
 
-export const submitGradesSchema = z.object({
-  note: z.string().trim().optional().nullable(),
-});
-
 export const reviewGradesSchema = z.object({
   comment: z.string().trim().optional().nullable(),
 });

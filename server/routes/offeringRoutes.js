@@ -2,7 +2,6 @@ import { Router } from 'express';
 import * as offCtrl from '../controllers/offeringController.js';
 import * as asmCtrl from '../controllers/assessmentController.js';
 import * as gbCtrl from '../controllers/gradebookController.js';
-import * as subCtrl from '../controllers/submissionController.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireRoles } from '../middleware/authorize.js';
 import { validateRequest } from '../middleware/validate.js';
@@ -14,7 +13,6 @@ import {
 import {
   createAssessmentSchema,
   saveScoresSchema,
-  submitGradesSchema,
 } from '../validators/gradeValidator.js';
 
 const router = Router();
@@ -49,9 +47,5 @@ router.get('/:id/grade-history', requireRoles('admin', 'dept_head', 'teacher'), 
 router.get('/:id/gradebook/export', requireRoles('admin', 'dept_head', 'teacher'), gbCtrl.exportGradebook);
 router.post('/:id/gradebook/import', requireRoles('admin', 'dept_head', 'teacher'), gbCtrl.importScores);
 router.get('/:id/performance', requireRoles('admin', 'dept_head', 'teacher'), gbCtrl.getOfferingPerformance);
-
-// Nested Grade Submissions
-router.post('/:id/grade-submissions', requireRoles('admin', 'teacher'), validateRequest(submitGradesSchema), subCtrl.submitGrades);
-router.get('/:id/grade-submissions', requireRoles('admin', 'dept_head', 'teacher'), subCtrl.getOfferingSubmissions);
 
 export default router;

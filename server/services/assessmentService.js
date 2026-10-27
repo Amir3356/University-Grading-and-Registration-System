@@ -31,14 +31,16 @@ export async function createAssessment(offeringId, data, caller) {
   if (!data.name?.trim()) errors.name = 'Assessment name is required.';
   if (!data.type) errors.type = 'Assessment type is required.';
 
-  const maxMarks = parseFloat(data.maxMarks);
-  if (Number.isNaN(maxMarks) || maxMarks < 1 || maxMarks > 1000) {
-    errors.maxMarks = 'Max marks must be between 1 and 1000.';
-  }
-
   const weight = parseFloat(data.weight);
   if (Number.isNaN(weight) || weight < 0.5 || weight > 100) {
     errors.weight = 'Weight must be between 0.5% and 100%.';
+  }
+
+  const maxMarks = data.maxMarks !== undefined && data.maxMarks !== null
+    ? parseFloat(data.maxMarks)
+    : weight;
+  if (Number.isNaN(maxMarks) || maxMarks < 0.5 || maxMarks > 1000) {
+    errors.maxMarks = 'Max marks must be between 0.5 and 1000.';
   }
 
   const dueDate = data.dueDate || new Date().toISOString().slice(0, 10);
@@ -101,16 +103,6 @@ export async function updateAssessment(id, data, caller) {
     }
   }
 
-  if (data.maxMarks) {
-    const maxMarks = parseFloat(data.maxMarks);
-    const highestMark = await asmRepo.highestEnteredScore(id);
-    if (maxMarks < highestMark) {
-      throw new ValidationError(`Max marks cannot be lower than the highest mark already entered (${highestMark}).`, {
-        maxMarks: `Cannot be lower than highest mark (${highestMark}).`,
-      });
-    }
-  }
-
   if (data.weight) {
     const weight = parseFloat(data.weight);
     const otherWeightSum = await asmRepo.sumWeights(existing.offering_id, id);
@@ -118,6 +110,19 @@ export async function updateAssessment(id, data, caller) {
       const remaining = Math.max(0, 100 - otherWeightSum);
       throw new ValidationError(`Total weights cannot exceed 100%. Remaining weight available: ${remaining}%.`, {
         weight: `Remaining weight available is ${remaining}%.`,
+      });
+    }
+    if (data.maxMarks === undefined || data.maxMarks === null) {
+      data.maxMarks = weight;
+    }
+  }
+
+  if (data.maxMarks !== undefined && data.maxMarks !== null) {
+    const maxMarks = parseFloat(data.maxMarks);
+    const highestMark = await asmRepo.highestEnteredScore(id);
+    if (maxMarks < highestMark) {
+      throw new ValidationError(`Max marks cannot be lower than the highest mark already entered (${highestMark}).`, {
+        maxMarks: `Cannot be lower than highest mark (${highestMark}).`,
       });
     }
   }
@@ -141,13 +146,8 @@ export async function deleteAssessment(id, caller) {
     throw new ConflictError('Cannot delete assessments: final grades for this offering have already been submitted.');
   }
 
-  const hasScores = await asmRepo.hasScores(id);
-  if (hasScores) {
-    throw new ConflictError('Cannot delete assessment with entered student scores. Clear the scores first.');
-  }
-
   await asmRepo.deleteAssessment(id);
-  return { ok: true };
+  return { ok: true, offeringId: existing.offering_id };
 }
 
 export async function releaseAssessment(id, isReleased, caller) {

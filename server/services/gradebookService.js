@@ -290,11 +290,6 @@ export async function getStudentOfferingPerformance(offeringId, enrollmentId) {
   };
 }
 
-export async function getGradeSheet(offeringId) {
-  const { getCourseGradeSheet } = await import('../repositories/reportRepository.js');
-  return await getCourseGradeSheet(offeringId);
-}
-
 export async function clearScores(offeringId, assessmentId, caller) {
   const enrollments = await gbRepo.getActiveEnrollmentIds(offeringId);
   const changes = enrollments.map((r) => ({

@@ -28,13 +28,15 @@ export function computeEnrollmentScore(assessments, scoreMap, scaleEntries, pass
   let passed = null;
 
   if (scaleEntries && scaleEntries.length > 0) {
-    const rounded = Math.round(weightedTotal);
-    const matched = scaleEntries.find(
-      (e) => rounded >= Number(e.minScore) && rounded <= Number(e.maxScore)
+    const sorted = [...scaleEntries].sort(
+      (a, b) => Number(b.minScore ?? b.min ?? 0) - Number(a.minScore ?? a.min ?? 0)
     );
+    const matched =
+      sorted.find((e) => weightedTotal >= Number(e.minScore ?? e.min ?? 0)) ||
+      sorted[sorted.length - 1];
     if (matched) {
       letter = matched.letter;
-      gradePoints = Number(matched.gradePoints);
+      gradePoints = Number(matched.gradePoints ?? matched.points ?? 0);
     }
   }
 

@@ -57,7 +57,7 @@ export function defineAbilityFor(user) {
       can('read', 'CourseOffering');
       can(['manage', 'create', 'read', 'update', 'delete'], 'Assessment');
       can(['manage', 'create', 'read', 'update'], 'Grade');
-      can(['create', 'read'], 'GradeSubmission');
+      can('read', 'GradeSubmission');
       can('read', 'Student');
       can('read', 'Workspace');
       break;

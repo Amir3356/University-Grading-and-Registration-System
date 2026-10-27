@@ -44,12 +44,6 @@ export async function saveGradebookScores(offeringId, { changes, reason = 'Score
   return res;
 }
 
-export async function submitGrades(offeringId, { note } = {}) {
-  const res = await gradesApi.submitGrades(offeringId, { note });
-  bumpVersion();
-  return res;
-}
-
 export async function approveGrades(requestId, { comment, publish = false } = {}) {
   const res = await gradesApi.approveGrades(requestId, { comment, publish });
   bumpVersion();

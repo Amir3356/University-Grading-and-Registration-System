@@ -15,8 +15,6 @@ const AssessmentsPage = page(() => import('@/features/teacher/assessments/Assess
 const EntermarkPage = page(() => import('@/features/teacher/grade-entry/EntermarkPage'), 'EntermarkPage');
 const GradeEntryIndexPage = page(() => import('@/features/teacher/grade-entry/GradeEntryIndexPage'), 'GradeEntryIndexPage');
 const GradeEntryPage = page(() => import('@/features/teacher/grade-entry/GradeEntryPage'), 'GradeEntryPage');
-const TeacherGradeSheetPage = page(() => import('@/features/teacher/grade-sheet/GradeSheetPage'), 'GradeSheetPage');
-const GradeSubmissionPage = page(() => import('@/features/teacher/submission/GradeSubmissionPage'), 'GradeSubmissionPage');
 const PerformanceReportsPage = page(() => import('@/features/teacher/reports/PerformanceReportsPage'), 'PerformanceReportsPage');
 
 export const teacherRoutes = (
@@ -32,8 +30,6 @@ export const teacherRoutes = (
     <Route path="/teacher/entermark/:offeringId" element={<EntermarkPage />} />
     <Route path="/teacher/grade-entry" element={<GradeEntryIndexPage />} />
     <Route path="/teacher/grade-entry/:offeringId" element={<GradeEntryPage />} />
-    <Route path="/teacher/grade-sheet" element={<TeacherGradeSheetPage />} />
-    <Route path="/teacher/grade-submission" element={<GradeSubmissionPage />} />
     <Route path="/teacher/reports" element={<PerformanceReportsPage />} />
     <Route path="/teacher/reports/:offeringId" element={<PerformanceReportsPage />} />
   </Route>

@@ -1,4 +1,5 @@
 import * as setService from '../services/settingsService.js';
+import { broadcastEvent } from '../config/websocket.js';
 import { sendSuccess } from '../utils/response.js';
 
 export async function getFullSettings(req, res, next) {
@@ -31,6 +32,8 @@ export async function getGradingConfig(req, res, next) {
 export async function updateGradeScale(req, res, next) {
   try {
     const scale = await setService.updateGradeScale(req.body, req.user);
+    broadcastEvent('GRADING_POLICY_UPDATED', { type: 'scale', scale });
+    broadcastEvent('GRADE_SCALE_UPDATED', { scale });
     sendSuccess(res, scale);
   } catch (err) {
     next(err);
@@ -40,6 +43,7 @@ export async function updateGradeScale(req, res, next) {
 export async function updateAcademicPolicy(req, res, next) {
   try {
     const policy = await setService.updateAcademicPolicy(req.body, req.user);
+    broadcastEvent('GRADING_POLICY_UPDATED', { type: 'policy', policy });
     sendSuccess(res, policy);
   } catch (err) {
     next(err);

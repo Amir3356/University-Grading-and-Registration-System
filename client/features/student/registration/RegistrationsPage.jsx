@@ -101,7 +101,7 @@ export function RegistrationsPage() {
   const { user, profile } = useAuth()
   // The Student ID is the one the department entered in Account Provision. Load it fresh
   // (it may have been edited since login) and fall back to the profile cached at login.
-  const { data: me, refetch: refetchProfile } = useQuery(getProfileApi, [], { live: false, enabled: Boolean(user) })
+  const { data: me } = useQuery(getProfileApi, [], { live: false, enabled: Boolean(user) })
   const { data, loading, error, refetch } = useQuery(getStudentRegistrationsApi, [], { live: false, enabled: Boolean(user) })
 
   const [freshStudentOverride, setFreshStudentOverride] = useState(null)
@@ -115,7 +115,6 @@ export function RegistrationsPage() {
   const [cafeStatus, setCafeStatus] = useState('cafe')
   const [editingRegistration, setEditingRegistration] = useState(null)
   const [deleteConfirmRegistration, setDeleteConfirmRegistration] = useState(null)
-  const [isDeleting, setIsDeleting] = useState(false)
 
   // Resolve student's latest Student ID
   const studentId =
@@ -307,7 +306,6 @@ export function RegistrationsPage() {
       setDeleteConfirmRegistration(null)
       return
     }
-    setIsDeleting(true)
     try {
       await deleteStudentRegistrationApi(deleteConfirmRegistration.id)
       toast.success('Registration deleted.')
@@ -322,8 +320,6 @@ export function RegistrationsPage() {
       } catch (cancelErr) {
         toast.error(err?.message || cancelErr?.message || 'Failed to delete registration.')
       }
-    } finally {
-      setIsDeleting(false)
     }
   }
 

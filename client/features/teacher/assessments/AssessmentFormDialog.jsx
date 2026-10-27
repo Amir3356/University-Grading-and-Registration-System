@@ -109,7 +109,8 @@ export function AssessmentFormDialog({
           ? assessment.name
           : generateAssessmentName(form.type, existingAssessments, assessment?.id)
 
-      const marks = parseFloat(assessment?.maxMarks ?? 100) || 100
+      // Maximum marks aligns with assessment weight (e.g. 20% weight means max marks is 20)
+      const marks = wt
 
       const payload = {
         name: assignedName,
@@ -179,7 +180,7 @@ export function AssessmentFormDialog({
               label="Weight (%)"
               required
               error={fieldErrors.weight}
-              hint={`Max available: ${maxAvailableWeight}%`}
+              hint={`Max available: ${maxAvailableWeight}% · Graded out of ${form.weight || 0} marks`}
             >
               <Input
                 type="number"
