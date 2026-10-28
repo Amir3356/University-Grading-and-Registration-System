@@ -780,20 +780,6 @@ function FullSubmittedGradeSheet({ row, onBack, onApprove, onReject }) {
             align="end"
           />
 
-          {(searchQuery || resultFilter || gradeFilter) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSearchQuery('')
-                setResultFilter('')
-                setGradeFilter('')
-              }}
-              className="text-xs text-muted-foreground hover:text-foreground h-9"
-            >
-              Reset filters
-            </Button>
-          )}
 
           <div className="text-xs text-muted-foreground font-medium whitespace-nowrap pl-1">
             Showing <span className="font-semibold text-foreground">{filteredStudents.length}</span> of {count}

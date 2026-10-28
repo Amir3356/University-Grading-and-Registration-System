@@ -1,4 +1,4 @@
-import { Download, Printer } from 'lucide-react'
+import { Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { ErrorState } from '@/components/common/ErrorState'
@@ -30,9 +30,6 @@ export function TranscriptPage() {
         actions={
           data && (
             <div className="no-print flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={() => window.print()}>
-                <Printer /> Print
-              </Button>
               <Button size="sm" onClick={download}>
                 <Download /> Download PDF
               </Button>

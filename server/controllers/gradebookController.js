@@ -1,4 +1,5 @@
 import * as gbService from '../services/gradebookService.js';
+import { broadcastEvent } from '../config/websocket.js';
 import { sendSuccess } from '../utils/response.js';
 
 export async function getGradebook(req, res, next) {
@@ -14,6 +15,8 @@ export async function saveScores(req, res, next) {
   try {
     const { changes, reason } = req.body;
     const result = await gbService.saveScores(req.params.id, { changes, reason }, req.user);
+    broadcastEvent('OFFERING_UPDATED', { id: req.params.id });
+    broadcastEvent('SCORES_UPDATED', { offeringId: req.params.id });
     sendSuccess(res, result);
   } catch (err) {
     next(err);

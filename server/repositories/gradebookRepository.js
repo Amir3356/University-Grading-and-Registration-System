@@ -81,6 +81,16 @@ export async function getGradebookData(offeringId) {
   // Auto-enroll eligible active students whose department and year of study match the assigned offering
   if ((courseDeptId || teacherDeptId) && targetYearOfStudy) {
     await query(
+      `DELETE FROM course_enrollments ce
+       USING students s
+       WHERE ce.student_id = s.id
+         AND ce.offering_id = $1::varchar
+         AND s.year_of_study != $2::smallint
+         AND NOT EXISTS (SELECT 1 FROM final_grades fg WHERE fg.enrollment_id = ce.id AND fg.status = 'published')`,
+      [offeringId, targetYearOfStudy]
+    );
+
+    await query(
       `INSERT INTO course_enrollments (id, offering_id, student_id, status, is_repeat, enrolled_at)
        SELECT 'enr_' || substr(md5(random()::text || clock_timestamp()::text || s.id), 1, 16),
               $1::varchar, s.id, 'enrolled', false, now()
@@ -453,6 +463,17 @@ export async function saveScoreChanges(offeringId, changes, reason, user) {
        WHERE ce.id = fg.enrollment_id AND ce.offering_id = $1 AND fg.status = 'draft'`,
       [offeringId]
     );
+
+    // Auto-release assessments where marks have been saved so students can see their marks
+    const modifiedAssessmentIds = [...new Set(changes.map((c) => c.assessmentId).filter(Boolean))];
+    if (modifiedAssessmentIds.length > 0) {
+      await client.query(
+        `UPDATE assessments
+         SET is_released = true, released_at = COALESCE(released_at, now()), updated_at = now()
+         WHERE id = ANY($1)`,
+        [modifiedAssessmentIds]
+      );
+    }
 
     return { created, updated, cleared };
   });

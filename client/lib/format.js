@@ -94,10 +94,32 @@ export function getStudentCurrentYearOfStudy(student) {
   // Base year is capped between 1 and 5
   num = Math.min(5, Math.max(1, num))
 
-  // If not withdrawn, automatically increment by 1 (capped at 5th Year)
-  const effectiveYear = isWithdrawn ? num : Math.min(5, num + 1)
+  return formatYearOfStudy(num)
+}
 
-  return formatYearOfStudy(effectiveYear)
+export function getStudentStudyYear(student) {
+  if (!student) return '1'
+  const rawVal =
+    student.yearOfStudy ??
+    student.year_of_study ??
+    student.batchYear ??
+    student.admissionYear ??
+    1
+
+  let num = typeof rawVal === 'number' ? rawVal : parseInt(String(rawVal).replace(/\D/g, ''), 10)
+  if (!Number.isFinite(num) || num <= 0) {
+    num = 1
+  }
+
+  if (num >= 1900 && num <= 2100) {
+    const currentYear = new Date().getFullYear()
+    num = Math.min(5, Math.max(1, currentYear - num + 1))
+  } else if (num >= 100 && num <= 900) {
+    num = Math.floor(num / 100)
+  }
+
+  num = Math.min(5, Math.max(1, num))
+  return String(num)
 }
 
 export function getCourseStudyYear(course) {
@@ -109,14 +131,14 @@ export function getCourseStudyYear(course) {
   const val = course.level ?? course.code
   if (typeof val === 'number') {
     if (val >= 100 && val <= 900) return String(Math.floor(val / 100))
-    if (val >= 1 && val <= 4) return String(val)
+    if (val >= 1 && val <= 5) return String(val)
   }
   const str = String(val || '').trim()
   const m = str.match(/\d+/)
   if (m) {
     const num = parseInt(m[0], 10)
     if (num >= 100 && num <= 900) return String(Math.floor(num / 100))
-    if (num >= 1 && num <= 4) return String(num)
+    if (num >= 1 && num <= 5) return String(num)
   }
   return '1'
 }

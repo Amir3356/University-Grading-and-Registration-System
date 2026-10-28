@@ -31,8 +31,9 @@ export function computeEnrollmentScore(assessments, scoreMap, scaleEntries, pass
     const sorted = [...scaleEntries].sort(
       (a, b) => Number(b.minScore ?? b.min ?? 0) - Number(a.minScore ?? a.min ?? 0)
     );
+    const scoreToMatch = complete ? weightedTotal : (runningPercent > 0 ? runningPercent : weightedTotal);
     const matched =
-      sorted.find((e) => weightedTotal >= Number(e.minScore ?? e.min ?? 0)) ||
+      sorted.find((e) => scoreToMatch >= Number(e.minScore ?? e.min ?? 0)) ||
       sorted[sorted.length - 1];
     if (matched) {
       letter = matched.letter;
@@ -41,7 +42,8 @@ export function computeEnrollmentScore(assessments, scoreMap, scaleEntries, pass
   }
 
   if (letter !== null) {
-    passed = String(letter).toUpperCase() === 'F' ? false : weightedTotal >= Number(passMark);
+    const scoreForPassing = complete ? weightedTotal : (runningPercent > 0 ? runningPercent : weightedTotal);
+    passed = String(letter).toUpperCase() === 'F' ? false : scoreForPassing >= Number(passMark);
   }
 
   return {
@@ -65,7 +67,7 @@ export function getAcademicStanding(cgpa, honorsGpa = 3.5, probationGpa = 2.0) {
     return { label: "Dean's List", tone: 'success' };
   }
   if (val < Number(probationGpa)) {
-    return { label: 'Academic Probation', tone: 'warning' };
+    return { label: 'Academic Probation', tone: 'danger' };
   }
   return { label: 'Good Standing', tone: 'default' };
 }

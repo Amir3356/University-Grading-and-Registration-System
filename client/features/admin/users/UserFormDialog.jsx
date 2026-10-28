@@ -407,6 +407,7 @@ function UserForm({ user, roleOptions: customRoleOptions, departmentOptions: cus
         userId: user?.id,
         studentNumber: form.identifier?.trim(),
         programType: form.programType,
+        yearOfStudy: form.yearOfStudy,
         profile: result?.profile,
         user: result?.user || result,
       })

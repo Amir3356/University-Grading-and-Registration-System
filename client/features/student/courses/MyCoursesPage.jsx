@@ -1,21 +1,132 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BookOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/common/DataTable'
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { PageHeader } from '@/components/common/PageHeader'
-import { StatusBadge } from '@/components/common/StatusBadge'
+import { ProgramTypeBadge, StatusBadge } from '@/components/common/StatusBadge'
+import { useAuth } from '@/context/auth-context'
+import { getProfileApi } from '@/api/auth'
 import { useQuery } from '@/hooks/useStore'
-import { formatAcademicYear, formatSemesterTerm } from '@/lib/format'
+import { formatAcademicYear, formatSemesterTerm, getStudentCurrentYearOfStudy } from '@/lib/format'
+import { onUserChange } from '@/lib/syncEvents'
+import { setStoredSession } from '@/lib/storage'
+import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
 
 export function MyCoursesPage() {
+  const { user, profile } = useAuth()
+  const { data: me, refetch: refetchMe } = useQuery(getProfileApi, [], { live: false, enabled: Boolean(user) })
+
   const [academicYearChoice, setAcademicYearChoice] = useState('all')
   const [semesterChoice, setSemesterChoice] = useState('all')
+  const [studentOverride, setStudentOverride] = useState(null)
 
   const { data, loading, error, refetch } = useQuery(
     () => store.student.listMyCourses(),
     [],
+  )
+
+  const handleStudentUpdated = useCallback(
+    (payload) => {
+      if (!payload) return
+      // Check if this update affects the currently signed-in student
+      const isTarget =
+        !payload.userId ||
+        payload.userId === user?.id ||
+        (profile?.id && payload.studentId === profile.id)
+
+      if (!isTarget) return
+
+      const newProg =
+        payload.programType ||
+        payload.profile?.program_type ||
+        payload.profile?.programType ||
+        payload.user?.programType
+      const newYear =
+        payload.yearOfStudy ??
+        payload.profile?.year_of_study ??
+        payload.profile?.yearOfStudy ??
+        payload.user?.yearOfStudy
+
+      if (newProg || newYear != null) {
+        setStudentOverride((prev) => ({
+          programType: newProg ? String(newProg).toLowerCase() : prev?.programType,
+          yearOfStudy: newYear != null ? newYear : prev?.yearOfStudy,
+        }))
+      }
+
+      if (payload.profile || payload.user) {
+        const nextProfile = {
+          ...(profile || {}),
+          ...(payload.profile || {}),
+          ...(newProg ? { program_type: newProg, programType: newProg } : {}),
+          ...(newYear != null ? { year_of_study: newYear, yearOfStudy: newYear } : {}),
+        }
+        setStoredSession(null, null, payload.user || user, nextProfile)
+      }
+
+      refetch()
+      refetchMe?.()
+    },
+    [user, profile, refetch, refetchMe],
+  )
+
+  // Real-time server push via WebSocket: instantly update when Department Head modifies student
+  useWebSocketEvent('STUDENT_UPDATED', handleStudentUpdated)
+  useWebSocketEvent('USER_UPDATED', handleStudentUpdated)
+
+  // Cross-tab and local event bus (HTML5 BroadcastChannel / Storage events)
+  useEffect(() => {
+    const unsub = onUserChange(handleStudentUpdated)
+    return () => unsub?.()
+  }, [handleStudentUpdated])
+
+  const resolveStudentForCourse = useCallback(
+    (r) => {
+      const year =
+        studentOverride?.yearOfStudy ??
+        r?.yearOfStudy ??
+        r?.student?.yearOfStudy ??
+        me?.profile?.year_of_study ??
+        me?.profile?.yearOfStudy ??
+        profile?.yearOfStudy ??
+        profile?.year_of_study ??
+        user?.yearOfStudy
+
+      const prog =
+        studentOverride?.programType ??
+        r?.programType ??
+        r?.student?.programType ??
+        me?.profile?.program_type ??
+        me?.profile?.programType ??
+        profile?.programType ??
+        profile?.program_type ??
+        user?.programType ??
+        'regular'
+
+      return {
+        ...user,
+        ...profile,
+        ...me?.profile,
+        yearOfStudy: year,
+        year_of_study: year,
+        programType: prog,
+        program_type: prog,
+        status:
+          r?.student?.academicStatus ??
+          r?.student?.status ??
+          me?.profile?.academic_status ??
+          profile?.academic_status ??
+          user?.status,
+        academicStatus:
+          r?.student?.academicStatus ??
+          me?.profile?.academic_status ??
+          profile?.academic_status ??
+          user?.academicStatus,
+      }
+    },
+    [user, profile, me?.profile, studentOverride],
   )
 
   // Autoincrements dynamically when the new calendar year arrives (e.g. 2026, 2027 when reached)
@@ -128,59 +239,80 @@ export function MyCoursesPage() {
     })
   }, [data, academicYearChoice, semesterChoice])
 
-  const columns = [
-    {
-      key: 'courseCode',
-      header: 'Course Code',
-      value: (r) => r.course?.code ?? '',
-      cell: (r) => <span className="font-semibold text-foreground">{r.course?.code}</span>,
-    },
-    {
-      key: 'courseName',
-      header: 'Course Name',
-      value: (r) => r.course?.title ?? '',
-      cell: (r) => <span className="font-medium text-foreground">{r.course?.title}</span>,
-    },
-    {
-      key: 'creditHours',
-      header: 'Credit Hours',
-      value: (r) => r.course?.creditHours ?? '',
-      cell: (r) => <span>{r.course?.creditHours ?? '—'}</span>,
-      align: 'center',
-    },
-    {
-      key: 'teacherName',
-      header: 'Teacher Name',
-      value: (r) => (r.teacher?.name ? r.teacher.name.replace(/^Dr\.?\s+/i, '').trim() : '') || 'Unassigned',
-      cell: (r) => <span>{(r.teacher?.name ? r.teacher.name.replace(/^Dr\.?\s+/i, '').trim() : '') || 'Unassigned'}</span>,
-    },
-    {
-      key: 'academicYear',
-      header: 'Academic Year',
-      value: (r) => formatAcademicYear(r.semester || r.offering?.semester),
-      cell: (r) => (
-        <span className="text-muted-foreground">
-          {formatAcademicYear(r.semester || r.offering?.semester)}
-        </span>
-      ),
-    },
-    {
-      key: 'semester',
-      header: 'Semester',
-      value: (r) => formatSemesterTerm(r.semester?.term) || r.semester?.name || '—',
-      cell: (r) => (
-        <span className="text-muted-foreground">
-          {formatSemesterTerm(r.semester?.term) || r.semester?.name || '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      value: (r) => r.status ?? '',
-      cell: (r) => <StatusBadge status={r.status} />,
-    },
-  ]
+  const columns = useMemo(
+    () => [
+      {
+        key: 'courseCode',
+        header: 'Course Code',
+        value: (r) => r.course?.code ?? '',
+        cell: (r) => <span className="font-semibold text-foreground">{r.course?.code}</span>,
+      },
+      {
+        key: 'courseName',
+        header: 'Course Name',
+        value: (r) => r.course?.title ?? '',
+        cell: (r) => <span className="font-medium text-foreground">{r.course?.title}</span>,
+      },
+      {
+        key: 'creditHours',
+        header: 'Credit Hours',
+        value: (r) => r.course?.creditHours ?? '',
+        cell: (r) => <span>{r.course?.creditHours ?? '—'}</span>,
+        align: 'center',
+      },
+      {
+        key: 'teacherName',
+        header: 'Teacher Name',
+        value: (r) => (r.teacher?.name ? r.teacher.name.replace(/^Dr\.?\s+/i, '').trim() : '') || 'Unassigned',
+        cell: (r) => <span>{(r.teacher?.name ? r.teacher.name.replace(/^Dr\.?\s+/i, '').trim() : '') || 'Unassigned'}</span>,
+      },
+      {
+        key: 'currentYear',
+        header: 'Current Year',
+        value: (r) => getStudentCurrentYearOfStudy(resolveStudentForCourse(r)),
+        cell: (r) => (
+          <span className="text-foreground font-medium">
+            {getStudentCurrentYearOfStudy(resolveStudentForCourse(r))}
+          </span>
+        ),
+      },
+      {
+        key: 'programType',
+        header: 'Program Type',
+        value: (r) => resolveStudentForCourse(r).programType,
+        cell: (r) => (
+          <ProgramTypeBadge programType={resolveStudentForCourse(r).programType} />
+        ),
+      },
+      {
+        key: 'academicYear',
+        header: 'Academic Year',
+        value: (r) => formatAcademicYear(r.semester || r.offering?.semester),
+        cell: (r) => (
+          <span className="text-muted-foreground">
+            {formatAcademicYear(r.semester || r.offering?.semester)}
+          </span>
+        ),
+      },
+      {
+        key: 'semester',
+        header: 'Semester',
+        value: (r) => formatSemesterTerm(r.semester?.term) || r.semester?.name || '—',
+        cell: (r) => (
+          <span className="text-muted-foreground">
+            {formatSemesterTerm(r.semester?.term) || r.semester?.name || '—'}
+          </span>
+        ),
+      },
+      {
+        key: 'status',
+        header: 'Status',
+        value: (r) => r.status ?? '',
+        cell: (r) => <StatusBadge status={r.status} />,
+      },
+    ],
+    [resolveStudentForCourse],
+  )
 
   return (
     <>

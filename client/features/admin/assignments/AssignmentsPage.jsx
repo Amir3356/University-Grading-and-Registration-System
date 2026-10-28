@@ -434,7 +434,7 @@ function OfferingForm({ offering, defaultSemesterId, preloadedCourses, onClose, 
         activeCoursesList.find((c) => c.id === currentCourseId) ||
         (lookups?.courses ?? []).find((c) => c.id === currentCourseId) ||
         offering?.course
-      if (currentCourse) {
+      if (currentCourse && (!form.yearOfStudy || form.yearOfStudy === 'all' || getCourseStudyYear(currentCourse) === String(form.yearOfStudy))) {
         opts.unshift({
           value: currentCourse.id,
           label: `${currentCourse.title || currentCourse.name} (${currentCourse.code})`,
@@ -508,11 +508,18 @@ function OfferingForm({ offering, defaultSemesterId, preloadedCourses, onClose, 
       noValidate
       onSubmit={(e) => {
         e.preventDefault()
+        const assignedYear =
+          form.yearOfStudy && form.yearOfStudy !== 'all'
+            ? parseInt(form.yearOfStudy, 10)
+            : course
+            ? parseInt(getCourseStudyYear(course), 10)
+            : undefined
+
         save({
           courseId: form.courseId,
           semesterId: form.semesterId,
           teacherId: form.teacherId,
-          yearOfStudy: form.yearOfStudy ? parseInt(form.yearOfStudy, 10) : undefined,
+          yearOfStudy: assignedYear,
           section: form.section,
           capacity: form.capacity,
           room: form.room,

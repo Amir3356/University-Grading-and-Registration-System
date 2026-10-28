@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { ClipboardList } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/common/DataTable'
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { PageHeader } from '@/components/common/PageHeader'
 import { useQuery } from '@/hooks/useStore'
+import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
 import { todayIso, typeLabel } from '../components/policy'
 
@@ -19,13 +19,17 @@ function getAssessmentStatus(a, today) {
 }
 
 export function MyAssessmentsPage() {
-  const [statusFilter, setStatusFilter] = useState('all')
   const [courseFilter, setCourseFilter] = useState('all')
 
   const { data, loading, error, refetch } = useQuery(
     () => store.student.listMyAssessments(),
     [],
   )
+
+  useWebSocketEvent('SCORES_UPDATED', () => refetch?.())
+  useWebSocketEvent('OFFERING_UPDATED', () => refetch?.())
+  useWebSocketEvent('ASSESSMENT_UPDATED', () => refetch?.())
+  useWebSocketEvent('ASSESSMENT_CREATED', () => refetch?.())
 
   const today = todayIso()
 
@@ -44,33 +48,23 @@ export function MyAssessmentsPage() {
       }
     }
     return [
-      { value: 'all', label: 'All courses' },
+      { value: 'all', label: 'All course' },
       ...Array.from(map.entries())
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([value, label]) => ({ value, label })),
     ]
   }, [rows])
 
-  const statusOptions = [
-    { value: 'all', label: 'All statuses' },
-    { value: 'upcoming', label: 'upcoming' },
-    { value: 'pending', label: 'pending' },
-    { value: 'graded', label: 'graded' },
-  ]
-
   const filteredRows = useMemo(() => {
     return rows.filter((r) => {
-      if (statusFilter !== 'all' && r.status !== statusFilter) {
-        return false
-      }
       if (courseFilter !== 'all' && r.courseCode !== courseFilter) {
         return false
       }
       return true
     })
-  }, [rows, statusFilter, courseFilter])
+  }, [rows, courseFilter])
 
-  const toolbar = (
+  const toolbar = courseOptions.length > 1 ? (
     <div
       className="cluster"
       style={{
@@ -80,26 +74,17 @@ export function MyAssessmentsPage() {
         gap: '0.75rem',
       }}
     >
-      <div style={{ width: '12rem', minWidth: '9.5rem' }}>
+      <div style={{ width: '13rem', minWidth: '10rem' }}>
         <FilterSelect
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={statusOptions}
-          placeholder="All statuses"
+          value={courseFilter}
+          onChange={setCourseFilter}
+          options={courseOptions}
+          placeholder="All course"
+          includeAll={false}
         />
       </div>
-      {courseOptions.length > 1 && (
-        <div style={{ width: '13rem', minWidth: '10rem' }}>
-          <FilterSelect
-            value={courseFilter}
-            onChange={setCourseFilter}
-            options={courseOptions}
-            placeholder="All courses"
-          />
-        </div>
-      )}
     </div>
-  )
+  ) : null
 
   const columns = [
     {
@@ -143,20 +128,6 @@ export function MyAssessmentsPage() {
         </span>
       ),
       align: 'center',
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      value: (r) => r.status,
-      cell: (r) => {
-        const config = {
-          graded: 'success',
-          pending: 'warning',
-          upcoming: 'secondary',
-        }[r.status] ?? 'outline'
-
-        return <Badge variant={config}>{r.status}</Badge>
-      },
     },
   ]
 
