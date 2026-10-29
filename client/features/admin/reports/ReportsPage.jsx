@@ -1,17 +1,14 @@
-import { FileBarChart } from 'lucide-react'
-import { PageHeader } from '@/components/common/PageHeader'
+import { useLookups } from '@/context/lookups-context'
+import { RegistrationReportsView } from '@/features/reports/RegistrationReportsView'
 
 export function ReportsPage() {
+  const lookups = useLookups()
   return (
-    <>
-      <PageHeader title="Reports" />
-
-      <div className="coming-soon-card">
-        <div className="coming-soon-card__icon-wrapper">
-          <FileBarChart aria-hidden="true" />
-        </div>
-        <h2 className="coming-soon-card__title">Coming Soon</h2>
-      </div>
-    </>
+    <RegistrationReportsView
+      description="Student registration and withdrawal activity across all departments."
+      university={lookups?.university}
+    />
   )
 }
+
+export default ReportsPage

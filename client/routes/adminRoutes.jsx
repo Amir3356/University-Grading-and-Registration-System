@@ -17,11 +17,8 @@ const AssignmentsPage = page(() => import('@/features/admin/assignments/Assignme
 const GradingPoliciesPage = page(() => import('@/features/admin/grading/GradingPoliciesPage'), 'GradingPoliciesPage');
 const ApprovalsPage = page(() => import('@/features/admin/approvals/ApprovalsPage'), 'ApprovalsPage');
 const ApprovalDetailPage = page(() => import('@/features/admin/approvals/ApprovalDetailPage'), 'ApprovalDetailPage');
-const ReportsPage = page(() => import('@/features/admin/reports/ReportsPage'), 'ReportsPage');
-const AdminTranscriptPage = page(() => import('@/features/admin/reports/AdminTranscriptPage'), 'AdminTranscriptPage');
-const StudentReportPage = page(() => import('@/features/admin/reports/StudentReportPage'), 'StudentReportPage');
-const GradeSheetPage = page(() => import('@/features/admin/reports/GradeSheetPage'), 'GradeSheetPage');
 const SettingsPage = page(() => import('@/features/admin/settings/SettingsPage'), 'SettingsPage');
+const ReportsPage = page(() => import('@/features/admin/reports/ReportsPage'), 'ReportsPage');
 const RegistrationPeriodsPage = page(() => import('@/features/admin/registration/RegistrationPeriodsPage'), 'RegistrationPeriodsPage');
 const StudentRegistrationsPage = page(() => import('@/features/admin/registration/StudentRegistrationsPage'), 'StudentRegistrationsPage');
 const AdminWithdrawalsPage = page(() => import('@/features/admin/withdrawals/AdminWithdrawalsPage'), 'AdminWithdrawalsPage');
@@ -39,11 +36,8 @@ export const adminRoutes = (
     <Route path="/admin/grading-policies" element={<GradingPoliciesPage />} />
     <Route path="/admin/grade-approvals" element={<ApprovalsPage />} />
     <Route path="/admin/grade-approvals/:requestId" element={<ApprovalDetailPage />} />
-    <Route path="/admin/reports" element={<ReportsPage />} />
-    <Route path="/admin/reports/transcripts/:studentId" element={<AdminTranscriptPage />} />
-    <Route path="/admin/reports/students/:studentId" element={<StudentReportPage />} />
-    <Route path="/admin/reports/grade-sheet/:offeringId" element={<GradeSheetPage />} />
     <Route path="/admin/settings" element={<SettingsPage />} />
+    <Route path="/admin/reports" element={<ReportsPage />} />
 
     <Route path="/admin/semester-registration" element={<RegistrationPeriodsPage />} />
     <Route path="/admin/semester-registration/periods" element={<RegistrationPeriodsPage />} />

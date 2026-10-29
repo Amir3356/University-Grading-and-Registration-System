@@ -404,9 +404,41 @@ export async function getDepartmentReport({ semesterId } = {}) {
   return results;
 }
 
-export async function getCourseResultsReport({ semesterId, departmentId } = {}) {
+/** Parses "YYYY-MM-DD" as a local calendar date (new Date(str) would read it as UTC midnight). */
+function parseLocalDate(str) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(str ?? ''));
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+}
+
+/**
+ * Resolves a report period to a [start, end] range: today, weekly (last 7 days incl. today)
+ * or custom (startDate..endDate, whole days). Returns null for no date filter.
+ */
+function resolvePeriodRange(period, startDate, endDate) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+  if (period === 'today') return [today, endOf(today)];
+  if (period === 'weekly') return [new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6), endOf(today)];
+  if (period === 'custom') {
+    const start = parseLocalDate(startDate);
+    const end = parseLocalDate(endDate) ?? today;
+    return start ? [start, endOf(end)] : null;
+  }
+  return null;
+}
+
+export async function getCourseResultsReport({ semesterId, departmentId, period, startDate, endDate } = {}) {
   const conditions = [];
   const params = [];
+
+  // The period filters grades by the date they were approved by the department.
+  let gradeDateFilter = '';
+  const range = resolvePeriodRange(period, startDate, endDate);
+  if (range) {
+    params.push(range[0], range[1]);
+    gradeDateFilter = ` AND fg.approved_at BETWEEN $${params.length - 1} AND $${params.length}`;
+  }
 
   if (semesterId) {
     params.push(semesterId);
@@ -420,28 +452,33 @@ export async function getCourseResultsReport({ semesterId, departmentId } = {}) 
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
+  // Results count grades that cleared department approval (approved or published);
+  // W / I special grades are reported separately and excluded from pass / fail.
   const sql = `
     SELECT co.id as offering_id,
            c.code as course_code, c.title as course_title,
-           sem.name as semester_name,
+           co.section, sem.id as semester_id, sem.name as semester_name, sem.start_date as semester_start,
            (u.first_name || ' ' || u.last_name) as teacher_name,
            co.grade_status,
+           COUNT(DISTINCT ce.id) as enrolled,
            COUNT(fg.id) as students,
-           AVG(fg.total_score) as average,
-           MAX(fg.total_score) as highest,
-           MIN(fg.total_score) as lowest,
-           COUNT(fg.id) FILTER (WHERE fg.grade_points > 0) as passed,
-           COUNT(fg.id) FILTER (WHERE fg.grade_points = 0) as failed
+           AVG(fg.total_score) FILTER (WHERE fg.special_grade IS NULL) as average,
+           MAX(fg.total_score) FILTER (WHERE fg.special_grade IS NULL) as highest,
+           MIN(fg.total_score) FILTER (WHERE fg.special_grade IS NULL) as lowest,
+           COUNT(fg.id) FILTER (WHERE fg.special_grade IS NULL AND fg.grade_points > 0) as passed,
+           COUNT(fg.id) FILTER (WHERE fg.special_grade IS NULL AND fg.grade_points = 0) as failed,
+           COUNT(fg.id) FILTER (WHERE fg.special_grade = 'W') as withdrawn,
+           COUNT(fg.id) FILTER (WHERE fg.special_grade = 'I') as incomplete
     FROM course_offerings co
     JOIN courses c ON c.id = co.course_id
     JOIN semesters sem ON sem.id = co.semester_id
     JOIN teachers t ON t.id = co.teacher_id
     JOIN users u ON u.id = t.user_id
     LEFT JOIN course_enrollments ce ON ce.offering_id = co.id
-    LEFT JOIN final_grades fg ON fg.enrollment_id = ce.id AND fg.status = 'published'
+    LEFT JOIN final_grades fg ON fg.enrollment_id = ce.id AND fg.status IN ('approved', 'published')${gradeDateFilter}
     ${whereClause}
     GROUP BY co.id, c.id, sem.id, t.id, u.id
-    ORDER BY c.code ASC, co.section ASC
+    ORDER BY sem.start_date DESC, c.code ASC, co.section ASC
   `;
 
   const res = await query(sql, params);
@@ -453,9 +490,9 @@ export async function getCourseResultsReport({ semesterId, departmentId } = {}) 
         `SELECT fg.letter, count(fg.id) as count
          FROM final_grades fg
          JOIN course_enrollments ce ON ce.id = fg.enrollment_id
-         WHERE ce.offering_id = $1 AND fg.status = 'published'
+         WHERE ce.offering_id = $1 AND fg.status IN ('approved', 'published')${range ? ' AND fg.approved_at BETWEEN $2 AND $3' : ''}
          GROUP BY fg.letter`,
-        [row.offering_id]
+        range ? [row.offering_id, range[0], range[1]] : [row.offering_id]
       );
       const distMap = {};
       for (const d of distRes.rows) distMap[d.letter] = parseInt(d.count, 10);
@@ -463,11 +500,14 @@ export async function getCourseResultsReport({ semesterId, departmentId } = {}) 
       const students = parseInt(row.students || '0', 10);
       const passed = parseInt(row.passed || '0', 10);
       const failed = parseInt(row.failed || '0', 10);
-      const passRate = students > 0 ? roundTo2((passed / students) * 100) : 0;
+      const passRate = passed + failed > 0 ? roundTo2((passed / (passed + failed)) * 100) : 0;
 
       return {
         ...row,
+        enrolled: parseInt(row.enrolled || '0', 10),
         students,
+        withdrawn: parseInt(row.withdrawn || '0', 10),
+        incomplete: parseInt(row.incomplete || '0', 10),
         average: row.average ? roundTo2(row.average) : 0,
         highest: row.highest ? roundTo2(row.highest) : 0,
         lowest: row.lowest ? roundTo2(row.lowest) : 0,
@@ -575,12 +615,36 @@ export async function getGpaReport({ departmentId, programType, yearOfStudy, sta
       cgpa: transcript.cgpa,
       earnedCredits: transcript.earnedCredits,
       standing: transcript.standing.label,
+      standingTone: transcript.standing.tone,
     });
   }
 
   let filtered = rows;
   if (standing) {
     filtered = filtered.filter((r) => r.standing.toLowerCase().includes(standing.toLowerCase()));
+  }
+
+  if (sort) {
+    let sortKey = 'cgpa';
+    let sortDir = 'desc';
+    if (typeof sort === 'string') {
+      const parts = sort.split(':');
+      sortKey = parts[0];
+      sortDir = parts[1] || 'desc';
+    } else if (typeof sort === 'object') {
+      sortKey = sort.key || 'cgpa';
+      sortDir = sort.dir || 'desc';
+    }
+
+    filtered.sort((a, b) => {
+      let va = a[sortKey];
+      let vb = b[sortKey];
+      if (typeof va === 'string') va = va.toLowerCase();
+      if (typeof vb === 'string') vb = vb.toLowerCase();
+      if (va < vb) return sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
   }
 
   const total = filtered.length;
@@ -594,6 +658,7 @@ export async function getGpaReport({ departmentId, programType, yearOfStudy, sta
 
   return {
     items: paginated,
+    all: filtered,
     total,
     page: p,
     pageSize: size,
@@ -963,7 +1028,7 @@ export async function getStudentPerformanceReport(studentId) {
   const transcript = await getStudentTranscriptData(studentId);
   const stuRes = await query(
     `SELECT s.*, (u.first_name || ' ' || u.last_name) as name, u.email,
-            d.name as department_name, p.name as program_name
+            d.name as department_name, d.code as department_code, p.name as program_name
      FROM students s
      JOIN users u ON u.id = s.user_id
      LEFT JOIN departments d ON d.id = s.department_id
@@ -971,6 +1036,7 @@ export async function getStudentPerformanceReport(studentId) {
      WHERE s.id = $1`,
     [studentId]
   );
+  const sRow = stuRes.rows[0];
 
   const coursesRes = await query(
     `SELECT ce.id as enrollment_id, c.code as course_code, c.title as course_title,
@@ -987,7 +1053,19 @@ export async function getStudentPerformanceReport(studentId) {
   );
 
   return {
-    student: stuRes.rows[0],
+    student: {
+      id: sRow?.id,
+      name: sRow?.name,
+      email: sRow?.email,
+      studentNumber: sRow?.student_number,
+      program: sRow?.program_name || 'Undergraduate Degree',
+      admissionYear: sRow?.admission_year,
+      department: {
+        id: sRow?.department_id,
+        name: sRow?.department_name,
+        code: sRow?.department_code,
+      },
+    },
     cgpa: transcript.cgpa,
     earnedCredits: transcript.earnedCredits,
     standing: transcript.standing,
@@ -1009,5 +1087,284 @@ export async function getStudentPerformanceReport(studentId) {
       letter: r.letter,
       published: r.published,
     })),
+  };
+}
+
+export async function getWithdrawalRegistrationReport({ period = 'monthly', startDate, endDate } = {}) {
+  let start, end;
+  const now = new Date();
+  if (period === 'today') {
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+  } else if (period === 'weekly') {
+    start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    end = now;
+  } else if (period === 'monthly') {
+    start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    end = now;
+  } else if (period === 'quarterly') {
+    start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    end = now;
+  } else if (period === 'custom' && startDate) {
+    start = new Date(startDate);
+    end = endDate ? new Date(endDate) : now;
+    end.setHours(23, 59, 59, 999);
+  } else {
+    start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    end = now;
+  }
+
+  // Period-specific Registrations
+  const regCountsRes = await query(
+    `SELECT
+       count(*) as total,
+       count(*) FILTER (WHERE status = 'registered') as registered,
+       count(*) FILTER (WHERE status = 'pending') as pending,
+       count(*) FILTER (WHERE status = 'rejected') as rejected,
+       count(*) FILTER (WHERE status = 'cancelled') as cancelled
+     FROM semester_registrations
+     WHERE submitted_at BETWEEN $1 AND $2`,
+    [start, end]
+  );
+
+  // Overall Registrations
+  const regAllTimeRes = await query(`
+    SELECT
+      count(*) as total,
+      count(*) FILTER (WHERE status = 'registered') as registered,
+      count(*) FILTER (WHERE status = 'pending') as pending,
+      count(*) FILTER (WHERE status = 'rejected') as rejected
+    FROM semester_registrations
+  `);
+
+  // Period-specific Withdrawals
+  const wdrCountsRes = await query(
+    `SELECT
+       count(*) as total,
+       count(*) FILTER (WHERE status = 'approved') as approved,
+       count(*) FILTER (WHERE status = 'pending') as pending,
+       count(*) FILTER (WHERE status = 'rejected') as rejected,
+       count(*) FILTER (WHERE status = 'cancelled') as cancelled,
+       count(*) FILTER (WHERE scope = 'course') as scope_course,
+       count(*) FILTER (WHERE scope = 'semester') as scope_semester,
+       count(*) FILTER (WHERE scope = 'university') as scope_university
+     FROM withdrawal_requests
+     WHERE submitted_at BETWEEN $1 AND $2`,
+    [start, end]
+  );
+
+  // Overall Withdrawals
+  const wdrAllTimeRes = await query(`
+    SELECT
+      count(*) as total,
+      count(*) FILTER (WHERE status = 'approved') as approved,
+      count(*) FILTER (WHERE status = 'pending') as pending,
+      count(*) FILTER (WHERE status = 'rejected') as rejected,
+      count(*) FILTER (WHERE scope = 'course') as scope_course,
+      count(*) FILTER (WHERE scope = 'semester') as scope_semester,
+      count(*) FILTER (WHERE scope = 'university') as scope_university
+    FROM withdrawal_requests
+  `);
+
+  // Registrations by type
+  const regByTypeRes = await query(`
+    SELECT COALESCE(rt.label, sr.registration_type_id) as type_name, count(sr.id) as count
+    FROM semester_registrations sr
+    LEFT JOIN registration_types rt ON rt.id = sr.registration_type_id
+    GROUP BY rt.label, sr.registration_type_id
+    ORDER BY count DESC
+  `);
+
+  // Registrations by department
+  const regByDeptRes = await query(`
+    SELECT d.name as department, count(sr.id) as count
+    FROM semester_registrations sr
+    JOIN students s ON s.id = sr.student_id
+    JOIN departments d ON d.id = s.department_id
+    GROUP BY d.name
+    ORDER BY count DESC
+    LIMIT 6
+  `);
+
+  // Withdrawals by category
+  const wdrByCatRes = await query(`
+    SELECT COALESCE(rc.label, wr.reason_category_id) as category, count(wr.id) as count
+    FROM withdrawal_requests wr
+    LEFT JOIN withdrawal_reason_categories rc ON rc.id = wr.reason_category_id
+    GROUP BY rc.label, wr.reason_category_id
+    ORDER BY count DESC
+  `);
+
+  // Recent registrations
+  const recentRegRes = await query(`
+    SELECT
+      sr.id,
+      sr.status,
+      sr.submitted_at,
+      s.student_number,
+      u.first_name || ' ' || u.last_name as student_name,
+      d.name as department_name,
+      COALESCE(rt.label, sr.registration_type_id) as registration_type
+    FROM semester_registrations sr
+    JOIN students s ON s.id = sr.student_id
+    JOIN users u ON u.id = s.user_id
+    LEFT JOIN departments d ON d.id = s.department_id
+    LEFT JOIN registration_types rt ON rt.id = sr.registration_type_id
+    ORDER BY sr.submitted_at DESC
+    LIMIT 10
+  `);
+
+  // Recent withdrawals
+  const recentWdrRes = await query(`
+    SELECT
+      wr.id,
+      wr.reference_no,
+      wr.scope,
+      wr.reason,
+      wr.status,
+      wr.submitted_at,
+      s.student_number,
+      u.first_name || ' ' || u.last_name as student_name,
+      d.name as department_name,
+      COALESCE(rc.label, wr.reason_category_id) as reason_category
+    FROM withdrawal_requests wr
+    JOIN students s ON s.id = wr.student_id
+    JOIN users u ON u.id = s.user_id
+    LEFT JOIN departments d ON d.id = s.department_id
+    LEFT JOIN withdrawal_reason_categories rc ON rc.id = wr.reason_category_id
+    ORDER BY wr.submitted_at DESC
+    LIMIT 10
+  `);
+
+  // Time-series trend by date
+  const regTrendRes = await query(
+    `SELECT TO_CHAR(submitted_at, 'YYYY-MM-DD') as day, count(*) as count
+     FROM semester_registrations
+     WHERE submitted_at BETWEEN $1 AND $2
+     GROUP BY TO_CHAR(submitted_at, 'YYYY-MM-DD')
+     ORDER BY day ASC`,
+    [start, end]
+  );
+
+  const wdrTrendRes = await query(
+    `SELECT TO_CHAR(submitted_at, 'YYYY-MM-DD') as day, count(*) as count
+     FROM withdrawal_requests
+     WHERE submitted_at BETWEEN $1 AND $2
+     GROUP BY TO_CHAR(submitted_at, 'YYYY-MM-DD')
+     ORDER BY day ASC`,
+    [start, end]
+  );
+
+  // Also all-time trends for comprehensive overview
+  const allTimeRegTrendRes = await query(`
+    SELECT TO_CHAR(submitted_at, 'YYYY-MM-DD') as day, count(*) as count
+    FROM semester_registrations
+    GROUP BY TO_CHAR(submitted_at, 'YYYY-MM-DD')
+    ORDER BY day ASC
+  `);
+
+  const allTimeWdrTrendRes = await query(`
+    SELECT TO_CHAR(submitted_at, 'YYYY-MM-DD') as day, count(*) as count
+    FROM withdrawal_requests
+    GROUP BY TO_CHAR(submitted_at, 'YYYY-MM-DD')
+    ORDER BY day ASC
+  `);
+
+  // Merge trends by date
+  const dateMap = new Map();
+  // Use period trends if available, otherwise fallback to all-time trends so charts are never empty
+  const regTrend = regTrendRes.rows.length > 0 ? regTrendRes.rows : allTimeRegTrendRes.rows;
+  const wdrTrend = wdrTrendRes.rows.length > 0 ? wdrTrendRes.rows : allTimeWdrTrendRes.rows;
+
+  for (const r of regTrend) {
+    if (!dateMap.has(r.day)) {
+      dateMap.set(r.day, { date: r.day, registrations: 0, withdrawals: 0 });
+    }
+    dateMap.get(r.day).registrations = parseInt(r.count, 10);
+  }
+
+  for (const w of wdrTrend) {
+    if (!dateMap.has(w.day)) {
+      dateMap.set(w.day, { date: w.day, registrations: 0, withdrawals: 0 });
+    }
+    dateMap.get(w.day).withdrawals = parseInt(w.count, 10);
+  }
+
+  const trend = Array.from(dateMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+
+  const rc = regCountsRes.rows[0];
+  const ra = regAllTimeRes.rows[0];
+  const wc = wdrCountsRes.rows[0];
+  const wa = wdrAllTimeRes.rows[0];
+
+  return {
+    period,
+    startDate: start.toISOString(),
+    endDate: end.toISOString(),
+    registrations: {
+      period: {
+        total: parseInt(rc.total || '0', 10),
+        registered: parseInt(rc.registered || '0', 10),
+        pending: parseInt(rc.pending || '0', 10),
+        rejected: parseInt(rc.rejected || '0', 10),
+        cancelled: parseInt(rc.cancelled || '0', 10),
+      },
+      allTime: {
+        total: parseInt(ra.total || '0', 10),
+        registered: parseInt(ra.registered || '0', 10),
+        pending: parseInt(ra.pending || '0', 10),
+        rejected: parseInt(ra.rejected || '0', 10),
+      },
+      byType: regByTypeRes.rows.map((r) => ({ name: r.type_name, count: parseInt(r.count, 10) })),
+      byDepartment: regByDeptRes.rows.map((r) => ({ department: r.department, count: parseInt(r.count, 10) })),
+      recent: recentRegRes.rows.map((r) => ({
+        id: r.id,
+        status: r.status,
+        submittedAt: r.submitted_at,
+        studentNumber: r.student_number,
+        studentName: r.student_name,
+        departmentName: r.department_name,
+        registrationType: r.registration_type,
+      })),
+    },
+    withdrawals: {
+      period: {
+        total: parseInt(wc.total || '0', 10),
+        approved: parseInt(wc.approved || '0', 10),
+        pending: parseInt(wc.pending || '0', 10),
+        rejected: parseInt(wc.rejected || '0', 10),
+        cancelled: parseInt(wc.cancelled || '0', 10),
+        byScope: {
+          course: parseInt(wc.scope_course || '0', 10),
+          semester: parseInt(wc.scope_semester || '0', 10),
+          university: parseInt(wc.scope_university || '0', 10),
+        },
+      },
+      allTime: {
+        total: parseInt(wa.total || '0', 10),
+        approved: parseInt(wa.approved || '0', 10),
+        pending: parseInt(wa.pending || '0', 10),
+        rejected: parseInt(wa.rejected || '0', 10),
+        byScope: {
+          course: parseInt(wa.scope_course || '0', 10),
+          semester: parseInt(wa.scope_semester || '0', 10),
+          university: parseInt(wa.scope_university || '0', 10),
+        },
+      },
+      byCategory: wdrByCatRes.rows.map((r) => ({ category: r.category, count: parseInt(r.count, 10) })),
+      recent: recentWdrRes.rows.map((r) => ({
+        id: r.id,
+        referenceNo: r.reference_no,
+        scope: r.scope,
+        reason: r.reason,
+        status: r.status,
+        submittedAt: r.submitted_at,
+        studentNumber: r.student_number,
+        studentName: r.student_name,
+        departmentName: r.department_name,
+        reasonCategory: r.reason_category,
+      })),
+    },
+    trend,
   };
 }

@@ -24,10 +24,6 @@ export async function getMissingGradesReport(params, caller) {
   return await repRepo.getMissingGradesReport(queryParams);
 }
 
-export async function getDepartmentReport(params) {
-  return await repRepo.getDepartmentReport(params);
-}
-
 export async function getCourseResultsReport(params, caller) {
   const queryParams = { ...params };
   if (caller.roleId === 'dept_head') {
@@ -61,10 +57,6 @@ export async function getGpaReport(params, caller) {
   return await repRepo.getGpaReport(queryParams);
 }
 
-export async function getRegistrationsReport(params) {
-  return await repRepo.getRegistrationsReport(params);
-}
-
 export async function getStudentTranscript(studentId, caller) {
   const student = await getStudentById(studentId);
   if (!student) throw new NotFoundError('Student');
@@ -90,3 +82,8 @@ export async function getStudentPerformance(studentId, caller) {
 
   return await repRepo.getStudentPerformanceReport(studentId);
 }
+
+export async function getWithdrawalRegistrationReport(params) {
+  return await repRepo.getWithdrawalRegistrationReport(params);
+}
+

@@ -28,8 +28,9 @@ export function defineAbilityFor(user) {
 
   switch (user.roleId) {
     case 'admin':
-      // Superuser: can manage all entities and perform any action
+      // Superuser: can manage all entities except reports (removed from Admin RBAC)
       can('manage', 'all');
+      cannot(['read', 'manage'], 'Report');
       break;
 
     case 'dept_head':

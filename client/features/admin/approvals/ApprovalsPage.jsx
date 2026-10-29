@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BarChart3, ClipboardCheck, Globe } from 'lucide-react'
+import { ClipboardCheck, Globe } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,13 +39,6 @@ export function ApprovalsPage() {
       <PageHeader
         title="Grade approvals"
         description="Review final grades submitted by teachers, then approve, return or publish them."
-        actions={
-          <Button variant="outline" asChild>
-            <Link to="/admin/reports?tab=missing">
-              <BarChart3 /> Submitted grades overview
-            </Link>
-          </Button>
-        }
       />
 
       <AwaitingPublication />

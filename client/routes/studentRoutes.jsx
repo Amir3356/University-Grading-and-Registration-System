@@ -26,6 +26,8 @@ export const studentRoutes = (
     <Route path="/student/assessments" element={<MyAssessmentsPage />} />
     <Route path="/student/grades" element={<MyGradesPage />} />
     <Route path="/student/grade-report" element={<GradeReportPage />} />
+    <Route path="/student/reports" element={<GradeReportPage />} />
+    <Route path="/student/report" element={<GradeReportPage />} />
     <Route path="/student/progress" element={<ProgressPage />} />
     <Route path="/student/transcript" element={<TranscriptPage />} />
     <Route path="/student/withdrawals" element={<WithdrawalRequestsPage />} />

@@ -6,5 +6,7 @@
 @import './styles/common.css';
 @import './styles/features/admin.css';
 @import './styles/features/admin-grading.css';
+@import './styles/features/admin-dashboard.css';
+@import './styles/features/admin-reports.css';
 @import './styles/features/teacher.css';
 @import './styles/features/student.css';

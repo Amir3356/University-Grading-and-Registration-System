@@ -1,0 +1,447 @@
+/* Admin Reports – period filters, KPI cards, chart grid, activity table */
+
+.rpt {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-bottom: 3rem;
+}
+
+.rpt > .page-header {
+  margin-bottom: 0;
+}
+
+/* ── Period filters ──────────────────────────────────────────────────── */
+.rpt-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.rpt-filters__range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.rpt-filters__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.rpt-filters__label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.rpt-filters__select {
+  width: 12rem;
+}
+
+.rpt-filters__date {
+  width: 10.5rem;
+}
+
+@media (min-width: 640px) {
+  .rpt-filters {
+    width: auto;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 639px) {
+  .rpt-filters__field,
+  .rpt-filters__range {
+    flex: 1 1 100%;
+  }
+  .rpt-filters__range .rpt-filters__field {
+    flex: 1 1 0%;
+  }
+  .rpt-filters__select,
+  .rpt-filters__date {
+    width: 100%;
+  }
+}
+
+/* ── Range context line ──────────────────────────────────────────────── */
+.rpt-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: -0.5rem;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+
+.rpt-context svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--primary);
+}
+
+.rpt-context__range {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.rpt-context__dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 9999px;
+  background: var(--muted-foreground);
+}
+
+/* ── KPI cards ───────────────────────────────────────────────────────── */
+.rpt-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 1rem;
+}
+
+.rpt-kpi {
+  --kpi-color: var(--primary);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.125rem 1.25rem 1rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--card);
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.rpt-kpi::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--kpi-color);
+}
+
+.rpt-kpi:hover {
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.rpt-kpi--reg  { --kpi-color: var(--chart-1); }
+.rpt-kpi--wd   { --kpi-color: var(--chart-2); }
+.rpt-kpi--net  { --kpi-color: var(--chart-3); }
+.rpt-kpi--rate { --kpi-color: var(--chart-5); }
+
+.rpt-kpi__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.rpt-kpi__label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.rpt-kpi__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklch, var(--kpi-color) 12%, var(--card));
+  color: var(--kpi-color);
+}
+
+.rpt-kpi__icon svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.rpt-kpi__value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+
+.rpt-kpi__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.rpt-kpi__delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.125rem 0.4rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.rpt-kpi__delta svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.rpt-kpi__delta--good {
+  background: color-mix(in oklch, var(--success) 14%, var(--card));
+  color: var(--success);
+}
+
+.rpt-kpi__delta--bad {
+  background: color-mix(in oklch, var(--destructive) 12%, var(--card));
+  color: var(--destructive);
+}
+
+.rpt-kpi__delta--flat {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.rpt-kpi__hint {
+  color: var(--muted-foreground);
+}
+
+/* ── Chart grid ──────────────────────────────────────────────────────── */
+.rpt-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+}
+
+@media (min-width: 1024px) {
+  .rpt-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── Recent activity table ───────────────────────────────────────────── */
+.rpt-table {
+  margin: 0 -1.25rem;
+  overflow-x: auto;
+  border-top: 1px solid var(--border);
+}
+
+.rpt-table th:first-child,
+.rpt-table td:first-child {
+  padding-left: 1.25rem;
+}
+
+.rpt-table th:last-child,
+.rpt-table td:last-child {
+  padding-right: 1.25rem;
+}
+
+.rpt-table__when {
+  text-align: right;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+}
+
+.rpt-student {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.rpt-student__name {
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.rpt-student__id {
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--muted-foreground);
+}
+
+.rpt-type {
+  gap: 0.3rem;
+}
+
+.rpt-type svg {
+  width: 0.8125rem;
+  height: 0.8125rem;
+}
+
+.rpt-filters__download {
+  height: 2.25rem;
+}
+
+@media (max-width: 639px) {
+  .rpt-filters__download {
+    flex: 1 1 100%;
+  }
+}
+
+/* ── Embedded toolbar (report inside a tab) ──────────────────────────── */
+.rpt-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 0.75rem 1.5rem;
+}
+
+.rpt-toolbar__text {
+  flex: 1 1 22rem;
+  max-width: 44rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+/* ── Grade results ───────────────────────────────────────────────────── */
+.rpt-kpi--pass { --kpi-color: var(--chart-1); }
+.rpt-kpi--fail { --kpi-color: var(--chart-4); }
+
+.rpt-muted {
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+
+.rpt-course-title {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.rpt-pass,
+.rpt-fail {
+  font-weight: 600;
+}
+
+.rpt-rate {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 8rem;
+}
+
+.rpt-rate__track {
+  flex: 1 1 auto;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--muted);
+}
+
+.rpt-rate__fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--chart-1);
+}
+
+.rpt-rate .tabular {
+  min-width: 3.25rem;
+  text-align: right;
+  font-size: 0.8125rem;
+}
+
+@media (min-width: 1024px) {
+  .rpt-grid--split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  }
+}
+
+.rpt-legend-text {
+  color: var(--muted-foreground);
+}
+
+/* Donut: chart with the pass rate in the hole, legend with counts below. */
+.rpt-donut {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+}
+
+.rpt-donut__chart {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.rpt-donut__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.rpt-donut__value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+
+.rpt-donut__label {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.rpt-donut__legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+}
+
+.rpt-donut__legend li {
+  display: grid;
+  grid-template-columns: 0.625rem minmax(0, 1fr) auto 3.5rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rpt-donut__swatch {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
+}
+
+.rpt-donut__name {
+  color: var(--foreground);
+}
+
+.rpt-donut__count {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.rpt-donut__share {
+  text-align: right;
+  color: var(--muted-foreground);
+}
+
+.rpt-filters__range:has(.rpt-filters__sep) {
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rpt-filters__sep {
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
