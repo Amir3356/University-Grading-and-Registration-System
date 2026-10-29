@@ -135,29 +135,46 @@ export async function seedDatabase() {
       );
     }
 
-    // Reassign foreign key references from old seed admin accounts (e.g. usr_0002 / registrar) to Amir (usr_0001)
-    await client.query(`UPDATE grade_scales SET created_by = 'usr_0001' WHERE created_by != 'usr_0001' AND created_by IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
-    await client.query(`UPDATE registration_periods SET created_by = 'usr_0001' WHERE created_by != 'usr_0001' AND created_by IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
-    await client.query(`UPDATE semester_registrations SET reviewed_by = 'usr_0001' WHERE reviewed_by != 'usr_0001' AND reviewed_by IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
-    await client.query(`UPDATE withdrawal_requests SET decided_by = 'usr_0001' WHERE decided_by != 'usr_0001' AND decided_by IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
-    await client.query(`UPDATE withdrawal_clearances SET cleared_by = 'usr_0001' WHERE cleared_by != 'usr_0001' AND cleared_by IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
-    await client.query(`UPDATE users SET created_by = 'usr_0001' WHERE created_by != 'usr_0001' AND created_by IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
-    await client.query(`UPDATE announcements SET author_id = 'usr_0001' WHERE author_id != 'usr_0001' AND author_id IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
-    await client.query(`UPDATE university_settings SET updated_by = 'usr_0001' WHERE updated_by != 'usr_0001' AND updated_by IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
-    await client.query(`UPDATE academic_policies SET updated_by = 'usr_0001' WHERE updated_by != 'usr_0001' AND updated_by IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true)`);
+    // Reassign foreign key references to Amir (usr_0001)
+    await client.query(`UPDATE grade_scales SET created_by = 'usr_0001' WHERE created_by != 'usr_0001'`);
+    await client.query(`UPDATE registration_periods SET created_by = 'usr_0001' WHERE created_by != 'usr_0001'`);
+    await client.query(`UPDATE semester_registrations SET reviewed_by = 'usr_0001' WHERE reviewed_by IS NOT NULL AND reviewed_by != 'usr_0001'`);
+    await client.query(`UPDATE withdrawal_requests SET decided_by = 'usr_0001' WHERE decided_by IS NOT NULL AND decided_by != 'usr_0001'`);
+    await client.query(`UPDATE withdrawal_clearances SET cleared_by = 'usr_0001' WHERE cleared_by IS NOT NULL AND cleared_by != 'usr_0001'`);
+    await client.query(`UPDATE users SET created_by = 'usr_0001' WHERE created_by IS NOT NULL AND created_by != 'usr_0001'`);
+    await client.query(`UPDATE announcements SET author_id = 'usr_0001' WHERE author_id != 'usr_0001'`);
+    await client.query(`UPDATE university_settings SET updated_by = 'usr_0001' WHERE updated_by IS NOT NULL AND updated_by != 'usr_0001'`);
+    await client.query(`UPDATE academic_policies SET updated_by = 'usr_0001' WHERE updated_by IS NOT NULL AND updated_by != 'usr_0001'`);
 
-    // Clean up tokens and notifications for legacy admin seed accounts
-    await client.query(
-      `DELETE FROM refresh_tokens WHERE user_id IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true AND username != 'Amir')`
-    );
-    await client.query(
-      `DELETE FROM notifications WHERE user_id IN (SELECT id FROM users WHERE role_id = 'admin' AND is_seed = true AND username != 'Amir')`
-    );
+    // Remove all operational seed data: grades, assessments, enrollments, courses, complaints, registrations
+    console.log('Cleaning up operational seed data...');
+    await client.query('DELETE FROM assessment_scores');
+    await client.query('DELETE FROM assessments');
+    await client.query('DELETE FROM grade_submission_reviews');
+    await client.query('DELETE FROM grade_submissions');
+    await client.query('DELETE FROM final_grades');
+    await client.query('DELETE FROM complaints');
+    await client.query('DELETE FROM withdrawal_clearances');
+    await client.query('DELETE FROM withdrawal_requests');
+    await client.query('DELETE FROM semester_registrations');
+    await client.query('DELETE FROM course_enrollments');
+    await client.query('DELETE FROM course_offerings');
+    await client.query('DELETE FROM program_courses');
+    await client.query('DELETE FROM policy_excluded_courses');
+    await client.query('DELETE FROM courses');
 
-    // Delete legacy admin seed accounts (like registrar)
-    await client.query(
-      `DELETE FROM users WHERE role_id = 'admin' AND is_seed = true AND username != 'Amir'`
-    );
+    // Reset department head foreign keys before clearing teacher profiles
+    await client.query('UPDATE departments SET head_teacher_id = NULL');
+    await client.query('DELETE FROM students');
+    await client.query('DELETE FROM teachers');
+
+    // Clean up notifications and refresh tokens for non-admin users
+    await client.query('DELETE FROM notifications');
+    await client.query("DELETE FROM refresh_tokens WHERE user_id != 'usr_0001'");
+
+    // Remove all users except Admin (Amir)
+    await client.query("DELETE FROM users WHERE id != 'usr_0001'");
+    console.log('Preserved Admin credentials (usr_0001 / Amir) and cleared all other seed data.');
   });
 
   console.log('--- Database seeding completed successfully! ---');

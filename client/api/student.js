@@ -17,6 +17,10 @@ export async function listMyCourses(params = {}) {
   return items;
 }
 
+export async function listMyCoursesPaginated(params = {}) {
+  return await api.get('/student/courses', params);
+}
+
 export async function getMyCourse(enrollmentId) {
   return await api.get(`/student/courses/${enrollmentId}`);
 }
@@ -24,10 +28,17 @@ export async function getMyCourse(enrollmentId) {
 export async function listMyAssessments(params = {}) {
   const res = await api.get('/student/assessments', params);
   const items = Array.isArray(res) ? res : (res?.items || res?.assessments || []);
-  if (res && typeof res === 'object' && 'total' in res) {
+  if (res && typeof res === 'object') {
     items.total = res.total;
+    items.page = res.page;
+    items.pageSize = res.pageSize;
+    items.pageCount = res.pageCount;
   }
   return items;
+}
+
+export async function listMyAssessmentsPaginated(params = {}) {
+  return await api.get('/student/assessments', params);
 }
 
 export async function getMyGrades(params = {}) {
@@ -49,8 +60,10 @@ export async function getGradeReport(semesterId) {
 // Backward-compatible named aliases
 export const getStudentDashboardApi = getStudentDashboard;
 export const listMyCoursesApi = listMyCourses;
+export const listMyCoursesPaginatedApi = listMyCoursesPaginated;
 export const getMyCourseApi = getMyCourse;
 export const listMyAssessmentsApi = listMyAssessments;
+export const listMyAssessmentsPaginatedApi = listMyAssessmentsPaginated;
 export const getMyGradesApi = getMyGrades;
 export const getMyProgressApi = getMyProgress;
 export const getMyTranscriptApi = getMyTranscript;

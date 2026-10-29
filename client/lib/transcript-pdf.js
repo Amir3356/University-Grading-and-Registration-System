@@ -38,7 +38,8 @@ export function downloadTranscriptPdf(t, { official = false } = {}) {
   }
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
-  doc.text(`Cumulative GPA: ${formatGpa(t.cgpa)}     Credits earned: ${t.earnedCredits}     Standing: ${t.standing.label}`, 40, y + 4)
+  const standingText = t.standing?.label && t.standing.label !== 'Academic Probation' ? `     Standing: ${t.standing.label}` : ''
+  doc.text(`Cumulative GPA: ${formatGpa(t.cgpa)}     Credits earned: ${t.earnedCredits}${standingText}`, 40, y + 4)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.setTextColor(110)

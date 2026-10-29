@@ -4,6 +4,7 @@ import { useWebSocketEvent } from '@/lib/websocket'
 import { formatNumber, formatYearOfStudy } from '@/lib/format'
 
 import {
+  AlertCircle,
   ArrowLeft,
   Award,
   CheckCircle2,
@@ -85,15 +86,47 @@ const STUDENT_NAMES = [
 ]
 
 function computeGrade(total) {
-  if (total >= 90) return { letter: 'A', points: 4.0, passed: true }
-  if (total >= 85) return { letter: 'A-', points: 3.75, passed: true }
-  if (total >= 80) return { letter: 'B+', points: 3.5, passed: true }
-  if (total >= 75) return { letter: 'B', points: 3.0, passed: true }
-  if (total >= 70) return { letter: 'B-', points: 2.75, passed: true }
-  if (total >= 65) return { letter: 'C+', points: 2.5, passed: true }
-  if (total >= 60) return { letter: 'C', points: 2.0, passed: true }
-  if (total >= 50) return { letter: 'D', points: 1.0, passed: true }
+  if (total >= 90) return { letter: 'A+', points: 4.0, passed: true }
+  if (total >= 85) return { letter: 'A', points: 3.75, passed: true }
+  if (total >= 80) return { letter: 'A-', points: 3.5, passed: true }
+  if (total >= 75) return { letter: 'B+', points: 3.0, passed: true }
+  if (total >= 70) return { letter: 'B', points: 2.75, passed: true }
+  if (total >= 65) return { letter: 'B-', points: 2.5, passed: true }
+  if (total >= 60) return { letter: 'C+', points: 2.0, passed: true }
+  if (total >= 50) return { letter: 'C-', points: 1.0, passed: true }
   return { letter: 'F', points: 0.0, passed: false }
+}
+
+function resolveStudentGrade(score, explicitLetter, explicitPoints, scaleEntries, passMark = 50) {
+  if (scaleEntries && scaleEntries.length > 0 && typeof score === 'number' && !isNaN(score)) {
+    const sorted = [...scaleEntries].sort(
+      (a, b) => Number(b.minScore ?? b.min_score ?? 0) - Number(a.minScore ?? a.min_score ?? 0)
+    )
+    const matched = sorted.find((e) => score >= Number(e.minScore ?? e.min_score ?? 0)) || sorted[sorted.length - 1]
+    if (matched) {
+      const scaleLetter = matched.letter
+      const scalePoints = Number(matched.gradePoints ?? matched.grade_points ?? matched.points ?? 0)
+      const scalePassed = scaleLetter !== 'F' && score >= passMark
+      if (!explicitLetter || (explicitLetter.toUpperCase() === 'F' && score >= passMark)) {
+        return { letter: scaleLetter, points: scalePoints, passed: scalePassed }
+      }
+      return {
+        letter: explicitLetter,
+        points: typeof explicitPoints === 'number' ? explicitPoints : scalePoints,
+        passed: explicitLetter.toUpperCase() !== 'F',
+      }
+    }
+  }
+
+  const fb = computeGrade(score ?? 0)
+  if (!explicitLetter || (explicitLetter.toUpperCase() === 'F' && (score ?? 0) >= passMark)) {
+    return fb
+  }
+  return {
+    letter: explicitLetter,
+    points: typeof explicitPoints === 'number' ? explicitPoints : fb.points,
+    passed: explicitLetter.toUpperCase() !== 'F',
+  }
 }
 
 function getCourseStudents(courseCode, count) {
@@ -600,6 +633,18 @@ function FullSubmittedGradeSheet({ row, onBack, onApprove, onReject }) {
         const section = r.section || realData?.offering?.section || row.section || 'A'
         const isWithdrawn = r.enrollment?.status === 'withdrawn'
 
+        const isComplete = r.complete !== undefined
+          ? Boolean(r.complete)
+          : (
+            assessments && assessments.length > 0
+              ? assessments.every((a) => typeof r.marks?.[a.id] === 'number' && !isNaN(r.marks[a.id]))
+              : true
+          )
+
+        const passMark = realData?.passMark ?? 50
+        const rawPoints = typeof r.points === 'number' ? r.points : (typeof r.gradePoints === 'number' ? r.gradePoints : null)
+        const resolved = resolveStudentGrade(totalVal, r.letter, rawPoints, realData?.scale, passMark)
+
         return {
           id: r.enrollmentId || `st_${idx}`,
           studentNumber: studentNum,
@@ -609,22 +654,57 @@ function FullSubmittedGradeSheet({ row, onBack, onApprove, onReject }) {
           withdrawn: isWithdrawn,
           marks: r.marks || {},
           total: Number(totalVal.toFixed(1)),
-          letter: r.letter || 'F',
-          points: typeof r.points === 'number' ? r.points : (typeof r.gradePoints === 'number' ? r.gradePoints : 0),
-          passed: r.passed ?? ((r.letter || '').toUpperCase() !== 'F'),
+          letter: isWithdrawn ? 'W' : (resolved.letter || r.letter || 'F'),
+          points: isWithdrawn ? 0 : (typeof resolved.points === 'number' ? resolved.points : 0),
+          passed: isWithdrawn ? false : (resolved.passed ?? (r.passed ?? true)),
+          complete: isComplete,
         }
       })
     }
-    return getCourseStudents(row.courseCode, row.totalStudent)
-  }, [realData, row.courseCode, row.totalStudent, row.yearOfStudy, row.section])
+    return getCourseStudents(row.courseCode, row.totalStudent).map((s) => ({
+      ...s,
+      complete: s.complete ?? true,
+    }))
+  }, [realData, row.courseCode, row.totalStudent, row.yearOfStudy, row.section, assessments])
 
+  const activeStudents = useMemo(() => students.filter((s) => !s.withdrawn), [students])
   const count = students.length
-  const passedCount = students.filter((s) => s.passed).length
-  const failedCount = count - passedCount
-  const passRate = count ? ((passedCount / count) * 100).toFixed(1) : 0
 
-  const highestScore = count ? Math.max(...students.map((s) => s.total)).toFixed(1) : 0
-  const lowestScore = count ? Math.min(...students.map((s) => s.total)).toFixed(1) : 0
+  const completeCount = useMemo(() => {
+    if (typeof realData?.stats?.completeCount === 'number') {
+      return realData.stats.completeCount
+    }
+    return activeStudents.filter((s) => s.complete).length
+  }, [realData, activeStudents])
+
+  const incompleteCount = useMemo(() => {
+    if (typeof realData?.stats?.completeCount === 'number') {
+      const totalActive = typeof realData?.stats?.studentCount === 'number' ? realData.stats.studentCount : activeStudents.length
+      return Math.max(0, totalActive - realData.stats.completeCount)
+    }
+    return activeStudents.filter((s) => !s.complete).length
+  }, [realData, activeStudents])
+
+  const passedCount = useMemo(() => {
+    if (typeof realData?.stats?.passed === 'number') {
+      return realData.stats.passed
+    }
+    return activeStudents.filter((s) => s.passed).length
+  }, [realData, activeStudents])
+
+  const failedCount = useMemo(() => {
+    if (typeof realData?.stats?.failed === 'number') {
+      return realData.stats.failed
+    }
+    return activeStudents.filter((s) => !s.passed).length
+  }, [realData, activeStudents])
+
+  const passRate = useMemo(() => {
+    if (typeof realData?.stats?.passRate === 'number') {
+      return realData.stats.passRate
+    }
+    return activeStudents.length ? ((passedCount / activeStudents.length) * 100).toFixed(1) : 0
+  }, [realData, activeStudents.length, passedCount])
 
   const [searchQuery, setSearchQuery] = useState('')
   const [resultFilter, setResultFilter] = useState('')
@@ -634,6 +714,7 @@ function FullSubmittedGradeSheet({ row, onBack, onApprove, onReject }) {
     return students.filter((s) => {
       if (resultFilter === 'passed' && !s.passed) return false
       if (resultFilter === 'failed' && (s.passed || s.withdrawn)) return false
+      if (resultFilter === 'incomplete' && (s.complete || s.withdrawn)) return false
       if (resultFilter === 'withdrawn' && !s.withdrawn) return false
 
       if (gradeFilter) {
@@ -719,22 +800,28 @@ function FullSubmittedGradeSheet({ row, onBack, onApprove, onReject }) {
           label="Total Students"
           value={count}
           icon={Users}
-          hint="100% completed"
+          hint={incompleteCount === 0 ? '100% completed' : `${completeCount} of ${activeStudents.length} completed`}
           tone="default"
         />
         <StatCard
-          label="Pass Rate"
-          value={`${passRate}%`}
-          icon={Percent}
-          hint={`${passedCount} passed · ${failedCount} failed`}
+          label="Incomplete Marks"
+          value={incompleteCount}
+          icon={AlertCircle}
+          hint={incompleteCount === 0 ? 'All marks entered' : `${incompleteCount} student${incompleteCount === 1 ? '' : 's'} pending`}
+          tone={incompleteCount > 0 ? 'warning' : 'success'}
+        />
+        <StatCard
+          label="Passed / Failed"
+          value={
+            <span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold">{passedCount}</span>
+              <span className="text-muted-foreground font-normal"> / </span>
+              <span className={failedCount > 0 ? 'text-destructive font-bold' : 'font-bold'}>{failedCount}</span>
+            </span>
+          }
+          icon={UserCheck}
+          hint={`${passRate}% pass rate`}
           tone={Number(passRate) >= 60 ? 'success' : 'warning'}
-        />
-        <StatCard
-          label="Highest / Lowest"
-          value={`${highestScore} / ${lowestScore}`}
-          icon={TrendingDown}
-          hint="Out of 100 max marks"
-          tone="default"
         />
       </div>
 
@@ -758,6 +845,7 @@ function FullSubmittedGradeSheet({ row, onBack, onApprove, onReject }) {
             options={[
               { value: 'passed', label: 'Passed Students' },
               { value: 'failed', label: 'Failed Students' },
+              { value: 'incomplete', label: 'Incomplete Marks' },
               { value: 'withdrawn', label: 'Withdrawn' },
             ]}
             className="w-40"
@@ -945,6 +1033,11 @@ function FullSubmittedGradeSheet({ row, onBack, onApprove, onReject }) {
                       {student.withdrawn ? (
                         <Badge variant="muted" className="px-2.5 py-0.5">
                           Withdrawn
+                        </Badge>
+                      ) : !student.complete ? (
+                        <Badge variant="warning" className="px-2.5 py-0.5 inline-flex items-center gap-1.5 font-medium">
+                          <AlertCircle className="size-3" />
+                          Incomplete
                         </Badge>
                       ) : isApproved ? (
                         <Badge variant="success" className="px-2.5 py-0.5 inline-flex items-center gap-1.5 font-medium">

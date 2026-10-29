@@ -8,6 +8,7 @@ import * as registration from './registration';
 import * as withdrawals from './withdrawals';
 import * as student from './student';
 import * as teacher from './teacher';
+import * as complaints from './complaints';
 import * as notifications from './notifications';
 import * as reports from './reports';
 import * as lookups from './lookups';
@@ -23,6 +24,7 @@ export {
   withdrawals,
   student,
   teacher,
+  complaints,
   notifications,
   reports,
   lookups,
@@ -40,6 +42,7 @@ export const api = {
   withdrawals,
   student,
   teacher,
+  complaints,
   notifications,
   reports,
   lookups,
@@ -58,6 +61,7 @@ export * from './registration';
 export * from './withdrawals';
 export * from './student';
 export * from './teacher';
+export * from './complaints';
 export * from './notifications';
 export * from './reports';
 export * from './lookups';

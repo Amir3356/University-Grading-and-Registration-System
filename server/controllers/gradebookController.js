@@ -15,8 +15,10 @@ export async function saveScores(req, res, next) {
   try {
     const { changes, reason } = req.body;
     const result = await gbService.saveScores(req.params.id, { changes, reason }, req.user);
-    broadcastEvent('OFFERING_UPDATED', { id: req.params.id });
+    broadcastEvent('OFFERING_UPDATED', { id: req.params.id, offeringId: req.params.id });
     broadcastEvent('SCORES_UPDATED', { offeringId: req.params.id });
+    broadcastEvent('GRADE_UPDATED', { offeringId: req.params.id });
+    broadcastEvent('TRANSCRIPT_UPDATED', { offeringId: req.params.id });
     sendSuccess(res, result);
   } catch (err) {
     next(err);
@@ -27,6 +29,10 @@ export async function clearScores(req, res, next) {
   try {
     const { assessmentId } = req.body;
     const result = await gbService.clearScores(req.params.id, assessmentId, req.user);
+    broadcastEvent('OFFERING_UPDATED', { id: req.params.id, offeringId: req.params.id });
+    broadcastEvent('SCORES_UPDATED', { offeringId: req.params.id });
+    broadcastEvent('GRADE_UPDATED', { offeringId: req.params.id });
+    broadcastEvent('TRANSCRIPT_UPDATED', { offeringId: req.params.id });
     sendSuccess(res, result);
   } catch (err) {
     next(err);

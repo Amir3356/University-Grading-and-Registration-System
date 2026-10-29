@@ -142,7 +142,25 @@ export async function getSubmissionDetail(id) {
   );
 
   if (subRes.rows.length === 0) return null;
-  const sub = subRes.rows[0];
+  let sub = subRes.rows[0];
+
+  // If this submission was retired/rejected because the teacher resubmitted,
+  // automatically check if there is a newer active submission for the offering.
+  if (sub.status !== 'pending' && sub.status !== 'approved') {
+    const activeSubRes = await query(
+      `SELECT gs.*,
+              (su.first_name || ' ' || su.last_name) as submitter_name
+       FROM grade_submissions gs
+       JOIN users su ON su.id = gs.submitted_by
+       WHERE gs.offering_id = $1 AND gs.status IN ('pending', 'approved')
+       ORDER BY gs.submitted_at DESC
+       LIMIT 1`,
+      [sub.offering_id]
+    );
+    if (activeSubRes.rows.length > 0) {
+      sub = { ...sub, ...activeSubRes.rows[0] };
+    }
+  }
 
   // Load full gradebook data for offering
   const { getGradebookData, getGradeHistory } = await import('./gradebookRepository.js');
@@ -221,13 +239,39 @@ export async function approveSubmission(submissionId, comment, user) {
       [sub.offering_id]
     );
 
-    await client.query(
-      `UPDATE final_grades fg
-       SET status = 'approved', approved_at = now(), updated_at = now()
-       FROM course_enrollments ce
-       WHERE ce.id = fg.enrollment_id AND ce.offering_id = $1`,
-      [sub.offering_id]
-    );
+    // Sync final_grades with latest gradebook calculations to ensure accurate total, letter, and points
+    const { getGradebookData } = await import('./gradebookRepository.js');
+    const gradebook = await getGradebookData(sub.offering_id);
+    const scaleRes = await client.query(`SELECT id FROM grade_scales WHERE is_active = true LIMIT 1`);
+    const scaleId = scaleRes.rows[0]?.id || 'gsc_default';
+
+    for (const r of gradebook.rows) {
+      if (r.enrollment?.status === 'withdrawn') continue;
+      const fgId = newId('grd');
+      await client.query(
+        `INSERT INTO final_grades (
+           id, enrollment_id, grade_scale_id, total_score, letter, grade_points,
+           status, is_stale, computed_at, submitted_at, approved_at, updated_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, 'approved', false, now(), now(), now(), now())
+         ON CONFLICT (enrollment_id) DO UPDATE SET
+           grade_scale_id = EXCLUDED.grade_scale_id,
+           total_score = EXCLUDED.total_score,
+           letter = EXCLUDED.letter,
+           grade_points = EXCLUDED.grade_points,
+           status = 'approved',
+           is_stale = false,
+           approved_at = now(),
+           updated_at = now()`,
+        [
+          fgId,
+          r.enrollmentId,
+          scaleId,
+          r.total != null ? r.total : (r.runningPercent != null ? r.runningPercent : 0),
+          r.letter || 'F',
+          r.points != null ? r.points : (r.gradePoints != null ? r.gradePoints : 0),
+        ]
+      );
+    }
 
     // Notify teacher
     const notifId = newId('ntf');
@@ -460,7 +504,7 @@ export async function submitGradesForOffering(offeringId, { note } = {}, user) {
           scaleId,
           r.total != null ? r.total : (r.runningPercent != null ? r.runningPercent : 0),
           r.letter || 'F',
-          r.points != null ? r.points : 0,
+          r.points != null ? r.points : (r.gradePoints != null ? r.gradePoints : 0),
         ]
       );
     }

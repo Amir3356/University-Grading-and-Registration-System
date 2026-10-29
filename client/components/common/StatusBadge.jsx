@@ -41,6 +41,8 @@ const GENERIC = {
   upcoming: ['secondary', 'Upcoming'],
   published: ['success', 'Published'],
   in_progress: ['info', 'In progress'],
+  submitted: ['warning', 'Submitted to Dept Head'],
+  submitted_to_dept_head: ['warning', 'Submitted to Dept Head'],
 }
 
 /** Generic status badge for users, enrollments, approval requests, semesters. */

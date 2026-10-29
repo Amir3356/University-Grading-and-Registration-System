@@ -18,17 +18,23 @@ export function notifyPeriodChange() {
   // 1. Same-window custom event
   try {
     window.dispatchEvent(new CustomEvent('ugs_period_changed', { detail: { timestamp: Date.now() } }));
-  } catch {}
+  } catch (e) {
+    void e;
+  }
 
   // 2. BroadcastChannel for cross-tab communication
   try {
     channel?.postMessage({ type: 'ugs_period_changed', timestamp: Date.now() });
-  } catch {}
+  } catch (e) {
+    void e;
+  }
 
   // 3. LocalStorage event fallback
   try {
     localStorage.setItem('ugs_period_event', Date.now().toString());
-  } catch {}
+  } catch (e) {
+    void e;
+  }
 }
 
 /**
@@ -77,15 +83,21 @@ export function notifyUserChange(detail = {}) {
 
   try {
     window.dispatchEvent(new CustomEvent('ugs_user_changed', { detail: { ...detail, timestamp: Date.now() } }));
-  } catch {}
+  } catch (e) {
+    void e;
+  }
 
   try {
     channel?.postMessage({ type: 'ugs_user_changed', ...detail, timestamp: Date.now() });
-  } catch {}
+  } catch (e) {
+    void e;
+  }
 
   try {
     localStorage.setItem('ugs_user_event', JSON.stringify({ ...detail, timestamp: Date.now() }));
-  } catch {}
+  } catch (e) {
+    void e;
+  }
 }
 
 /**
@@ -136,15 +148,21 @@ export function notifyRegistrationChange(detail = {}) {
 
   try {
     window.dispatchEvent(new CustomEvent('ugs_registration_changed', { detail: { ...detail, timestamp: Date.now() } }));
-  } catch {}
+  } catch (e) {
+    void e;
+  }
 
   try {
     channel?.postMessage({ type: 'ugs_registration_changed', ...detail, timestamp: Date.now() });
-  } catch {}
+  } catch (e) {
+    void e;
+  }
 
   try {
     localStorage.setItem('ugs_registration_event', JSON.stringify({ ...detail, timestamp: Date.now() }));
-  } catch {}
+  } catch (e) {
+    void e;
+  }
 }
 
 /**
@@ -186,4 +204,135 @@ export function onRegistrationChange(callback) {
     window.removeEventListener('storage', handleStorage);
   };
 }
+
+/**
+ * Notify all browser tabs and components that an assessment has changed (created, updated, deleted, released).
+ */
+export function notifyAssessmentChange(detail = {}) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.dispatchEvent(new CustomEvent('ugs_assessment_changed', { detail: { ...detail, timestamp: Date.now() } }));
+  } catch (e) {
+    void e;
+  }
+
+  try {
+    channel?.postMessage({ type: 'ugs_assessment_changed', ...detail, timestamp: Date.now() });
+  } catch (e) {
+    void e;
+  }
+
+  try {
+    localStorage.setItem('ugs_assessment_event', JSON.stringify({ ...detail, timestamp: Date.now() }));
+  } catch (e) {
+    void e;
+  }
+}
+
+/**
+ * Listen for assessment changes across tabs, windows, and local actions.
+ * @param {(detail?: any) => void} callback
+ * @returns {() => void} Unsubscribe function
+ */
+export function onAssessmentChange(callback) {
+  if (typeof window === 'undefined' || typeof callback !== 'function') return () => {};
+
+  const handleEvent = (e) => {
+    callback(e.detail);
+  };
+
+  window.addEventListener('ugs_assessment_changed', handleEvent);
+
+  const handleMessage = (e) => {
+    if (e.data?.type === 'ugs_assessment_changed') {
+      callback(e.data);
+    }
+  };
+  channel?.addEventListener('message', handleMessage);
+
+  const handleStorage = (e) => {
+    if (e.key === 'ugs_assessment_event') {
+      try {
+        const parsed = JSON.parse(e.newValue || '{}');
+        callback(parsed);
+      } catch {
+        callback();
+      }
+    }
+  };
+  window.addEventListener('storage', handleStorage);
+
+  return () => {
+    window.removeEventListener('ugs_assessment_changed', handleEvent);
+    channel?.removeEventListener('message', handleMessage);
+    window.removeEventListener('storage', handleStorage);
+  };
+}
+
+/**
+ * Notify all browser tabs and components that marks, scores, or grades have changed.
+ */
+export function notifyGradeChange(detail = {}) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.dispatchEvent(new CustomEvent('ugs_grade_changed', { detail: { ...detail, timestamp: Date.now() } }));
+  } catch (e) {
+    void e;
+  }
+
+  try {
+    channel?.postMessage({ type: 'ugs_grade_changed', ...detail, timestamp: Date.now() });
+  } catch (e) {
+    void e;
+  }
+
+  try {
+    localStorage.setItem('ugs_grade_event', JSON.stringify({ ...detail, timestamp: Date.now() }));
+  } catch (e) {
+    void e;
+  }
+}
+
+/**
+ * Listen for grade, score, and mark changes across tabs, windows, and local actions.
+ * @param {(detail?: any) => void} callback
+ * @returns {() => void} Unsubscribe function
+ */
+export function onGradeChange(callback) {
+  if (typeof window === 'undefined' || typeof callback !== 'function') return () => {};
+
+  const handleEvent = (e) => {
+    callback(e.detail);
+  };
+
+  window.addEventListener('ugs_grade_changed', handleEvent);
+
+  const handleMessage = (e) => {
+    if (e.data?.type === 'ugs_grade_changed') {
+      callback(e.data);
+    }
+  };
+  channel?.addEventListener('message', handleMessage);
+
+  const handleStorage = (e) => {
+    if (e.key === 'ugs_grade_event') {
+      try {
+        const parsed = JSON.parse(e.newValue || '{}');
+        callback(parsed);
+      } catch {
+        callback();
+      }
+    }
+  };
+  window.addEventListener('storage', handleStorage);
+
+  return () => {
+    window.removeEventListener('ugs_grade_changed', handleEvent);
+    channel?.removeEventListener('message', handleMessage);
+    window.removeEventListener('storage', handleStorage);
+  };
+}
+
 

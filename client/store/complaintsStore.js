@@ -3,65 +3,7 @@ import { getStoredProfile, getStoredUser } from '@/lib/storage';
 
 const STORAGE_KEY = 'ugs_student_complaints_v1';
 
-const INITIAL_COMPLAINTS = [
-  {
-    id: 'CMP-001',
-    studentId: 'UGR/323838/14',
-    studentName: 'Fkadu Tadesse',
-    department: 'Computer Science',
-    courseId: 'crs_cs201',
-    courseCode: 'CS201',
-    courseName: 'Data Structures & Algorithms',
-    category: 'Grade Discrepancy',
-    title: 'Midterm exam marks not recorded on grading portal',
-    description: 'I took the midterm exam in Hall B. My returned exam paper shows 27/30, but the portal currently records —. Please review and update.',
-    priority: 'High',
-    status: 'in_review',
-    statusLabel: 'Under Review',
-    submittedAt: '2026-10-24T09:30:00Z',
-    response: 'Instructor verified the exam paper record. Mark will be synchronized during the department grade revision.',
-    respondedAt: '2026-10-25T14:20:00Z',
-    respondedBy: 'Dr. Solomon Bekele (Instructor)',
-  },
-  {
-    id: 'CMP-002',
-    studentId: 'UGR/323838/14',
-    studentName: 'Fkadu Tadesse',
-    department: 'Computer Science',
-    courseId: 'crs_cs204',
-    courseCode: 'CS204',
-    courseName: 'Database Systems',
-    category: 'Missing Assessment Mark',
-    title: 'Lab Project assignment grade missing',
-    description: 'Our project group submitted the Database Final Project before the deadline. Marks for Assignment 2 are missing for our team members.',
-    priority: 'Medium',
-    status: 'pending',
-    statusLabel: 'Pending',
-    submittedAt: '2026-10-26T11:45:00Z',
-    response: null,
-    respondedAt: null,
-    respondedBy: null,
-  },
-  {
-    id: 'CMP-003',
-    studentId: 'UGR/323838/14',
-    studentName: 'Fkadu Tadesse',
-    department: 'Computer Science',
-    courseId: 'crs_math201',
-    courseCode: 'MATH201',
-    courseName: 'Applied Mathematics II',
-    category: 'Course Scheduling',
-    title: 'Class schedule overlap with elective lab',
-    description: 'The Tuesday tutorial slot for MATH201 overlaps with the laboratory section for CS204. Requesting section re-assignment.',
-    priority: 'Normal',
-    status: 'resolved',
-    statusLabel: 'Resolved',
-    submittedAt: '2026-10-18T08:15:00Z',
-    response: 'Tutorial transferred to Thursday afternoon session. Schedule conflict cleared.',
-    respondedAt: '2026-10-20T10:00:00Z',
-    respondedBy: 'Department Head (Academics Office)',
-  },
-];
+const INITIAL_COMPLAINTS = [];
 
 function readStoredComplaints() {
   if (typeof window === 'undefined') return INITIAL_COMPLAINTS;
@@ -72,7 +14,11 @@ function readStoredComplaints() {
       return INITIAL_COMPLAINTS;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_COMPLAINTS;
+    if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_COMPLAINTS;
+    return parsed.map((c) => ({
+      ...c,
+      reason: c.reason || c.description || c.title || '',
+    }));
   } catch {
     return INITIAL_COMPLAINTS;
   }
@@ -116,6 +62,7 @@ export function useComplaints() {
     const nextIdNum = current.length + 1;
     const newId = `CMP-${String(nextIdNum).padStart(3, '0')}`;
 
+    const complaintReason = data.reason?.trim() || data.title?.trim() || data.description?.trim() || '';
     const newRecord = {
       id: newId,
       studentId: user?.identifier || profile?.student_number || user?.studentNumber || 'STU-1001',
@@ -125,8 +72,9 @@ export function useComplaints() {
       courseCode: data.courseCode || 'General',
       courseName: data.courseName || 'General Academic / Department',
       category: data.category || 'Grade Discrepancy',
-      title: data.title?.trim() || 'Academic Complaint',
-      description: data.description?.trim() || '',
+      reason: complaintReason,
+      title: complaintReason || 'Academic Complaint',
+      description: data.description?.trim() || complaintReason,
       priority: data.priority || 'Normal',
       status: 'pending',
       statusLabel: 'Pending',
@@ -146,9 +94,13 @@ export function useComplaints() {
     const current = readStoredComplaints();
     const nextList = current.map((c) => {
       if (c.id !== id) return c;
+      const updatedReason = patch.reason !== undefined ? patch.reason : (patch.title || patch.description || c.reason || c.title || '');
       return {
         ...c,
         ...patch,
+        reason: updatedReason,
+        title: patch.title !== undefined ? patch.title : updatedReason,
+        description: patch.description !== undefined ? patch.description : updatedReason,
         updatedAt: new Date().toISOString(),
       };
     });
