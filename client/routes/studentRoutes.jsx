@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { Route } from 'react-router-dom';
+import { Navigate, Route } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
 
 const page = (loader, name) =>
@@ -19,7 +19,7 @@ const ComplaintsPage = page(() => import('@/features/student/complaints/Complain
 
 export const studentRoutes = (
   <Route element={<ProtectedRoute roles={['student']} />}>
-    <Route path="/student" element={<StudentDashboardPage />} />
+    <Route path="/student" element={<Navigate to="/student/registrations" replace />} />
     <Route path="/student/registrations" element={<RegistrationsPage />} />
     <Route path="/student/registration" element={<RegistrationsPage />} />
     <Route path="/student/courses" element={<StudentCoursesPage />} />

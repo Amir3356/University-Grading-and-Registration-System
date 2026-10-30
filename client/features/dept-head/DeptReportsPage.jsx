@@ -1,4 +1,3 @@
-import { PageHeader } from '@/components/common/PageHeader'
 import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { DeptGradeResultsReport } from './DeptGradeResultsReport'
@@ -24,12 +23,7 @@ export function DeptReportsPage() {
     lookups?.departments?.[0]
   const deptName = dept?.name ?? 'My Department'
 
-  return (
-    <>
-      <PageHeader title="Reports" description={`Grade results for ${deptName}.`} centered />
-      <DeptGradeResultsReport department={deptName} university={lookups?.university} />
-    </>
-  )
+  return <DeptGradeResultsReport department={deptName} university={lookups?.university} />
 }
 
 export default DeptReportsPage

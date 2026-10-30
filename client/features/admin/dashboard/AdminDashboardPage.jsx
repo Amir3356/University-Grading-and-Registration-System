@@ -1,19 +1,7 @@
-import { LayoutDashboard } from 'lucide-react'
-import { PageHeader } from '@/components/common/PageHeader'
+import { Navigate } from 'react-router-dom'
 
 export function AdminDashboardPage() {
-  return (
-    <>
-      <PageHeader title="Dashboard" />
-
-      <div className="coming-soon-card">
-        <div className="coming-soon-card__icon-wrapper">
-          <LayoutDashboard aria-hidden="true" />
-        </div>
-        <h2 className="coming-soon-card__title">Coming Soon</h2>
-      </div>
-    </>
-  )
+  return <Navigate to="/admin/reports" replace />
 }
 
 export default AdminDashboardPage

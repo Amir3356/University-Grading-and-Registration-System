@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { Route } from 'react-router-dom';
+import { Navigate, Route } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
 
 const page = (loader, name) =>
@@ -25,7 +25,7 @@ const AdminWithdrawalsPage = page(() => import('@/features/admin/withdrawals/Adm
 
 export const adminRoutes = (
   <Route element={<ProtectedRoute roles={['admin']} />}>
-    <Route path="/admin" element={<AdminDashboardPage />} />
+    <Route path="/admin" element={<Navigate to="/admin/reports" replace />} />
     <Route path="/admin/users" element={<UsersPage />} />
     <Route path="/admin/users/:userId" element={<UserDetailPage />} />
     <Route path="/admin/departments" element={<DepartmentsPage />} />
