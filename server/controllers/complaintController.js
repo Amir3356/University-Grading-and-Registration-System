@@ -1,6 +1,6 @@
 import * as complaintService from '../services/complaintService.js';
 import { broadcastEvent } from '../config/websocket.js';
-import { sendCreated, sendPaginated, sendSuccess } from '../utils/response.js';
+import { sendCreated, sendSuccess } from '../utils/response.js';
 
 export async function listComplaints(req, res, next) {
   try {
@@ -33,7 +33,7 @@ export async function updateComplaint(req, res, next) {
 
 export async function cancelComplaint(req, res, next) {
   try {
-    const result = await complaintService.cancelStudentComplaint(req.params.id, req.user);
+    await complaintService.cancelStudentComplaint(req.params.id, req.user);
     broadcastEvent('COMPLAINT_UPDATED', { id: req.params.id, status: 'cancelled' });
     return sendSuccess(res, { success: true, message: 'Complaint cancelled successfully' });
   } catch (err) {

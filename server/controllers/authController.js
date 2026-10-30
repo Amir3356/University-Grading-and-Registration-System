@@ -56,9 +56,7 @@ export async function login(req, res, next) {
 export async function refresh(req, res, next) {
   try {
     const refreshToken = req.cookies?.ugs_refresh_token || req.cookies?.refreshToken || req.body?.refreshToken;
-    const userAgent = req.headers['user-agent'] || null;
-    const ipAddress = req.ip || req.socket.remoteAddress || null;
-    const result = await authService.refreshAccessToken(refreshToken, userAgent, ipAddress);
+    const result = await authService.refreshAccessToken(refreshToken);
 
     // Update token in browser cookies
     res.cookie('ugs_token', result.accessToken, ACCESS_COOKIE_OPTIONS);

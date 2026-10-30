@@ -2,6 +2,7 @@ import * as offRepo from '../repositories/offeringRepository.js';
 import { newId } from '../utils/idGenerator.js';
 import { ConflictError, NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
 import { query } from '../config/database.js';
+import { logAudit } from '../utils/auditLogger.js';
 
 export async function autoEnrollMatchingStudents(offeringId) {
   const offRes = await query(
@@ -115,7 +116,7 @@ export async function createOffering(data, caller) {
   }
 
   const id = newId('off');
-  const offering = await offRepo.createOffering({
+  await offRepo.createOffering({
     id,
     courseId: data.courseId,
     semesterId: data.semesterId,
@@ -141,14 +142,27 @@ export async function createOffering(data, caller) {
   // Auto-enroll students whose department and year of study match the offering
   await autoEnrollMatchingStudents(id);
 
-  return await offRepo.getOfferingById(id);
+  const created = await offRepo.getOfferingById(id);
+
+  await logAudit({
+    actor: caller,
+    action: 'create',
+    entityType: 'offering',
+    entityId: id,
+    entityName: `${created?.course?.code || ''} (Section ${created?.section || 'A'})`,
+    departmentId: created?.course?.departmentId || caller?.departmentId,
+    description: `Created course offering for ${created?.course?.code || ''} (Sec ${created?.section || 'A'})`,
+    details: { after: created },
+  });
+
+  return created;
 }
 
 export async function updateOffering(id, data, caller) {
   const existing = await offRepo.getOfferingById(id);
   if (!existing) throw new NotFoundError('Course offering');
 
-  if (caller.roleId === 'dept_head' && existing.course?.department?.id !== caller.departmentId) {
+  if (caller?.roleId === 'dept_head' && existing.course?.department?.id !== caller.departmentId) {
     throw new ForbiddenError('You can only update offerings in your department.');
   }
 
@@ -186,10 +200,23 @@ export async function updateOffering(id, data, caller) {
   // Re-sync eligible students after offering update
   await autoEnrollMatchingStudents(id);
 
-  return await offRepo.getOfferingById(id);
+  const updated = await offRepo.getOfferingById(id);
+
+  await logAudit({
+    actor: caller,
+    action: 'update',
+    entityType: 'offering',
+    entityId: id,
+    entityName: `${updated?.course?.code || ''} (Section ${updated?.section || 'A'})`,
+    departmentId: updated?.course?.departmentId || caller?.departmentId,
+    description: `Updated course offering details for ${updated?.course?.code || ''} (Sec ${updated?.section || 'A'})`,
+    details: { before: existing, after: updated },
+  });
+
+  return updated;
 }
 
-export async function deleteOffering(id, caller) {
+export async function deleteOffering(id, caller = null) {
   const existing = await offRepo.getOfferingById(id);
   if (!existing) throw new NotFoundError('Course offering');
 
@@ -198,6 +225,18 @@ export async function deleteOffering(id, caller) {
   }
 
   await offRepo.deleteOffering(id);
+
+  await logAudit({
+    actor: caller,
+    action: 'delete',
+    entityType: 'offering',
+    entityId: id,
+    entityName: `${existing?.course?.code || id} (Section ${existing?.section || 'A'})`,
+    departmentId: existing?.course?.departmentId || caller?.departmentId,
+    description: `Deleted course offering ${existing?.course?.code || id}`,
+    details: { before: existing },
+  });
+
   return { ok: true };
 }
 
@@ -209,7 +248,7 @@ export async function listEligibleStudents(offeringId, filters) {
   return await offRepo.listEligibleStudents(offeringId, filters);
 }
 
-export async function enrollStudents(offeringId, studentIds, caller) {
+export async function enrollStudents(offeringId, studentIds, caller = null) {
   const offering = await offRepo.getOfferingById(offeringId);
   if (!offering) throw new NotFoundError('Course offering');
 
@@ -244,10 +283,21 @@ export async function enrollStudents(offeringId, studentIds, caller) {
     }
   }
 
+  await logAudit({
+    actor: caller,
+    action: 'create',
+    entityType: 'enrollment',
+    entityId: offeringId,
+    entityName: `${offering.course?.code || ''} (Section ${offering.section})`,
+    departmentId: offering.course?.departmentId || caller?.departmentId,
+    description: `Enrolled ${studentIds.length} student(s) into ${offering.course?.code || ''} (Sec ${offering.section})`,
+    details: { offeringId, studentIds, count: studentIds.length },
+  });
+
   return { enrolled };
 }
 
-export async function withdrawEnrollment(enrollmentId, reason, caller) {
+export async function withdrawEnrollment(enrollmentId, reason, caller = null) {
   if (!reason || !String(reason).trim()) {
     throw new ValidationError('A reason is required when withdrawing an enrollment.', {
       reason: 'Please provide a reason for withdrawal.',
@@ -283,15 +333,38 @@ export async function withdrawEnrollment(enrollmentId, reason, caller) {
     ]
   );
 
+  await logAudit({
+    actor: caller,
+    action: 'update',
+    entityType: 'enrollment',
+    entityId: enrollmentId,
+    entityName: `Enrollment ${enrollmentId}`,
+    departmentId: caller?.departmentId,
+    description: `Withdrew student enrollment from offering (Reason: ${reason})`,
+    details: { enrollmentId, reason },
+  });
+
   return withdrawn;
 }
 
-export async function deleteEnrollment(enrollmentId, caller) {
+export async function deleteEnrollment(enrollmentId, caller = null) {
   const hasScoresOrGrades = await offRepo.enrollmentHasScoresOrGrades(enrollmentId);
   if (hasScoresOrGrades) {
     throw new ConflictError('Cannot delete enrollment that has entered scores or final grades. Withdraw the enrollment instead.');
   }
 
   await offRepo.deleteEnrollment(enrollmentId);
+
+  await logAudit({
+    actor: caller,
+    action: 'delete',
+    entityType: 'enrollment',
+    entityId: enrollmentId,
+    entityName: `Enrollment ${enrollmentId}`,
+    departmentId: caller?.departmentId,
+    description: `Removed student enrollment ${enrollmentId}`,
+    details: { enrollmentId },
+  });
+
   return { ok: true };
 }

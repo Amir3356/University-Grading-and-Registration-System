@@ -12,7 +12,7 @@ export function decodeCursor(cursorStr) {
     const raw = Buffer.from(cursorStr, 'base64url').toString('utf8');
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === 'object' && parsed.id) return parsed;
-  } catch (err) {
+  } catch {
     return null;
   }
   return null;
@@ -119,16 +119,14 @@ export async function listAssessmentsPaginated({
 
   const queryConditions = [...conditions];
   const queryParams = [...params];
-  let orderClause = '';
+  let orderClause;
 
   if (!isAll && decoded) {
-    let op = '>';
+    const op = navDirection === 'next' ? (isDesc ? '<' : '>') : (isDesc ? '>' : '<');
     if (navDirection === 'next') {
-      op = isDesc ? '<' : '>';
       orderClause = `ORDER BY ${sortExpr} ${primaryDirection}, a.id ${primaryDirection}`;
     } else {
       // navDirection === 'prev'
-      op = isDesc ? '>' : '<';
       const reverseDir = isDesc ? 'ASC' : 'DESC';
       orderClause = `ORDER BY ${sortExpr} ${reverseDir}, a.id ${reverseDir}`;
     }

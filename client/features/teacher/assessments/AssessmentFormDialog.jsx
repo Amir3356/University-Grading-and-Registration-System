@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { FormField } from '@/components/common/FormField'
-import { formatYearOfStudy, getCourseStudyYear } from '@/lib/format'
+import { getCourseStudyYear } from '@/lib/format'
 import { ASSESSMENT_TYPES, round, sumWeights } from '@/lib/grading'
 import { store } from '@/store'
 import { typeLabel } from '../lib'

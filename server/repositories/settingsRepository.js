@@ -116,7 +116,7 @@ export async function updateAcademicPolicy({
   userId,
 }) {
   return await withTransaction(async (client) => {
-    const res = await client.query(
+    await client.query(
       `INSERT INTO academic_policies (
          id, pass_mark, approval_workflow_enabled, repeat_policy, incomplete_policy,
          withdrawal_policy, probation_gpa, honors_gpa, require_weights_total_100, at_risk_margin, updated_by, updated_at

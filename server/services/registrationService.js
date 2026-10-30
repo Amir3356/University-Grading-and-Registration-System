@@ -2,6 +2,7 @@ import * as regRepo from '../repositories/registrationRepository.js';
 import { newId } from '../utils/idGenerator.js';
 import { ConflictError, NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
 import { query } from '../config/database.js';
+import { logAudit } from '../utils/auditLogger.js';
 
 export async function listPeriods(filters) {
   return await regRepo.listRegistrationPeriods(filters);
@@ -41,7 +42,7 @@ export async function createPeriod(data, user) {
   return period;
 }
 
-export async function updatePeriod(id, data, user) {
+export async function updatePeriod(id, data, _user) {
   const existing = await regRepo.getRegistrationPeriodById(id);
   if (!existing) throw new NotFoundError('Registration period');
 
@@ -60,7 +61,7 @@ export async function updatePeriod(id, data, user) {
   return period;
 }
 
-export async function openPeriod(id, user) {
+export async function openPeriod(id, _user) {
   const period = await regRepo.getRegistrationPeriodById(id);
   if (!period) throw new NotFoundError('Registration period');
 
@@ -68,7 +69,7 @@ export async function openPeriod(id, user) {
   return opened;
 }
 
-export async function closePeriod(id, user) {
+export async function closePeriod(id, _user) {
   const period = await regRepo.getRegistrationPeriodById(id);
   if (!period) throw new NotFoundError('Registration period');
 
@@ -76,7 +77,7 @@ export async function closePeriod(id, user) {
   return closed;
 }
 
-export async function deletePeriod(id, user) {
+export async function deletePeriod(id, _user) {
   const count = await regRepo.countRegistrationsInPeriod(id);
   if (count > 0) {
     throw new ConflictError('Cannot delete registration period that already has student registrations.');
@@ -93,7 +94,7 @@ export async function listRegistrations(filters) {
   return await regRepo.listStudentRegistrations(filters);
 }
 
-export async function updateRegistrationType(id, registrationTypeId, user) {
+export async function updateRegistrationType(id, registrationTypeId, _user) {
   const reg = await regRepo.findRegistrationById(id);
   if (!reg) throw new NotFoundError('Registration record');
 
@@ -115,6 +116,17 @@ export async function approveRegistration(id, user) {
      VALUES ($1, $2, 'Semester Registration Approved', 'Your semester registration has been approved officially.', 'registration', '/student/registrations')`,
     [notifId, reg.student_user_id]
   );
+
+  await logAudit({
+    actor: user,
+    action: 'approve',
+    entityType: 'registration',
+    entityId: id,
+    entityName: `Registration ${id}`,
+    departmentId: user?.departmentId,
+    description: `Approved student semester registration ${id}`,
+    details: { registrationId: id, studentUserId: reg.student_user_id },
+  });
 
   return approved;
 }
@@ -140,6 +152,17 @@ export async function rejectRegistration(id, remarks, user) {
     [notifId, reg.student_user_id, `Your semester registration was rejected: "${remarks}".`]
   );
 
+  await logAudit({
+    actor: user,
+    action: 'reject',
+    entityType: 'registration',
+    entityId: id,
+    entityName: `Registration ${id}`,
+    departmentId: user?.departmentId,
+    description: `Rejected student semester registration ${id} (Remarks: ${remarks})`,
+    details: { registrationId: id, studentUserId: reg.student_user_id, remarks },
+  });
+
   return rejected;
 }
 
@@ -160,7 +183,7 @@ export async function bulkApproveRegistrations(ids, user) {
   return { approved, skipped };
 }
 
-export async function deleteRegistration(id, user) {
+export async function deleteRegistration(id, _user) {
   await regRepo.deleteRegistration(id);
   return { ok: true };
 }
@@ -193,7 +216,7 @@ function isPeriodPastDeadline(deadline) {
   return Date.now() > d.getTime();
 }
 
-export async function submitStudentRegistration({ semesterId, registrationTypeId, cafeStatus = 'cafe' }, studentId, user) {
+export async function submitStudentRegistration({ semesterId, registrationTypeId: _registrationTypeId, cafeStatus = 'cafe' }, studentId, user) {
   const currentPeriod = await regRepo.getCurrentPeriodForStudent(studentId);
   if (!currentPeriod) {
     throw new ConflictError('Semester registration is not open right now.');
@@ -254,7 +277,7 @@ export async function submitStudentRegistration({ semesterId, registrationTypeId
   return reg;
 }
 
-export async function cancelStudentRegistration(id, studentId, user) {
+export async function cancelStudentRegistration(id, studentId, _user) {
   const reg = await regRepo.findRegistrationById(id);
   if (!reg || reg.student_id !== studentId) {
     throw new ConflictError('Registration cannot be cancelled (not found).');
@@ -274,7 +297,7 @@ export async function cancelStudentRegistration(id, studentId, user) {
   return cancelled;
 }
 
-export async function updateStudentRegistration(id, studentId, data, user) {
+export async function updateStudentRegistration(id, studentId, data, _user) {
   const reg = await regRepo.findRegistrationById(id);
   if (!reg || reg.student_id !== studentId) {
     throw new ConflictError('Registration cannot be updated (not found).');
@@ -298,7 +321,7 @@ export async function updateStudentRegistration(id, studentId, data, user) {
   return updated;
 }
 
-export async function deleteStudentRegistration(id, studentId, user) {
+export async function deleteStudentRegistration(id, studentId, _user) {
   const reg = await regRepo.findRegistrationById(id);
   if (!reg || reg.student_id !== studentId) {
     throw new ConflictError('Registration cannot be deleted (not found).');

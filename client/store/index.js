@@ -1,4 +1,4 @@
-// Local data store. Pages read and change the mock data only through these functions,
+// Centralized data store. Pages access backend APIs and mutate system state through these functions,
 // e.g. store.users.listUsers(), store.grades.saveScores().
 // Results are deep copies, so callers can never mutate the stored data by accident.
 import * as academics from './academics'

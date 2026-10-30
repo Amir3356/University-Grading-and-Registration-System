@@ -3,6 +3,7 @@ import { getOfferingById } from '../repositories/offeringRepository.js';
 import { newId } from '../utils/idGenerator.js';
 import { ConflictError, NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
 import { query } from '../config/database.js';
+import { logAudit } from '../utils/auditLogger.js';
 
 export async function listTeacherAssessments(params = {}, caller) {
   const queryParams = { ...params };
@@ -86,6 +87,17 @@ export async function createAssessment(offeringId, data, caller) {
     description: data.description || null,
   });
 
+  await logAudit({
+    actor: caller,
+    action: 'create',
+    entityType: 'assessment',
+    entityId: asm.id,
+    entityName: `${asm.name} (${offering.course?.code || ''})`,
+    departmentId: offering.course?.departmentId || caller?.departmentId,
+    description: `Created assessment "${asm.name}" (${asm.weight}%) for ${offering.course?.code || ''}`,
+    details: { after: asm, offeringId },
+  });
+
   return asm;
 }
 
@@ -138,6 +150,18 @@ export async function updateAssessment(id, data, caller) {
   }
 
   const asm = await asmRepo.updateAssessment(id, data);
+
+  await logAudit({
+    actor: caller,
+    action: 'update',
+    entityType: 'assessment',
+    entityId: id,
+    entityName: `${asm.name} (${offering.course?.code || ''})`,
+    departmentId: offering.course?.departmentId || caller?.departmentId,
+    description: `Updated assessment "${asm.name}" for ${offering.course?.code || ''}`,
+    details: { before: existing, after: asm, offeringId: existing.offering_id },
+  });
+
   return asm;
 }
 
@@ -157,6 +181,18 @@ export async function deleteAssessment(id, caller) {
   }
 
   await asmRepo.deleteAssessment(id);
+
+  await logAudit({
+    actor: caller,
+    action: 'delete',
+    entityType: 'assessment',
+    entityId: id,
+    entityName: `${existing.name} (${offering.course?.code || ''})`,
+    departmentId: offering.course?.departmentId || caller?.departmentId,
+    description: `Deleted assessment "${existing.name}" from ${offering.course?.code || ''}`,
+    details: { before: existing, offeringId: existing.offering_id },
+  });
+
   return { ok: true, offeringId: existing.offering_id };
 }
 
@@ -202,7 +238,7 @@ export async function releaseAssessment(id, isReleased, caller) {
   return updated;
 }
 
-export async function applyTemplate(offeringId, caller) {
+export async function applyTemplate(offeringId) {
   const offering = await getOfferingById(offeringId);
   if (!offering) throw new NotFoundError('Course offering');
 

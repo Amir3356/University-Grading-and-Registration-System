@@ -6,16 +6,11 @@ import { formatNumber, formatYearOfStudy } from '@/lib/format'
 import {
   AlertCircle,
   ArrowLeft,
-  Award,
   CheckCircle2,
   Clock,
-  Percent,
-  Printer,
-  TrendingDown,
   Undo2,
   UserCheck,
   Users,
-  XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -24,13 +19,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { PageHeader } from '@/components/common/PageHeader'
 import { StatCard } from '@/components/common/StatCard'
-import { GradeBadge, PassFailBadge, StatusBadge } from '@/components/common/StatusBadge'
+import { GradeBadge, StatusBadge } from '@/components/common/StatusBadge'
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { SearchInput } from '@/components/common/SearchInput'
-
-const STORAGE_KEY = 'ugs-dept-grade-approvals-v4'
-
-const INITIAL_APPROVAL_DATA = []
 
 const STUDENT_NAMES = [
   'Abebe Bikila',
@@ -178,22 +169,6 @@ function getCourseStudents(courseCode, count) {
   return students
 }
 
-function loadStoredData() {
-  try {
-    localStorage.removeItem('ugs-dept-grade-approvals-v3')
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed)) {
-        return parsed
-      }
-    }
-  } catch {
-    // Ignore localStorage parse error
-  }
-  return INITIAL_APPROVAL_DATA
-}
-
 export function DeptApprovalsPage() {
   const [approvals, setApprovals] = useState([])
   const [selectedRowId, setSelectedRowId] = useState(null)
@@ -280,15 +255,6 @@ export function DeptApprovalsPage() {
       return true
     })
   }, [approvals, statusFilter, teacherFilter, searchQuery])
-
-  const saveApprovals = (nextList) => {
-    setApprovals(nextList)
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextList))
-    } catch {
-      // Ignore quota error
-    }
-  }
 
   const handleApprove = async (id) => {
     const target = approvals.find((a) => a.id === id)
@@ -576,12 +542,10 @@ function FullSubmittedGradeSheet({ row, onBack, onApprove, onReject }) {
   const isRejected = row.status === 'Rejected'
 
   const [realData, setRealData] = useState(null)
-  const [loadingDetails, setLoadingDetails] = useState(false)
 
   const fetchDetails = () => {
     const subId = row.submissionId || row.id
     if (!subId) return
-    setLoadingDetails(true)
     getApprovalRequestApi(subId)
       .then((data) => {
         if (data) {
@@ -590,9 +554,6 @@ function FullSubmittedGradeSheet({ row, onBack, onApprove, onReject }) {
       })
       .catch((err) => {
         console.warn('Could not load real submission details:', err)
-      })
-      .finally(() => {
-        setLoadingDetails(false)
       })
   }
 
@@ -735,18 +696,6 @@ function FullSubmittedGradeSheet({ row, onBack, onApprove, onReject }) {
       return true
     })
   }, [students, resultFilter, gradeFilter, searchQuery])
-
-  const assessmentAverages = useMemo(() => {
-    if (!assessments) return null
-    const avgs = {}
-    for (const a of assessments) {
-      const vals = students
-        .map((s) => s.marks?.[a.id])
-        .filter((v) => typeof v === 'number' && !isNaN(v))
-      avgs[a.id] = vals.length ? (vals.reduce((x, y) => x + y, 0) / vals.length).toFixed(1) : '—'
-    }
-    return avgs
-  }, [assessments, students])
 
   return (
     <div className="space-y-6">

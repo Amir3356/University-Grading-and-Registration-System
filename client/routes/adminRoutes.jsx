@@ -6,7 +6,6 @@ const page = (loader, name) =>
   lazy(() => loader().then((m) => ({ default: m[name] ?? m.default })));
 
 // Admin Pages
-const AdminDashboardPage = page(() => import('@/features/admin/dashboard/AdminDashboardPage'), 'AdminDashboardPage');
 const UsersPage = page(() => import('@/features/admin/users/UsersPage'), 'UsersPage');
 const UserDetailPage = page(() => import('@/features/admin/users/UserDetailPage'), 'UserDetailPage');
 const DepartmentsPage = page(() => import('@/features/admin/departments/DepartmentsPage'), 'DepartmentsPage');
@@ -22,6 +21,7 @@ const ReportsPage = page(() => import('@/features/admin/reports/ReportsPage'), '
 const RegistrationPeriodsPage = page(() => import('@/features/admin/registration/RegistrationPeriodsPage'), 'RegistrationPeriodsPage');
 const StudentRegistrationsPage = page(() => import('@/features/admin/registration/StudentRegistrationsPage'), 'StudentRegistrationsPage');
 const AdminWithdrawalsPage = page(() => import('@/features/admin/withdrawals/AdminWithdrawalsPage'), 'AdminWithdrawalsPage');
+const AuditTrailPage = page(() => import('@/features/admin/audit/AuditTrailPage'), 'AuditTrailPage');
 
 export const adminRoutes = (
   <Route element={<ProtectedRoute roles={['admin']} />}>
@@ -38,6 +38,7 @@ export const adminRoutes = (
     <Route path="/admin/grade-approvals/:requestId" element={<ApprovalDetailPage />} />
     <Route path="/admin/settings" element={<SettingsPage />} />
     <Route path="/admin/reports" element={<ReportsPage />} />
+    <Route path="/admin/audit" element={<AuditTrailPage />} />
 
     <Route path="/admin/semester-registration" element={<RegistrationPeriodsPage />} />
     <Route path="/admin/semester-registration/periods" element={<RegistrationPeriodsPage />} />

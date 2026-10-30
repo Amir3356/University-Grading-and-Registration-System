@@ -1,9 +1,8 @@
 import * as gbRepo from '../repositories/gradebookRepository.js';
 import { getOfferingById } from '../repositories/offeringRepository.js';
-import { listAssessmentsByOffering } from '../repositories/assessmentRepository.js';
 import { ConflictError, NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
-import { query } from '../config/database.js';
 import { roundTo2 } from '../utils/gpaCalculator.js';
+import { logAudit } from '../utils/auditLogger.js';
 
 export async function getGradebook(offeringId, caller) {
   const offering = await getOfferingById(offeringId);
@@ -90,7 +89,24 @@ export async function saveScores(offeringId, { changes, reason }, caller) {
     throw new ValidationError('Please correct the highlighted mark entry errors.', fieldErrors);
   }
 
-  return await gbRepo.saveScoreChanges(offeringId, changes, reason, caller);
+  const result = await gbRepo.saveScoreChanges(offeringId, changes, reason, caller);
+
+  await logAudit({
+    actor: caller,
+    action: 'update',
+    entityType: 'score',
+    entityId: offeringId,
+    entityName: `${gradebook.offering?.courseCode || ''} (Section ${gradebook.offering?.section || 'A'})`,
+    departmentId: caller?.departmentId,
+    description: `Updated assessment marks for ${changes.length} student record(s)`,
+    details: {
+      offeringId,
+      scoresUpdatedCount: changes.length,
+      reason: reason || null,
+    },
+  });
+
+  return result;
 }
 
 export async function importScores(offeringId, { records, dryRun = true, reason }, caller) {

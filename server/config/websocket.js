@@ -9,7 +9,7 @@ let wss = null;
 export function initWebSocketServer(server) {
   wss = new WebSocketServer({ server, path: '/ws' });
 
-  wss.on('connection', (ws, req) => {
+  wss.on('connection', (ws) => {
     ws.isAlive = true;
 
     ws.on('pong', () => {
@@ -22,7 +22,9 @@ export function initWebSocketServer(server) {
         if (data.type === 'ping') {
           ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
         }
-      } catch {}
+      } catch {
+        /* ignore invalid messages */
+      }
     });
 
     ws.on('error', (err) => {
@@ -32,7 +34,9 @@ export function initWebSocketServer(server) {
     // Send welcome / connected acknowledgment
     try {
       ws.send(JSON.stringify({ type: 'CONNECTED', message: 'WebSocket connected to UGS server' }));
-    } catch {}
+    } catch {
+      /* ignore send failure */
+    }
   });
 
   // Heartbeat ping interval to clean dead connections

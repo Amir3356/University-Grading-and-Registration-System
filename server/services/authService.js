@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import * as userRepo from '../repositories/userRepository.js';
 import { comparePassword, hashPassword, validatePasswordStrength } from '../utils/password.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken, getJwtExpiresIn } from '../utils/jwt.js';
-import { UnauthorizedError, ValidationError, NotFoundError, ConflictError } from '../utils/errors.js';
+import { UnauthorizedError, ValidationError, NotFoundError } from '../utils/errors.js';
 import { query } from '../config/database.js';
 
 export async function login({ role, identifier, username, password, userAgent, ipAddress }) {
@@ -79,7 +79,7 @@ export async function login({ role, identifier, username, password, userAgent, i
   };
 }
 
-export async function refreshAccessToken(refreshToken, userAgent, ipAddress) {
+export async function refreshAccessToken(refreshToken) {
   if (!refreshToken) {
     throw new UnauthorizedError('Refresh token required.');
   }

@@ -97,28 +97,6 @@ export function GradingPoliciesPage() {
     return [...new Set(list)]
   }, [entries, blank])
 
-  const dirtyScale = useMemo(() => {
-    const originalSorted = [...initialScale]
-      .sort((a, b) => Number(b.min ?? b.minScore ?? 0) - Number(a.min ?? a.minScore ?? 0))
-      .map((e) => ({
-        letter: e.letter,
-        min: Number(e.min ?? e.minScore ?? e.min_score ?? 0),
-        max: Number(e.max ?? e.maxScore ?? e.max_score ?? 0),
-        points: Number(e.points ?? e.gradePoints ?? e.grade_points ?? 0),
-      }))
-
-    const currentSorted = rows
-      .map((r) => ({
-        letter: r.letter.trim(),
-        min: Number(r.min),
-        max: Number(r.max),
-        points: Number(r.points),
-      }))
-      .sort((a, b) => b.min - a.min)
-
-    return JSON.stringify(originalSorted) !== JSON.stringify(currentSorted)
-  }, [rows, initialScale])
-
   // Open Drawer to configure new grade
   const handleOpenNewGrade = () => {
     setEditingGradeKey(null)

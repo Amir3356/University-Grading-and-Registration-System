@@ -105,7 +105,7 @@ export async function listComplaints({
 
   // If using cursor pagination, query limit + 1 to detect hasMore
   // If fallback offset requested (no cursor, but page > 1), use offset
-  let limitClause = '';
+  let limitClause;
   if (!cursor && parsedPage > 1 && !limitParam) {
     const offset = (parsedPage - 1) * parsedLimit;
     queryParams.push(parsedLimit);

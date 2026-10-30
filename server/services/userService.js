@@ -4,6 +4,7 @@ import * as deptRepo from '../repositories/departmentRepository.js';
 import { newId, generateTemporaryPassword } from '../utils/idGenerator.js';
 import { hashPassword } from '../utils/password.js';
 import { ValidationError, ConflictError, NotFoundError, ForbiddenError } from '../utils/errors.js';
+import { logAudit } from '../utils/auditLogger.js';
 
 /**
  * A department head manages accounts in their department, plus accounts they
@@ -223,7 +224,7 @@ export async function createUser(data, caller) {
     : 'Password123!';
   const passwordHash = await hashPassword(tempPassword);
 
-  return await withTransaction(async (client) => {
+  const createdUser = await withTransaction(async (client) => {
     const userId = newId('usr');
     const userRes = await client.query(
       `INSERT INTO users (
@@ -345,6 +346,29 @@ export async function createUser(data, caller) {
       temporaryPassword: tempPassword,
     };
   });
+
+  await logAudit({
+    actor: caller,
+    action: 'create',
+    entityType: 'user',
+    entityId: createdUser.user.id,
+    entityName: `${createdUser.user.name} (${data.roleId})`,
+    departmentId: data.departmentId || caller.departmentId,
+    description: `Provisioned new ${data.roleId} account for ${createdUser.user.name}`,
+    details: {
+      after: {
+        id: createdUser.user.id,
+        name: createdUser.user.name,
+        roleId: data.roleId,
+        email: createdUser.user.email,
+        username: createdUser.username,
+        departmentId: data.departmentId || caller.departmentId,
+        status: createdUser.user.status,
+      },
+    },
+  });
+
+  return createdUser;
 }
 
 const MANAGED_BY_DEPT_HEAD = ['student', 'teacher'];
@@ -364,6 +388,7 @@ async function resolveProgramId(client, departmentId) {
 }
 
 export async function updateUser(id, data, caller) {
+  const oldDetail = await getUserDetail(id, caller, { skipScopeCheck: true });
   const user = await userRepo.findById(id);
   if (!user) throw new NotFoundError('User');
 
@@ -602,7 +627,37 @@ export async function updateUser(id, data, caller) {
 
   // Read back after commit so the response reflects the saved state. The caller was authorised
   // above, so skip the scope check: the account may have just moved to another department.
-  return await getUserDetail(id, caller, { skipScopeCheck: true });
+  const updated = await getUserDetail(id, caller, { skipScopeCheck: true });
+
+  await logAudit({
+    actor: caller,
+    action: 'update',
+    entityType: 'user',
+    entityId: id,
+    entityName: `${updated.user.name} (${updated.user.roleId})`,
+    departmentId: updated.department?.id || caller.departmentId,
+    description: `Updated user details for ${updated.user.name}`,
+    details: {
+      before: {
+        firstName: oldDetail?.user?.firstName,
+        lastName: oldDetail?.user?.lastName,
+        email: oldDetail?.user?.email,
+        phone: oldDetail?.user?.phone,
+        status: oldDetail?.user?.status,
+        department: oldDetail?.department?.name,
+      },
+      after: {
+        firstName: updated?.user?.firstName,
+        lastName: updated?.user?.lastName,
+        email: updated?.user?.email,
+        phone: updated?.user?.phone,
+        status: updated?.user?.status,
+        department: updated?.department?.name,
+      },
+    },
+  });
+
+  return updated;
 }
 
 export async function setUserStatus(id, { status, reason }, caller) {
@@ -612,7 +667,7 @@ export async function setUserStatus(id, { status, reason }, caller) {
 
   const cleanReason = reason && String(reason).trim() ? String(reason).trim() : null;
 
-  return await withTransaction(async (client) => {
+  const createdUser = await withTransaction(async (client) => {
     const userRes = await client.query(`SELECT * FROM users WHERE id = $1`, [id]);
     if (userRes.rows.length === 0) throw new NotFoundError('User');
     const user = userRes.rows[0];
@@ -637,14 +692,32 @@ export async function setUserStatus(id, { status, reason }, caller) {
       await client.query(`UPDATE students SET academic_status = $2, updated_at = now() WHERE user_id = $1`, [id, stuStatus]);
     }
 
-    return { id, status, reason: cleanReason };
+    return { id, status, reason: cleanReason, user };
   });
+
+  await logAudit({
+    actor: caller,
+    action: 'update',
+    entityType: 'user',
+    entityId: id,
+    entityName: `${createdUser.user.first_name} ${createdUser.user.last_name} (${createdUser.user.role_id})`,
+    departmentId: caller.departmentId,
+    description: `Changed user status to "${status}" for ${createdUser.user.first_name} ${createdUser.user.last_name}`,
+    details: {
+      before: { status: createdUser.user.status, deactivationReason: createdUser.user.deactivation_reason },
+      after: { status, deactivationReason: cleanReason },
+    },
+  });
+
+  return { id, status: createdUser.status, reason: createdUser.reason };
 }
 
 export async function deleteUser(id, caller) {
   if (caller.id === id) {
     throw new ConflictError('You cannot delete your own account.');
   }
+
+  const oldDetail = await getUserDetail(id, caller, { skipScopeCheck: true });
 
   if (caller?.roleId === 'dept_head') {
     const userRes = await query(`SELECT role_id FROM users WHERE id = $1`, [id]);
@@ -674,7 +747,7 @@ export async function deleteUser(id, caller) {
     throw new ConflictError('Cannot delete user: teacher has assigned course offerings. Deactivate the user instead.');
   }
 
-  return await withTransaction(async (client) => {
+  const createdUser = await withTransaction(async (client) => {
     // 1. Delete student withdrawal clearances & requests
     await client.query(
       `DELETE FROM withdrawal_clearances WHERE request_id IN (
@@ -733,9 +806,24 @@ export async function deleteUser(id, caller) {
 
     return { ok: true };
   });
+
+  await logAudit({
+    actor: caller,
+    action: 'delete',
+    entityType: 'user',
+    entityId: id,
+    entityName: `${oldDetail?.user?.name || id} (${oldDetail?.user?.roleId || 'user'})`,
+    departmentId: oldDetail?.department?.id || caller.departmentId,
+    description: `Deleted ${oldDetail?.user?.roleId || 'user'} account for ${oldDetail?.user?.name || id}`,
+    details: {
+      before: oldDetail?.user || { id },
+    },
+  });
+
+  return { ok: true };
 }
 
-export async function resetPassword(id, caller) {
+export async function resetPassword(id) {
   const tempPassword = generateTemporaryPassword();
   const hash = await hashPassword(tempPassword);
 

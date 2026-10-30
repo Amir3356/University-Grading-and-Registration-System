@@ -180,7 +180,7 @@ export async function getUserProfile(userId, roleId) {
   return null;
 }
 
-export async function listUsers({ search, role, status, departmentId, managedBy, programType, page = 1, pageSize = 10, sort, excludeSeed }) {
+export async function listUsers({ search, role, status, departmentId, managedBy, programType, page = 1, pageSize = 10, excludeSeed }) {
   const conditions = [];
   const params = [];
 

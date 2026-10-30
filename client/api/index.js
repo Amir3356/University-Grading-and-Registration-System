@@ -13,6 +13,7 @@ import * as notifications from './notifications';
 import * as reports from './reports';
 import * as lookups from './lookups';
 import * as settings from './settings';
+import * as audit from './audit';
 
 export {
   auth,
@@ -29,6 +30,7 @@ export {
   reports,
   lookups,
   settings,
+  audit,
 };
 
 export const api = {
@@ -47,6 +49,7 @@ export const api = {
   reports,
   lookups,
   settings,
+  audit,
 };
 
 export default api;

@@ -5,7 +5,6 @@ import { defineAbilityFor } from './authorize.js';
 
 export async function authenticate(req, res, next) {
   try {
-    let token = null;
     let decoded = null;
 
     // 1. Check Bearer authorization header first
@@ -13,7 +12,6 @@ export async function authenticate(req, res, next) {
       const bearerToken = req.headers.authorization.split(' ')[1];
       const bearerDecoded = verifyAccessToken(bearerToken);
       if (bearerDecoded?.userId) {
-        token = bearerToken;
         decoded = bearerDecoded;
       }
     }
@@ -24,7 +22,6 @@ export async function authenticate(req, res, next) {
       if (cookieToken) {
         const cookieDecoded = verifyAccessToken(cookieToken);
         if (cookieDecoded?.userId) {
-          token = cookieToken;
           decoded = cookieDecoded;
         }
       }
