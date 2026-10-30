@@ -70,24 +70,3 @@ export function getAcademicStanding(cgpa, honorsGpa = 3.5, probationGpa = 2.0) {
   }
   return { label: 'Good Standing', tone: 'default' };
 }
-
-export function computeGpa(gradesWithCredits) {
-  let totalQualityPoints = 0;
-  let totalCredits = 0;
-
-  for (const g of gradesWithCredits) {
-    if (g.countsInGpa && g.gradePoints !== null && g.gradePoints !== undefined) {
-      const cr = Number(g.creditHours);
-      const gp = Number(g.gradePoints);
-      totalQualityPoints += gp * cr;
-      totalCredits += cr;
-    }
-  }
-
-  const gpa = totalCredits > 0 ? roundTo2(totalQualityPoints / totalCredits) : 0;
-  return {
-    gpa,
-    qualityPoints: roundTo2(totalQualityPoints),
-    gpaCredits: totalCredits,
-  };
-}

@@ -43,6 +43,3 @@ export function removeCookie(key, options = {}) {
     ...options,
   });
 }
-
-export { Cookies };
-export default Cookies;

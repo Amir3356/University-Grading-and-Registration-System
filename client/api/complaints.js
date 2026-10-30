@@ -20,10 +20,6 @@ export async function cancelStudentComplaint(id) {
   return await api.delete(`/student/complaints/${id}`);
 }
 
-export async function getStudentComplaint(id) {
-  return await api.get(`/student/complaints/${id}`);
-}
-
 export async function listTeacherComplaints(params = {}) {
   return await api.get('/teacher/complaints', params);
 }

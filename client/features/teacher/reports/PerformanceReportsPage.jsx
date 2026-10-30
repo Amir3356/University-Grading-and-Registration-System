@@ -20,5 +20,4 @@ export function PerformanceReportsPage() {
   )
 }
 
-export const TeacherReportsPage = PerformanceReportsPage
 export default PerformanceReportsPage

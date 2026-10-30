@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/common/PageHeader'
 import { useAuth } from '@/context/auth-context'
 import { useLookups } from '@/context/lookups-context'
 import { useQuery } from '@/hooks/useStore'
+import { useWebSocketEvent } from '@/lib/websocket'
 import { store } from '@/store'
 import { UserActionDialogs } from '@/features/admin/users/UserActionDialogs'
 import { UserFormDialog } from '@/features/admin/users/UserFormDialog'
@@ -40,6 +41,10 @@ export function DeptTeachersPage() {
     [deptId],
     { enabled: Boolean(deptId) },
   )
+
+  useWebSocketEvent('USER_DELETED', () => refetch())
+  useWebSocketEvent('USER_UPDATED', () => refetch())
+  useWebSocketEvent('TEACHER_UPDATED', () => refetch())
 
   const [formOpen, setFormOpen] = useState(false)
   const [editingUserId, setEditingUserId] = useState(null)

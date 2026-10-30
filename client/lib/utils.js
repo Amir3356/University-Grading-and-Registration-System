@@ -15,16 +15,6 @@ export function initials(user) {
   return `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase()
 }
 
-export function groupBy(items, keyFn) {
-  const map = new Map()
-  for (const item of items) {
-    const key = keyFn(item)
-    if (!map.has(key)) map.set(key, [])
-    map.get(key).push(item)
-  }
-  return map
-}
-
 export function average(nums) {
   const valid = nums.filter((n) => n != null && !Number.isNaN(n))
   if (!valid.length) return null

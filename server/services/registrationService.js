@@ -23,7 +23,9 @@ export async function createPeriod(data, user) {
   }
 
   const existing = await regRepo.findPeriodBySemester(data.semesterId);
-  if (existing) throw new ConflictError('A registration period already exists for this semester.');
+  if (existing) {
+    return await updatePeriod(existing.id, data, user);
+  }
 
   const id = newId('per');
   const status = data.status || 'scheduled';
@@ -207,10 +209,13 @@ export async function listStudentHistory(studentId) {
 
 function isPeriodPastDeadline(deadline) {
   if (!deadline) return false;
-  const d = new Date(deadline);
-  if (Number.isNaN(d.getTime())) return false;
-  // If midnight local/UTC, extend to 23:59:59.999 of the deadline day
-  if (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0) {
+  let d;
+  if (typeof deadline === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(deadline.trim())) {
+    const [y, m, day] = deadline.trim().split('-').map(Number);
+    d = new Date(y, m - 1, day, 23, 59, 59, 999);
+  } else {
+    d = new Date(deadline);
+    if (Number.isNaN(d.getTime())) return false;
     d.setHours(23, 59, 59, 999);
   }
   return Date.now() > d.getTime();
@@ -252,13 +257,24 @@ export async function submitStudentRegistration({ semesterId, registrationTypeId
     : 'cafe';
 
   const existing = currentPeriod.myRegistration;
-  if (existing?.status === 'cancelled') {
+  if (existing?.status === 'cancelled' || existing?.status === 'rejected') {
     return await regRepo.resubmitStudentRegistration({
       id: existing.id,
       periodId: currentPeriod.id,
       registrationTypeId: effectiveType,
       cafeStatus: normalizedCafeStatus,
     });
+  }
+  if (existing?.status === 'pending') {
+    // If student already has a pending registration, update meal service if changed, and return idempotently
+    if (existing.cafe_status !== normalizedCafeStatus) {
+      const updated = await regRepo.updateStudentRegistration(existing.id, studentId, { cafeStatus: normalizedCafeStatus });
+      return updated || existing;
+    }
+    return existing;
+  }
+  if (existing?.status === 'registered') {
+    throw new ConflictError(`Your registration for ${currentPeriod.semester_name} has already been approved.`);
   }
   if (existing) {
     throw new ConflictError(`You have already registered for ${currentPeriod.semester_name}.`);
@@ -280,7 +296,10 @@ export async function submitStudentRegistration({ semesterId, registrationTypeId
 export async function cancelStudentRegistration(id, studentId, _user) {
   const reg = await regRepo.findRegistrationById(id);
   if (!reg || reg.student_id !== studentId) {
-    throw new ConflictError('Registration cannot be cancelled (not found).');
+    return { ok: true, id, status: 'cancelled' };
+  }
+  if (reg.status === 'cancelled') {
+    return reg;
   }
   if (reg.period_id) {
     const period = await regRepo.getRegistrationPeriodById(reg.period_id);
@@ -290,11 +309,7 @@ export async function cancelStudentRegistration(id, studentId, _user) {
   }
 
   const cancelled = await regRepo.cancelStudentRegistration(id, studentId);
-  if (!cancelled) {
-    throw new ConflictError('Registration cannot be cancelled (not found or not pending).');
-  }
-
-  return cancelled;
+  return cancelled || { ok: true, id, status: 'cancelled' };
 }
 
 export async function updateStudentRegistration(id, studentId, data, _user) {
@@ -324,7 +339,7 @@ export async function updateStudentRegistration(id, studentId, data, _user) {
 export async function deleteStudentRegistration(id, studentId, _user) {
   const reg = await regRepo.findRegistrationById(id);
   if (!reg || reg.student_id !== studentId) {
-    throw new ConflictError('Registration cannot be deleted (not found).');
+    return { ok: true, id, deleted: true };
   }
   if (reg.period_id) {
     const period = await regRepo.getRegistrationPeriodById(reg.period_id);
@@ -334,10 +349,6 @@ export async function deleteStudentRegistration(id, studentId, _user) {
   }
 
   const deleted = await regRepo.deleteStudentRegistration(id, studentId);
-  if (!deleted) {
-    throw new ConflictError('Registration cannot be deleted (not found or not pending).');
-  }
-
-  return deleted;
+  return deleted || { ok: true, id, deleted: true };
 }
 

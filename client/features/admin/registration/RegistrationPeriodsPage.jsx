@@ -301,16 +301,24 @@ export function RegistrationPeriodsPage() {
         {/* Left Column: Semester Registration Periods Table */}
         <div className="semester-reg-main">
           <section className="reg-card">
-            <div className="reg-card__header">
-              <h2 className="reg-card__title">Semester Registration Periods</h2>
-              <button
-                type="button"
-                className="reg-btn-primary"
-                onClick={handleOpenNewConfig}
+            <div className="reg-card__header reg-card__header--centered">
+              <div className="reg-card__header-spacer" aria-hidden="true" />
+              <h2
+                className="reg-card__title reg-card__title--centered"
+                style={{ textAlign: 'center', justifyContent: 'center' }}
               >
-                <Plus size={16} aria-hidden="true" />
-                Configure Registration
-              </button>
+                Semester Registration Periods
+              </h2>
+              <div className="reg-card__header-actions">
+                <button
+                  type="button"
+                  className="reg-btn-primary"
+                  onClick={handleOpenNewConfig}
+                >
+                  <Plus size={16} aria-hidden="true" />
+                  Configure Registration
+                </button>
+              </div>
             </div>
 
             {loading ? (

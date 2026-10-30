@@ -94,6 +94,8 @@ export async function resetPassword(req, res, next) {
 export async function deleteUser(req, res, next) {
   try {
     const result = await userService.deleteUser(req.params.id, req.user);
+    broadcastEvent('USER_DELETED', { userId: req.params.id });
+    broadcastEvent('USER_UPDATED', { userId: req.params.id, deleted: true });
     sendSuccess(res, result);
   } catch (err) {
     next(err);

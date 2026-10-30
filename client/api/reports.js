@@ -44,10 +44,6 @@ export async function getCourseGradeSheet(offeringId) {
   return await api.get(`/offerings/${offeringId}/performance`);
 }
 
-export async function exportReport(type, params = {}) {
-  return await api.get(`/reports/export/${type}`, params);
-}
-
 export async function getRegistrationsReport(params = {}) {
   return await api.get('/reports/registrations', params);
 }
@@ -68,5 +64,4 @@ export const getRegistrationsReportApi = getRegistrationsReport;
 export const getStudentTranscriptApi = getStudentTranscript;
 export const getStudentPerformanceReportApi = getStudentPerformanceReport;
 export const getCourseGradeSheetApi = getCourseGradeSheet;
-export const exportReportApi = exportReport;
 

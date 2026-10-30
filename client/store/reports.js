@@ -56,10 +56,6 @@ export async function getWithdrawalRegistrationReportData(params = {}) {
   return await getWithdrawalRegistrationReport(params);
 }
 
-export async function buildTranscript(studentId) {
-  return await getStudentTranscriptApi(studentId);
-}
-
 export async function getTranscript(studentId) {
   return await getStudentTranscriptApi(studentId);
 }

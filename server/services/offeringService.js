@@ -4,7 +4,7 @@ import { ConflictError, NotFoundError, ValidationError, ForbiddenError } from '.
 import { query } from '../config/database.js';
 import { logAudit } from '../utils/auditLogger.js';
 
-export async function autoEnrollMatchingStudents(offeringId) {
+async function autoEnrollMatchingStudents(offeringId) {
   const offRes = await query(
     `SELECT co.id, co.year_of_study, c.level, c.department_id as course_dept_id, t.department_id as teacher_dept_id
      FROM course_offerings co

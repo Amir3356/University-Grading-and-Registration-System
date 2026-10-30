@@ -6,8 +6,7 @@ const VARIANTS = { default: 'btn--primary', destructive: 'btn--destructive', out
 const SIZES = { default: '', sm: 'btn--sm', lg: 'btn--lg', icon: 'btn--icon', 'icon-sm': 'btn--icon-sm' }
 
 /** Class names for a button look, e.g. on a <Link>. */
-// eslint-disable-next-line react-refresh/only-export-components
-export function buttonClass({ variant = 'default', size = 'default', className } = {}) {
+function buttonClass({ variant = 'default', size = 'default', className } = {}) {
   return cn('btn', VARIANTS[variant], SIZES[size], className)
 }
 

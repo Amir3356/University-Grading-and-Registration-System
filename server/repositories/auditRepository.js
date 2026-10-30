@@ -110,6 +110,7 @@ export async function listAuditLogs({
   if (search && search.trim()) {
     const term = `%${search.trim()}%`;
     conditions.push(`(
+      al.actor_username ILIKE $${paramIdx} OR
       al.actor_name ILIKE $${paramIdx} OR
       al.actor_email ILIKE $${paramIdx} OR
       al.entity_name ILIKE $${paramIdx} OR
@@ -133,13 +134,13 @@ export async function listAuditLogs({
       al.id,
       al.actor_id as "actorId",
       al.actor_name as "actorName",
-      COALESCE(al.actor_username, u.username, al.actor_name) as "username",
-      COALESCE(al.actor_username, u.username, al.actor_name) as "actorUsername",
+      COALESCE(al.actor_username, u.username, prov.username) as "username",
+      COALESCE(al.actor_username, u.username, prov.username) as "actorUsername",
       al.actor_role as "actorRole",
       al.actor_email as "actorEmail",
-      al.department_id as "departmentId",
-      al.department_name as "departmentName",
-      al.department_code as "departmentCode",
+      COALESCE(dept_assigned.id, al.department_id) as "departmentId",
+      COALESCE(dept_assigned.name, al.department_name, '—') as "departmentName",
+      COALESCE(dept_assigned.code, al.department_code) as "departmentCode",
       al.action,
       al.entity_type as "entityType",
       al.entity_id as "entityId",
@@ -151,6 +152,15 @@ export async function listAuditLogs({
       al.created_at as "createdAt"
     FROM audit_logs al
     LEFT JOIN users u ON u.id = al.actor_id
+    LEFT JOIN LATERAL (
+      SELECT details->'after'->>'username' as username,
+             details->'after'->>'departmentId' as department_id
+      FROM audit_logs
+      WHERE entity_type = 'user' AND action = 'create' AND entity_id = al.actor_id
+      LIMIT 1
+    ) prov ON true
+    LEFT JOIN teachers t ON t.user_id = al.actor_id
+    LEFT JOIN departments dept_assigned ON dept_assigned.id = COALESCE(t.department_id, prov.department_id, al.department_id)
     ${whereClause}
     ORDER BY al.created_at DESC
     LIMIT $${paramIdx++} OFFSET $${paramIdx}
@@ -232,13 +242,13 @@ export async function getAuditLogById(id) {
       al.id,
       al.actor_id as "actorId",
       al.actor_name as "actorName",
-      COALESCE(al.actor_username, u.username, al.actor_name) as "username",
-      COALESCE(al.actor_username, u.username, al.actor_name) as "actorUsername",
+      COALESCE(al.actor_username, u.username, prov.username) as "username",
+      COALESCE(al.actor_username, u.username, prov.username) as "actorUsername",
       al.actor_role as "actorRole",
       al.actor_email as "actorEmail",
-      al.department_id as "departmentId",
-      al.department_name as "departmentName",
-      al.department_code as "departmentCode",
+      COALESCE(dept_assigned.id, al.department_id) as "departmentId",
+      COALESCE(dept_assigned.name, al.department_name, '—') as "departmentName",
+      COALESCE(dept_assigned.code, al.department_code) as "departmentCode",
       al.action,
       al.entity_type as "entityType",
       al.entity_id as "entityId",
@@ -250,6 +260,15 @@ export async function getAuditLogById(id) {
       al.created_at as "createdAt"
     FROM audit_logs al
     LEFT JOIN users u ON u.id = al.actor_id
+    LEFT JOIN LATERAL (
+      SELECT details->'after'->>'username' as username,
+             details->'after'->>'departmentId' as department_id
+      FROM audit_logs
+      WHERE entity_type = 'user' AND action = 'create' AND entity_id = al.actor_id
+      LIMIT 1
+    ) prov ON true
+    LEFT JOIN teachers t ON t.user_id = al.actor_id
+    LEFT JOIN departments dept_assigned ON dept_assigned.id = COALESCE(t.department_id, prov.department_id, al.department_id)
     WHERE al.id = $1
   `;
   const res = await query(sql, [id]);

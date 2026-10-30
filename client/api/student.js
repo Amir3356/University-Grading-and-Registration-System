@@ -53,10 +53,6 @@ export async function getMyTranscript() {
   return await api.get('/student/transcript');
 }
 
-export async function getGradeReport(semesterId) {
-  return await api.get('/student/grade-report', { semesterId });
-}
-
 // Backward-compatible named aliases
 export const getStudentDashboardApi = getStudentDashboard;
 export const listMyCoursesApi = listMyCourses;
@@ -67,4 +63,3 @@ export const listMyAssessmentsPaginatedApi = listMyAssessmentsPaginated;
 export const getMyGradesApi = getMyGrades;
 export const getMyProgressApi = getMyProgress;
 export const getMyTranscriptApi = getMyTranscript;
-export const getGradeReportApi = getGradeReport;

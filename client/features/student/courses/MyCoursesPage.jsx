@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { FilterSelect } from '@/components/common/FilterSelect'
 import { PageHeader } from '@/components/common/PageHeader'
 import { SearchInput } from '@/components/common/SearchInput'
-import { ProgramTypeBadge, StatusBadge } from '@/components/common/StatusBadge'
+import { ProgramTypeBadge } from '@/components/common/StatusBadge'
 import { TableSkeleton } from '@/components/common/Loading'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
@@ -281,7 +281,7 @@ export function MyCoursesPage() {
         {/* Content Section */}
         {loading && courses.length === 0 ? (
           <div className="p-6">
-            <TableSkeleton rows={5} columns={9} />
+            <TableSkeleton rows={5} columns={8} />
           </div>
         ) : error ? (
           <div className="p-8">
@@ -317,7 +317,6 @@ export function MyCoursesPage() {
                     <TableHead className="font-semibold text-foreground py-3">Program Type</TableHead>
                     <TableHead className="font-semibold text-foreground py-3">Academic Year</TableHead>
                     <TableHead className="font-semibold text-foreground py-3">Semester</TableHead>
-                    <TableHead className="font-semibold text-foreground py-3 text-center">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -348,9 +347,6 @@ export function MyCoursesPage() {
                         </TableCell>
                         <TableCell className="py-3 text-muted-foreground">
                           {formatSemesterTerm(r.semester?.term) || r.semester?.name || '—'}
-                        </TableCell>
-                        <TableCell className="py-3 text-center">
-                          <StatusBadge status={r.status} />
                         </TableCell>
                       </TableRow>
                     )

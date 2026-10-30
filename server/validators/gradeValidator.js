@@ -11,15 +11,6 @@ export const createAssessmentSchema = z.object({
   description: z.string().trim().optional().nullable(),
 });
 
-export const updateAssessmentSchema = z.object({
-  name: z.string().trim().min(2).max(80).optional(),
-  type: z.enum(['assignment', 'quiz', 'midterm', 'final', 'practical', 'project']).optional(),
-  maxMarks: z.coerce.number().min(1).max(1000).optional(),
-  weight: z.coerce.number().min(0.5).max(100).optional(),
-  dueDate: z.string().optional(),
-  description: z.string().trim().optional().nullable(),
-});
-
 export const saveScoresSchema = z.object({
   changes: z.array(
     z.object({
@@ -33,8 +24,4 @@ export const saveScoresSchema = z.object({
     })
   ).min(1, 'At least one score change is required.'),
   reason: z.string().optional().nullable(),
-});
-
-export const reviewGradesSchema = z.object({
-  comment: z.string().trim().optional().nullable(),
 });

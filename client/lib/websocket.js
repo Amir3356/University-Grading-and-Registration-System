@@ -102,7 +102,7 @@ class WebSocketClient {
   }
 }
 
-export const wsClient = new WebSocketClient();
+const wsClient = new WebSocketClient();
 
 /**
  * React hook to listen for real-time WebSocket events

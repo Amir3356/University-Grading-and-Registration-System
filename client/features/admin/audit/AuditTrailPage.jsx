@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   Activity,
   CheckCircle2,
@@ -22,7 +23,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useQuery } from '@/hooks/useStore';
-import { formatDateTime, timeAgo } from '@/lib/format';
+import { formatDateTime } from '@/lib/format';
+import { useWebSocketEvent } from '@/lib/websocket';
 
 const MODULE_NAMES = {
   course: 'Curriculum & Courses',
@@ -44,7 +46,7 @@ function formatModule(entityType) {
   );
 }
 
-export function AuditActionBadge({ action }) {
+function AuditActionBadge({ action }) {
   const act = String(action || 'other').toLowerCase();
   let icon = <Activity className="w-3.5 h-3.5" />;
   let badgeClass = 'audit-action-badge--other';
@@ -75,7 +77,7 @@ export function AuditActionBadge({ action }) {
 }
 
 export function AuditTrailPage() {
-  // Strictly queries Department Head audit logs (other roles like Teacher and Student are removed)
+  // Strictly queries initial Department Head audit logs on load (no polling)
   const {
     data: logsData,
     loading,
@@ -90,26 +92,37 @@ export function AuditTrailPage() {
     [],
   );
 
-  const items = logsData?.items || [];
+  const [items, setItems] = useState([]);
+
+  // Sync initial query response to state
+  useEffect(() => {
+    if (logsData?.items) {
+      setItems(logsData.items);
+    }
+  }, [logsData]);
+
+  // Pure event-driven WebSocket push: directly prepends incoming entries without REST API polling
+  useWebSocketEvent('AUDIT_LOG_CREATED', (newEntry) => {
+    if (!newEntry || !newEntry.id) return;
+    setItems((prev) => {
+      if (prev.some((item) => item.id === newEntry.id)) {
+        return prev;
+      }
+      return [newEntry, ...prev];
+    });
+  });
 
   return (
     <div className="audit-page">
       <PageHeader
         title="Audit Trail"
         description="Immutable record of all Department Head activities, curriculum changes, enrollments, and approval workflows across departments."
+        centered
       />
 
-      {/* Main Table / State Views */}
+      {/* Persistent Table UI with Column Headers */}
       {error ? (
         <ErrorState error={error} onRetry={refetch} />
-      ) : loading && !items.length ? (
-        <TableSkeleton rows={8} cols={7} />
-      ) : items.length === 0 ? (
-        <EmptyState
-          icon={ShieldCheck}
-          title="No Department Head activities recorded"
-          description="There are currently no recorded immutable audit log events for Department Heads."
-        />
       ) : (
         <div className="space-y-4">
           <div className="overflow-x-auto rounded-lg border bg-card">
@@ -126,16 +139,35 @@ export function AuditTrailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {items.map((log) => {
-                  const initials = (log.actorName || 'DH')
-                    .split(' ')
-                    .map((n) => n[0])
-                    .join('')
-                    .slice(0, 2)
-                    .toUpperCase();
+                {loading && !items.length ? (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={7} className="p-8 text-center">
+                      <TableSkeleton rows={6} cols={7} />
+                    </TableCell>
+                  </TableRow>
+                ) : items.length === 0 ? (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={7} className="py-16 text-center whitespace-normal">
+                      <EmptyState
+                        compact
+                        icon={ShieldCheck}
+                        title="No Department Head activities recorded"
+                        description="There are currently no recorded immutable audit log events for Department Heads."
+                      />
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  items.map((log) => {
+                    const displayName = log.actorName || log.username || 'DH';
+                    const initials = displayName
+                      .split(' ')
+                      .map((n) => n[0])
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase();
 
-                  return (
-                    <TableRow key={log.id} className="hover:bg-muted/40 transition-colors">
+                    return (
+                      <TableRow key={log.id} className="hover:bg-muted/40 transition-colors">
                       {/* 1. Username */}
                       <TableCell className="align-middle">
                         <div className="audit-actor-cell">
@@ -143,10 +175,10 @@ export function AuditTrailPage() {
                             {initials}
                           </div>
                           <div className="min-w-0">
-                            <div className="font-medium text-xs text-foreground truncate">
-                              {log.username || log.actorUsername || log.actorName || 'Department Head'}
+                            <div className="font-mono text-xs font-semibold text-foreground truncate">
+                              {log.username || log.actorUsername || '—'}
                             </div>
-                            {log.actorName && (
+                            {log.actorName && log.actorName !== (log.username || log.actorUsername) && (
                               <div className="text-[11px] text-muted-foreground truncate">
                                 {log.actorName}
                               </div>
@@ -203,14 +235,12 @@ export function AuditTrailPage() {
                         <div className="font-medium text-xs text-foreground">
                           {formatDateTime(log.createdAt)}
                         </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          {timeAgo(log.createdAt)}
-                        </div>
                       </TableCell>
                     </TableRow>
                   );
-                })}
-              </TableBody>
+                })
+              )}
+            </TableBody>
             </Table>
           </div>
         </div>

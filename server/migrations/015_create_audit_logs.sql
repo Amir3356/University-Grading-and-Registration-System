@@ -3,12 +3,12 @@
 
 CREATE TABLE IF NOT EXISTS audit_logs (
     id VARCHAR(32) PRIMARY KEY,
-    actor_id VARCHAR(32) REFERENCES users(id) ON DELETE SET NULL,
+    actor_id VARCHAR(32),
     actor_username VARCHAR(50),
     actor_name VARCHAR(160) NOT NULL,
     actor_role VARCHAR(32) NOT NULL,
     actor_email VARCHAR(160),
-    department_id VARCHAR(32) REFERENCES departments(id) ON DELETE SET NULL,
+    department_id VARCHAR(32),
     department_name VARCHAR(120),
     department_code VARCHAR(20),
     action VARCHAR(20) NOT NULL CHECK (action IN ('create', 'update', 'approve', 'reject', 'delete', 'other')),
@@ -34,7 +34,15 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_entity_type ON audit_logs (entity_type
 CREATE OR REPLACE FUNCTION prevent_audit_log_modification()
 RETURNS TRIGGER AS $$
 BEGIN
-    RAISE EXCEPTION 'Audit records are immutable and cannot be updated or deleted.';
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'Audit records are immutable and cannot be updated or deleted.';
+    ELSIF TG_OP = 'UPDATE' THEN
+        IF OLD.id != NEW.id OR OLD.action != NEW.action OR OLD.description != NEW.description OR OLD.created_at != NEW.created_at THEN
+            RAISE EXCEPTION 'Audit records are immutable and cannot be updated.';
+        END IF;
+        RETURN NEW;
+    END IF;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 

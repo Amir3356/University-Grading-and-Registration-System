@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { getVersion, subscribe } from '@/store/db'
 
 /** Re-renders whenever the store changes; returns the change counter. */
-export function useStoreVersion() {
+function useStoreVersion() {
   return useSyncExternalStore(subscribe, getVersion)
 }
 

@@ -8,17 +8,9 @@ function isEntityId(str) {
 /**
  * Convert snake_case string to camelCase
  */
-export function snakeToCamel(str) {
+function snakeToCamel(str) {
   if (isEntityId(str)) return str;
   return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-}
-
-/**
- * Convert camelCase string to snake_case
- */
-export function camelToSnake(str) {
-  if (isEntityId(str)) return str;
-  return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
 
 /**
@@ -41,30 +33,6 @@ export function transformKeysToCamel(obj) {
       transformed[camelKey] = { ...value };
     } else {
       transformed[camelKey] = transformKeysToCamel(value);
-    }
-  }
-  return transformed;
-}
-
-/**
- * Recursively transform object keys from camelCase to snake_case
- */
-export function transformKeysToSnake(obj) {
-  if (obj === null || obj === undefined || typeof obj !== 'object') {
-    return obj;
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.map(transformKeysToSnake);
-  }
-
-  const transformed = {};
-  for (const [key, value] of Object.entries(obj)) {
-    const snakeKey = camelToSnake(key);
-    if ((key === 'marks' || snakeKey === 'marks') && value && typeof value === 'object' && !Array.isArray(value)) {
-      transformed[snakeKey] = { ...value };
-    } else {
-      transformed[snakeKey] = transformKeysToSnake(value);
     }
   }
   return transformed;

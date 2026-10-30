@@ -75,15 +75,18 @@ export async function authenticate(req, res, next) {
         req.user.employeeNumber = tRes.rows[0].employee_number;
         req.user.title = tRes.rows[0].title;
       }
-      if (!req.user.departmentId && user.role_id === 'dept_head') {
-        const dRes = await query(
-          `SELECT d.id AS department_id FROM departments d
-           WHERE d.head_teacher_id = $1 OR d.head_teacher_id IN (SELECT id FROM teachers WHERE user_id = $1)
-           LIMIT 1`,
-          [user.id]
-        );
-        if (dRes.rows.length > 0) {
-          req.user.departmentId = dRes.rows[0].department_id;
+
+      // Check if user is the assigned head teacher of a department
+      const dRes = await query(
+        `SELECT d.id AS department_id FROM departments d
+         WHERE d.head_teacher_id = $1 OR d.head_teacher_id IN (SELECT id FROM teachers WHERE user_id = $2)
+         LIMIT 1`,
+        [req.user.teacherId || null, user.id]
+      );
+      if (dRes.rows.length > 0) {
+        req.user.departmentId = req.user.departmentId || dRes.rows[0].department_id;
+        if (decoded.roleId === 'dept_head' || user.role_id === 'dept_head') {
+          req.user.roleId = 'dept_head';
         }
       }
     } else if (user.role_id === 'student') {

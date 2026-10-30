@@ -24,7 +24,3 @@ export function validateForm(schema, data) {
 
 export { z };
 export * from './authSchemas';
-export * from './userSchemas';
-export * from './academicSchemas';
-export * from './gradeSchemas';
-export * from './withdrawalSchemas';

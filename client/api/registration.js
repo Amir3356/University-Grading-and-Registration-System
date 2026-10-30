@@ -27,34 +27,22 @@ export async function deleteRegistrationPeriod(id) {
   return result;
 }
 
-export async function toggleRegistrationPeriod(id) {
-  const result = await api.post(`/registration-periods/${id}/toggle`);
-  notifyPeriodChange();
-  return result;
-}
-
 export async function getRegistrationSummary(params = {}) {
   return await api.get('/semester-registrations/summary', params);
 }
 
-export async function listSemesterRegistrations(params = {}) {
+async function listSemesterRegistrations(params = {}) {
   return await api.get('/semester-registrations', params);
 }
 
 /** data: { status: 'approved' | 'rejected', remarks? } */
-export async function reviewSemesterRegistration(id, data) {
+async function reviewSemesterRegistration(id, data) {
   const result = await api.post(`/semester-registrations/${id}/status`, data);
   notifyRegistrationChange();
   return result;
 }
 
-export async function updateSemesterRegistrationType(id, registrationTypeId) {
-  const result = await api.patch(`/semester-registrations/${id}/type`, { registrationTypeId });
-  notifyRegistrationChange();
-  return result;
-}
-
-export async function deleteSemesterRegistration(id) {
+async function deleteSemesterRegistration(id) {
   const result = await api.delete(`/semester-registrations/${id}`);
   notifyRegistrationChange();
   return result;
@@ -93,11 +81,9 @@ export const listRegistrationPeriodsApi = listRegistrationPeriods;
 export const createRegistrationPeriodApi = createRegistrationPeriod;
 export const updateRegistrationPeriodApi = updateRegistrationPeriod;
 export const deleteRegistrationPeriodApi = deleteRegistrationPeriod;
-export const toggleRegistrationPeriodApi = toggleRegistrationPeriod;
 export const getRegistrationSummaryApi = getRegistrationSummary;
 export const listSemesterRegistrationsApi = listSemesterRegistrations;
 export const reviewSemesterRegistrationApi = reviewSemesterRegistration;
-export const updateSemesterRegistrationTypeApi = updateSemesterRegistrationType;
 export const deleteSemesterRegistrationApi = deleteSemesterRegistration;
 export const getStudentRegistrationsApi = getStudentRegistrations;
 export const submitStudentRegistrationApi = submitStudentRegistration;

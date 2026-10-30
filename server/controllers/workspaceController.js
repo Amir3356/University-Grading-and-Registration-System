@@ -84,15 +84,6 @@ export async function getStudentGrades(req, res, next) {
   }
 }
 
-export async function getStudentGradeReport(req, res, next) {
-  try {
-    const report = await wsService.getStudentGradeReport(req.query.semesterId, req.user);
-    sendSuccess(res, report);
-  } catch (err) {
-    next(err);
-  }
-}
-
 export async function getStudentProgress(req, res, next) {
   try {
     const progress = await wsService.getStudentProgress(req.user);

@@ -86,10 +86,21 @@ export function DeptAccountProvisionPage() {
 
   // Resolve department head's department
   // The cached login profile can be missing or stale, so fall back to the head's own record from the API.
-  const { data: self } = useQuery(() => store.users.getUser(user.id), [user?.id], {
-    enabled: Boolean(user?.id),
-    live: false,
-  })
+  const cachedDeptId =
+    profile?.department_id ??
+    profile?.departmentId ??
+    profile?.department?.id ??
+    user?.departmentId ??
+    user?.department_id
+
+  const { data: self } = useQuery(
+    () => (user?.id ? store.users.getUser(user.id).catch(() => null) : Promise.resolve(null)),
+    [user?.id],
+    {
+      enabled: Boolean(user?.id && !cachedDeptId),
+      live: false,
+    },
+  )
   const headDeptId =
     profile?.department_id ??
     profile?.departmentId ??
@@ -109,8 +120,6 @@ export function DeptAccountProvisionPage() {
         (self?.profile?.id && (d.head_teacher_id ?? d.headTeacherId) === self.profile.id) ||
         (self?.user?.id && (d.head_teacher_id ?? d.headTeacherId) === self.user.id),
     ) || (headDeptId ? departments.find((d) => d.id === headDeptId) : null) || null
-
-
 
   const [formOpen, setFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
@@ -142,6 +151,7 @@ export function DeptAccountProvisionPage() {
   }, [refetch])
 
   useWebSocketEvent('USER_UPDATED', () => refetch())
+  useWebSocketEvent('USER_DELETED', () => refetch())
   useWebSocketEvent('STUDENT_UPDATED', () => refetch())
 
   const items = (data?.items ?? []).filter(

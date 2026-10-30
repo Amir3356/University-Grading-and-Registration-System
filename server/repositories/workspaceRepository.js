@@ -660,6 +660,7 @@ export async function getStudentCourseDetail(studentId, enrollmentId) {
 }
 
 export async function listStudentAssessments(studentId, {
+  academicYearId,
   semesterId,
   offeringId,
   courseId,
@@ -675,9 +676,14 @@ export async function listStudentAssessments(studentId, {
   const conditions = [`ce.student_id = $1`];
   const params = [studentId];
 
-  if (semesterId) {
-    params.push(semesterId);
-    conditions.push(`co.semester_id = $${params.length}`);
+  if (academicYearId && academicYearId !== 'all') {
+    params.push(`%${String(academicYearId).toLowerCase()}%`);
+    conditions.push(`(LOWER(ay.name) LIKE $${params.length} OR ay.id LIKE $${params.length})`);
+  }
+
+  if (semesterId && semesterId !== 'all') {
+    params.push(`%${String(semesterId).toLowerCase()}%`);
+    conditions.push(`(LOWER(s.term) LIKE $${params.length} OR LOWER(s.name) LIKE $${params.length} OR s.id = $${params.length})`);
   }
 
   if (offeringId) {
@@ -697,7 +703,7 @@ export async function listStudentAssessments(studentId, {
 
   if (search && search.trim()) {
     params.push(`%${search.trim()}%`);
-    conditions.push(`(a.name ILIKE $${params.length} OR a.type ILIKE $${params.length} OR c.code ILIKE $${params.length} OR c.title ILIKE $${params.length})`);
+    conditions.push(`(a.name ILIKE $${params.length} OR a.type ILIKE $${params.length} OR c.code ILIKE $${params.length} OR c.title ILIKE $${params.length} OR (u.first_name || ' ' || u.last_name) ILIKE $${params.length})`);
   }
 
   if (status && status !== 'all') {
@@ -718,7 +724,11 @@ export async function listStudentAssessments(studentId, {
     FROM assessments a
     JOIN course_offerings co ON co.id = a.offering_id
     JOIN courses c ON c.id = co.course_id
+    JOIN semesters s ON s.id = co.semester_id
+    JOIN academic_years ay ON ay.id = s.academic_year_id
     JOIN course_enrollments ce ON ce.offering_id = co.id
+    LEFT JOIN teachers t ON t.id = co.teacher_id
+    LEFT JOIN users u ON u.id = t.user_id
     LEFT JOIN assessment_scores scr ON scr.assessment_id = a.id AND scr.enrollment_id = ce.id
     ${whereClause}
   `;
@@ -731,6 +741,8 @@ export async function listStudentAssessments(studentId, {
     courseCode: 'c.code',
     coursetitle: 'c.title',
     courseTitle: 'c.title',
+    teachername: `(u.first_name || ' ' || u.last_name)`,
+    teacherName: `(u.first_name || ' ' || u.last_name)`,
     name: 'a.name',
     type: 'a.type',
     assessmenttype: 'a.type',
@@ -768,7 +780,11 @@ export async function listStudentAssessments(studentId, {
         FROM assessments a
         JOIN course_offerings co ON co.id = a.offering_id
         JOIN courses c ON c.id = co.course_id
+        JOIN semesters s ON s.id = co.semester_id
+        JOIN academic_years ay ON ay.id = s.academic_year_id
         JOIN course_enrollments ce ON ce.offering_id = co.id
+        LEFT JOIN teachers t ON t.id = co.teacher_id
+        LEFT JOIN users u ON u.id = t.user_id
         LEFT JOIN assessment_scores scr ON scr.assessment_id = a.id AND scr.enrollment_id = ce.id
         WHERE a.id = $${cursorIdx}
         LIMIT 1
@@ -796,15 +812,20 @@ export async function listStudentAssessments(studentId, {
     SELECT a.id, a.name, a.type, a.max_marks, a.weight, a.due_date, a.is_released,
            c.code as course_code, c.title as course_title,
            co.id as offering_id, co.grade_status as offering_grade_status,
+           (u.first_name || ' ' || u.last_name) as teacher_name,
            scr.marks
     FROM assessments a
     JOIN course_offerings co ON co.id = a.offering_id
     JOIN courses c ON c.id = co.course_id
+    JOIN semesters s ON s.id = co.semester_id
+    JOIN academic_years ay ON ay.id = s.academic_year_id
     JOIN course_enrollments ce ON ce.offering_id = co.id
+    LEFT JOIN teachers t ON t.id = co.teacher_id
+    LEFT JOIN users u ON u.id = t.user_id
     LEFT JOIN assessment_scores scr ON scr.assessment_id = a.id AND scr.enrollment_id = ce.id
     ${cursorJoin}
     ${fullWhereClause}
-    GROUP BY a.id, c.code, c.title, co.id, co.grade_status, scr.marks ${cursor ? ', cur.cur_sort, cur.id' : ''}
+    GROUP BY a.id, c.code, c.title, co.id, co.grade_status, u.first_name, u.last_name, scr.marks ${cursor ? ', cur.cur_sort, cur.id' : ''}
     ORDER BY ${sortCol} ${direction}, a.id ${direction}
     ${limitClause}
   `;
@@ -837,6 +858,7 @@ export async function listStudentAssessments(studentId, {
       courseCode: r.course_code,
       courseTitle: r.course_title,
       offeringId: r.offering_id,
+      teacherName: r.teacher_name ? r.teacher_name.replace(/^Dr\.?\s+/i, '').trim() : null,
       marks,
       percent,
       status: itemStatus,

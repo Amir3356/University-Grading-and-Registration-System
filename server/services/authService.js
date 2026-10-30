@@ -43,6 +43,18 @@ export async function login({ role, identifier, username, password, userAgent, i
     throw new UnauthorizedError('Invalid username or password');
   }
 
+  // If signing in as dept_head and teacher is assigned as department head, ensure role is dept_head
+  if (role === 'dept_head' && user.role_id === 'teacher') {
+    const headCheck = await query(
+      `SELECT d.id FROM departments d JOIN teachers t ON t.id = d.head_teacher_id WHERE t.user_id = $1 LIMIT 1`,
+      [user.id]
+    );
+    if (headCheck.rows.length > 0) {
+      await query(`UPDATE users SET role_id = 'dept_head', updated_at = now() WHERE id = $1`, [user.id]);
+      user.role_id = 'dept_head';
+    }
+  }
+
   // Generate tokens
   const payload = { userId: user.id, roleId: user.role_id };
   const accessToken = signAccessToken(payload);
@@ -54,7 +66,7 @@ export async function login({ role, identifier, username, password, userAgent, i
   await userRepo.createRefreshToken(user.id, tokenHash, userAgent, ipAddress, expiresAt);
 
   // Update last_login_at
-  await query(`UPDATE users SET last_login_at = now() WHERE id = $1`, [user.id]);
+  await userRepo.updateLastLogin(user.id);
 
   const profile = await userRepo.getUserProfile(user.id, user.role_id);
 
@@ -145,7 +157,7 @@ export async function getMe(userId) {
   };
 }
 
-export async function updateOwnProfile(userId, { firstName, lastName, phone }) {
+export async function updateProfile(userId, { firstName, lastName, phone }) {
   if (!firstName || !String(firstName).trim()) {
     throw new ValidationError('First name is required.', { firstName: 'First name is required.' });
   }
@@ -181,7 +193,7 @@ export async function updateOwnProfile(userId, { firstName, lastName, phone }) {
   };
 }
 
-export async function changeOwnPassword(userId, { currentPassword, newPassword, confirmPassword }) {
+export async function changePassword(userId, { currentPassword, newPassword, confirmPassword }) {
   const user = await userRepo.findById(userId);
   if (!user) throw new NotFoundError('User');
 
